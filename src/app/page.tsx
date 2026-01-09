@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import BarcodeScanner from '@/components/BarcodeScanner';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
 import StatsBar from '@/components/StatsBar';
+import { lookupStudent, Student } from '@/data/students';
 
 type ScanStatus = 'success' | 'error' | 'duplicate';
 
@@ -17,61 +17,116 @@ interface ScanResultData {
 }
 
 export default function Home() {
-  const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResultData | null>(null);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   const [totalScans, setTotalScans] = useState(0);
   const [successfulScans, setSuccessfulScans] = useState(0);
   const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
+  const [scanBuffer, setScanBuffer] = useState('');
+  const [isReady, setIsReady] = useState(true);
+  const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const processCode = useCallback((code: string) => {
-    setIsScanning(false);
+    const trimmedCode = code.trim();
+    if (!trimmedCode) return;
+
     setTotalScans((prev) => prev + 1);
 
     // Check for duplicate
-    if (scannedCodes.has(code)) {
+    if (scannedCodes.has(trimmedCode)) {
       setScanResult({
-        code,
+        code: trimmedCode,
         status: 'duplicate',
-        message: 'This ID has already been scanned today',
+        message: 'This student has already checked in today',
       });
       return;
     }
 
-    // For demo purposes, simulate different responses
-    // In production, this would call your backend API
-    const isValid = code.length >= 4;
+    // Look up student in our data
+    const student: Student | null = lookupStudent(trimmedCode);
 
-    if (isValid) {
-      setScannedCodes((prev) => new Set(prev).add(code));
+    if (student) {
+      setScannedCodes((prev) => new Set(prev).add(trimmedCode));
       setSuccessfulScans((prev) => prev + 1);
       setScanResult({
-        code,
+        code: trimmedCode,
         status: 'success',
-        studentName: `Student #${code}`,
-        message: 'Lunch check-in recorded',
+        studentName: `${student.firstName} ${student.lastName}`,
+        message: `${student.grade} Grade • ${student.homeroom}`,
       });
     } else {
       setScanResult({
-        code,
+        code: trimmedCode,
         status: 'error',
         message: 'No student found with this ID',
       });
     }
   }, [scannedCodes]);
 
+  // Handle USB barcode scanner input (acts like keyboard)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if modal is open or typing in an input
+      if (isManualEntryOpen) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Enter key submits the buffer
+      if (e.key === 'Enter') {
+        if (scanBuffer.length > 0) {
+          processCode(scanBuffer);
+          setScanBuffer('');
+        }
+        return;
+      }
+
+      // Only accept alphanumeric characters
+      if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+        e.preventDefault();
+        setScanBuffer((prev) => prev + e.key);
+
+        // Clear buffer after 100ms of no input (scanner types fast)
+        if (bufferTimeoutRef.current) {
+          clearTimeout(bufferTimeoutRef.current);
+        }
+        bufferTimeoutRef.current = setTimeout(() => {
+          setScanBuffer('');
+        }, 100);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+      }
+    };
+  }, [scanBuffer, isManualEntryOpen, processCode]);
+
+  // Auto-dismiss result after 3 seconds
+  useEffect(() => {
+    if (scanResult) {
+      setIsReady(false);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      resultTimeoutRef.current = setTimeout(() => {
+        setScanResult(null);
+        setIsReady(true);
+      }, 3000);
+    }
+
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+    };
+  }, [scanResult]);
+
   const handleDismissResult = () => {
     setScanResult(null);
-    setIsScanning(true);
-  };
-
-  const handleStartScanning = () => {
-    setScanResult(null);
-    setIsScanning(true);
-  };
-
-  const handleStopScanning = () => {
-    setIsScanning(false);
+    setIsReady(true);
   };
 
   const handleManualSubmit = (code: string) => {
@@ -112,56 +167,56 @@ export default function Home() {
               onDismiss={handleDismissResult}
             />
           ) : (
-            <>
-              {isScanning ? (
-                <BarcodeScanner onScan={processCode} isActive={isScanning} />
-              ) : (
-                <div className="scanner-placeholder">
-                  <div className="placeholder-icon">
-                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <path d="M7 7h.01M7 12h.01M7 17h.01M12 7h.01M12 12h.01M12 17h.01M17 7h.01M17 12h.01M17 17h.01" strokeWidth="3" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <p className="placeholder-text">Ready to scan student IDs</p>
+            <div className={`scanner-ready ${isReady ? 'pulse' : ''}`}>
+              <div className="ready-icon">
+                <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M3 7V5a2 2 0 012-2h2" />
+                  <path d="M17 3h2a2 2 0 012 2v2" />
+                  <path d="M21 17v2a2 2 0 01-2 2h-2" />
+                  <path d="M7 21H5a2 2 0 01-2-2v-2" />
+                  <line x1="7" y1="12" x2="17" y2="12" strokeWidth="2" />
+                  <line x1="7" y1="8" x2="10" y2="8" />
+                  <line x1="7" y1="16" x2="10" y2="16" />
+                  <line x1="14" y1="8" x2="17" y2="8" />
+                  <line x1="14" y1="16" x2="17" y2="16" />
+                </svg>
+              </div>
+              <p className="ready-text">Ready to Scan</p>
+              <p className="ready-hint">Scan a student ID barcode or type manually</p>
+              {scanBuffer && (
+                <div className="scan-buffer">
+                  <span className="buffer-label">Scanning:</span>
+                  <span className="buffer-value">{scanBuffer}</span>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Button */}
         <div className="action-buttons">
-          {!scanResult && (
-            <>
-              {isScanning ? (
-                <button className="btn btn-danger btn-lg" onClick={handleStopScanning}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="1" />
-                  </svg>
-                  Stop Scanning
-                </button>
-              ) : (
-                <button className="btn btn-primary btn-lg" onClick={handleStartScanning}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                  Start Scanning
-                </button>
-              )}
-              <button
-                className="btn btn-outline"
-                onClick={() => setIsManualEntryOpen(true)}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="4" width="20" height="16" rx="2" />
-                  <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12" />
-                </svg>
-                Manual Entry
-              </button>
-            </>
-          )}
+          <button
+            className="btn btn-outline btn-lg"
+            onClick={() => setIsManualEntryOpen(true)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12" />
+            </svg>
+            Manual Entry
+          </button>
+        </div>
+
+        {/* Test IDs Helper */}
+        <div className="test-ids">
+          <p className="test-ids-title">Test IDs:</p>
+          <div className="test-ids-list">
+            <code>1001</code>
+            <code>1002</code>
+            <code>1003</code>
+            <code>1004</code>
+            <code>1005</code>
+          </div>
         </div>
       </main>
 
@@ -223,37 +278,102 @@ export default function Home() {
           flex-direction: column;
         }
 
-        .scanner-placeholder {
+        .scanner-ready {
           flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 16px;
-          min-height: 280px;
-          background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
-          border: 2px dashed var(--gray-200);
+          gap: 12px;
+          min-height: 300px;
+          background: linear-gradient(135deg, #e8f4fd 0%, #d1e9fa 100%);
+          border: 3px solid var(--aca-blue);
           border-radius: var(--border-radius-lg);
-          color: var(--gray-400);
+          color: var(--aca-navy);
+          position: relative;
         }
 
-        .placeholder-icon {
-          opacity: 0.5;
+        .scanner-ready.pulse .ready-icon {
+          animation: pulse 2s ease-in-out infinite;
         }
 
-        .placeholder-text {
-          font-size: 16px;
-          font-weight: 500;
+        .ready-icon {
+          color: var(--aca-blue);
+        }
+
+        .ready-text {
+          font-family: var(--font-display);
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .ready-hint {
+          font-size: 14px;
+          color: var(--gray-500);
+          margin: 0;
+        }
+
+        .scan-buffer {
+          position: absolute;
+          bottom: 20px;
+          background: var(--aca-navy);
+          color: var(--white);
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 14px;
+          display: flex;
+          gap: 8px;
+        }
+
+        .buffer-label {
+          opacity: 0.7;
+        }
+
+        .buffer-value {
+          font-weight: 600;
         }
 
         .action-buttons {
           display: flex;
-          flex-direction: column;
           gap: 12px;
         }
 
         .action-buttons .btn {
           width: 100%;
+        }
+
+        .test-ids {
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
+          padding: 12px 16px;
+          text-align: center;
+        }
+
+        .test-ids-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--gray-400);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin: 0 0 8px 0;
+        }
+
+        .test-ids-list {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .test-ids-list code {
+          background: var(--white);
+          padding: 4px 12px;
+          border-radius: 4px;
+          font-size: 14px;
+          color: var(--aca-blue);
+          border: 1px solid var(--gray-200);
         }
 
         .footer {
@@ -266,16 +386,6 @@ export default function Home() {
 
         .footer p {
           margin: 0;
-        }
-
-        @media (min-width: 480px) {
-          .action-buttons {
-            flex-direction: row;
-          }
-
-          .action-buttons .btn {
-            flex: 1;
-          }
         }
       `}</style>
     </div>
