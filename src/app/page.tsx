@@ -5,7 +5,7 @@ import Image from 'next/image';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
 import StatsBar from '@/components/StatsBar';
-import { lookupStudent, Student } from '@/data/students';
+import { lookupStudentByBarcode, StudentRecord } from '@/lib/supabase';
 
 type ScanStatus = 'success' | 'error' | 'duplicate';
 
@@ -27,7 +27,7 @@ export default function Home() {
   const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const processCode = useCallback((code: string) => {
+  const processCode = useCallback(async (code: string) => {
     const trimmedCode = code.trim();
     if (!trimmedCode) return;
 
@@ -43,17 +43,18 @@ export default function Home() {
       return;
     }
 
-    // Look up student in our data
-    const student: Student | null = lookupStudent(trimmedCode);
+    // Look up student in Supabase
+    const student: StudentRecord | null = await lookupStudentByBarcode(trimmedCode);
 
     if (student) {
       setScannedCodes((prev) => new Set(prev).add(trimmedCode));
       setSuccessfulScans((prev) => prev + 1);
+      const level = student.school_level === 'elementary' ? 'Elementary' : 'High School';
       setScanResult({
         code: trimmedCode,
         status: 'success',
-        studentName: `${student.firstName} ${student.lastName}`,
-        message: `${student.grade} Grade • ${student.homeroom}`,
+        studentName: student.name,
+        message: `${level} • Balance: $${student.balance.toFixed(2)}`,
       });
     } else {
       setScanResult({
