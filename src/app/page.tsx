@@ -312,6 +312,7 @@ export default function Home() {
           border-radius: var(--border-radius-lg);
           color: var(--aca-navy);
           position: relative;
+          padding: 24px;
         }
 
         .scanner-ready.pulse .ready-icon {
@@ -327,17 +328,21 @@ export default function Home() {
           font-size: 28px;
           font-weight: 700;
           margin: 0;
+          text-align: center;
         }
 
         .ready-hint {
           font-size: 14px;
           color: var(--gray-500);
           margin: 0;
+          text-align: center;
         }
 
         .scan-buffer {
           position: absolute;
           bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
           background: var(--aca-navy);
           color: var(--white);
           padding: 8px 16px;
@@ -346,6 +351,7 @@ export default function Home() {
           font-size: 14px;
           display: flex;
           gap: 8px;
+          max-width: calc(100% - 40px);
         }
 
         .buffer-label {
@@ -354,6 +360,8 @@ export default function Home() {
 
         .buffer-value {
           font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .action-buttons {
@@ -407,6 +415,98 @@ export default function Home() {
 
         .footer p {
           margin: 0;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+          .app-container {
+            padding: 0 12px;
+          }
+
+          .header {
+            padding: 16px 0 12px;
+          }
+
+          :global(.logo) {
+            max-height: 50px;
+          }
+
+          .app-title {
+            font-size: 20px;
+          }
+
+          .main-content {
+            gap: 16px;
+            padding-bottom: 16px;
+          }
+
+          .scanner-ready {
+            min-height: 250px;
+            padding: 20px 16px;
+            gap: 10px;
+          }
+
+          .ready-icon svg {
+            width: 70px;
+            height: 70px;
+          }
+
+          .ready-text {
+            font-size: 22px;
+          }
+
+          .ready-hint {
+            font-size: 13px;
+          }
+
+          .scan-buffer {
+            bottom: 12px;
+            padding: 6px 12px;
+            font-size: 12px;
+          }
+
+          .action-buttons .btn {
+            padding: 12px 24px;
+            font-size: 13px;
+          }
+
+          .test-ids {
+            padding: 10px 12px;
+          }
+
+          .test-ids-list {
+            gap: 6px;
+          }
+
+          .test-ids-list code {
+            padding: 3px 10px;
+            font-size: 13px;
+          }
+
+          .footer {
+            padding: 12px 0;
+            font-size: 11px;
+          }
+        }
+
+        /* Very small screens */
+        @media (max-width: 360px) {
+          .app-title {
+            font-size: 18px;
+          }
+
+          .scanner-ready {
+            min-height: 220px;
+          }
+
+          .ready-icon svg {
+            width: 60px;
+            height: 60px;
+          }
+
+          .ready-text {
+            font-size: 20px;
+          }
         }
       `}</style>
     </div>

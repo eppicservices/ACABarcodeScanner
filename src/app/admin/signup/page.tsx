@@ -759,6 +759,107 @@ export default function SignupPage() {
         .back-link:hover svg {
           transform: translateX(-3px);
         }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+          .signup-container {
+            padding: 16px;
+            align-items: flex-start;
+            padding-top: 40px;
+          }
+
+          .signup-card {
+            max-width: 100%;
+          }
+
+          .card-inner {
+            padding: 28px 20px;
+          }
+
+          .logo-badge {
+            width: 46px;
+            height: 46px;
+          }
+
+          :global(.logo) {
+            max-height: 40px;
+          }
+
+          h1 {
+            font-size: 22px;
+          }
+
+          .subtitle {
+            font-size: 13px;
+          }
+
+          .setup-badge {
+            font-size: 10px;
+            padding: 5px 12px;
+          }
+
+          .form-group {
+            margin-bottom: 16px;
+          }
+
+          .form-group label {
+            font-size: 12px;
+          }
+
+          .input-wrapper .input {
+            padding: 12px 12px 12px 40px;
+            font-size: 16px;
+          }
+
+          .error-message {
+            padding: 10px 12px;
+            font-size: 13px;
+          }
+
+          .btn-full {
+            padding: 14px 20px;
+            font-size: 15px;
+          }
+
+          .divider {
+            margin: 20px 0;
+          }
+
+          .login-link {
+            font-size: 13px;
+          }
+
+          .card-footer {
+            margin-top: 16px;
+          }
+
+          .back-link {
+            font-size: 13px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .card-inner {
+            padding: 24px 16px;
+          }
+
+          h1 {
+            font-size: 20px;
+          }
+
+          .logo-badge {
+            width: 42px;
+            height: 42px;
+          }
+
+          .logo-section {
+            margin-bottom: 20px;
+          }
+
+          .header-section {
+            margin-bottom: 24px;
+          }
+        }
       `}</style>
     </div>
   )

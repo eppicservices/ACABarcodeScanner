@@ -865,4 +865,191 @@ const styles = `
       padding: 24px;
     }
   }
+
+  /* Mobile optimizations */
+  @media (max-width: 480px) {
+    .portal-container {
+      padding: 16px;
+    }
+
+    .portal-header {
+      padding: 18px 16px;
+      margin-bottom: 16px;
+    }
+
+    .portal-header :global(.logo) {
+      height: 36px;
+    }
+
+    .welcome-card {
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .welcome-card h2 {
+      font-size: 16px;
+    }
+
+    .welcome-card p {
+      font-size: 13px;
+    }
+
+    .students-grid {
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .student-card {
+      padding: 16px;
+    }
+
+    .student-header {
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .student-avatar {
+      width: 42px;
+      height: 42px;
+      font-size: 18px;
+    }
+
+    .student-info h3 {
+      font-size: 15px;
+    }
+
+    .school-level {
+      font-size: 12px;
+    }
+
+    .balance-display {
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+
+    .balance-row {
+      padding: 6px 0;
+    }
+
+    .balance-label {
+      font-size: 13px;
+    }
+
+    .balance-value {
+      font-size: 13px;
+    }
+
+    .balance-cost,
+    .balance-price {
+      font-size: 12px;
+    }
+
+    .minimum-notice {
+      padding: 8px 12px;
+      font-size: 12px;
+      margin-bottom: 14px;
+    }
+
+    .add-funds {
+      padding-top: 14px;
+    }
+
+    .add-funds label {
+      font-size: 12px;
+    }
+
+    .amount-input {
+      padding: 10px 12px 10px 30px;
+      font-size: 16px;
+    }
+
+    .dollar-sign {
+      left: 12px;
+      font-size: 15px;
+    }
+
+    .quick-amounts {
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .quick-amounts button {
+      padding: 7px 12px;
+      font-size: 13px;
+    }
+
+    .lunch-card-btn {
+      font-size: 12px !important;
+    }
+
+    .payment-summary {
+      padding: 16px;
+      bottom: 16px;
+    }
+
+    .payment-summary h3 {
+      font-size: 15px;
+      margin-bottom: 14px;
+    }
+
+    .summary-item {
+      font-size: 13px;
+    }
+
+    .summary-total {
+      font-size: 16px;
+      margin-bottom: 14px;
+    }
+
+    .pay-btn {
+      padding: 14px;
+      font-size: 15px;
+    }
+
+    .portal-footer {
+      padding: 16px 0;
+    }
+
+    .link-expiry {
+      font-size: 12px;
+    }
+
+    .request-link {
+      font-size: 13px;
+    }
+
+    .loading-state p,
+    .error-state p {
+      font-size: 14px;
+    }
+
+    .error-state h1 {
+      font-size: 20px;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .portal-container {
+      padding: 12px;
+    }
+
+    .student-card {
+      padding: 14px;
+    }
+
+    .student-avatar {
+      width: 38px;
+      height: 38px;
+      font-size: 16px;
+    }
+
+    .student-info h3 {
+      font-size: 14px;
+    }
+
+    .quick-amounts button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+  }
 `
