@@ -1855,14 +1855,187 @@ export default function SettingsPage() {
             overflow-x: auto;
             border-right: none;
             border-bottom: 1px solid var(--gray-200);
+            padding: 12px 8px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .tabs-sidebar::-webkit-scrollbar {
+            display: none;
           }
 
           .tab-btn {
             white-space: nowrap;
+            padding: 10px 14px;
+            font-size: 13px;
+            flex-shrink: 0;
+          }
+
+          .tab-label {
+            display: none;
+          }
+
+          .tab-icon {
+            opacity: 1;
+          }
+
+          .tab-content {
+            padding: 20px 16px;
+            min-height: auto;
           }
 
           .form-grid {
             grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          .tab-panel h2 {
+            font-size: 16px;
+          }
+
+          .tab-panel h3 {
+            font-size: 14px;
+            margin: 20px 0 10px 0;
+          }
+
+          .section-desc {
+            font-size: 13px;
+            margin-bottom: 20px;
+          }
+
+          .toggle-card {
+            padding: 14px;
+          }
+
+          .toggle-info strong {
+            font-size: 13px;
+          }
+
+          .toggle-info span {
+            font-size: 12px;
+          }
+
+          .toggle {
+            width: 44px;
+            height: 26px;
+          }
+
+          .toggle-handle {
+            width: 20px;
+            height: 20px;
+          }
+
+          .toggle.on .toggle-handle {
+            transform: translateX(18px);
+          }
+
+          .invite-row {
+            flex-direction: column;
+          }
+
+          .admin-card {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+
+          .export-card {
+            flex-direction: column;
+            text-align: center;
+            padding: 20px 16px;
+          }
+
+          .export-card .btn {
+            width: 100%;
+          }
+
+          h1 {
+            font-size: 22px;
+          }
+
+          .header-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .header-icon svg {
+            width: 20px;
+            height: 20px;
+          }
+
+          .info-box {
+            padding: 14px;
+            font-size: 12px;
+          }
+
+          .info-box p {
+            font-size: 12px;
+          }
+
+          .test-email-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+
+          .payment-card {
+            padding: 16px;
+          }
+
+          .payment-header {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .payment-total {
+            font-size: 18px;
+          }
+
+          .payment-actions {
+            flex-direction: column;
+          }
+
+          .payment-actions .btn {
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .tab-content {
+            padding: 16px 12px;
+          }
+
+          .tab-btn {
+            padding: 8px 12px;
+          }
+
+          .form-group label {
+            font-size: 12px;
+          }
+
+          .hint {
+            font-size: 11px;
+          }
+
+          .form-stack {
+            max-width: 100%;
+          }
+
+          .admin-info {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+
+          .admin-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+          }
+
+          .admin-email {
+            font-size: 13px;
           }
         }
       `}</style>

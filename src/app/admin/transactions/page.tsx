@@ -588,6 +588,190 @@ export default function TransactionsPage() {
           padding: 60px;
           color: var(--gray-400);
         }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+          h1 {
+            font-size: 22px;
+          }
+
+          .header-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .header-icon svg {
+            width: 20px;
+            height: 20px;
+          }
+
+          .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+          }
+
+          .stat-card {
+            padding: 14px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+
+          .stat-icon {
+            width: 36px;
+            height: 36px;
+          }
+
+          .stat-icon svg {
+            width: 18px;
+            height: 18px;
+          }
+
+          .stat-label {
+            font-size: 10px;
+          }
+
+          .stat-value {
+            font-size: 18px;
+          }
+
+          .stat-count {
+            font-size: 10px;
+          }
+
+          .filters {
+            padding: 12px;
+          }
+
+          .filter-buttons {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .filter-buttons::-webkit-scrollbar {
+            display: none;
+          }
+
+          .filter-btn {
+            flex-shrink: 0;
+            padding: 8px 12px;
+            font-size: 12px;
+          }
+
+          .table-container {
+            margin: 0 -12px;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+          }
+
+          .data-table {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .data-table th,
+          .data-table td {
+            padding: 12px 14px;
+            font-size: 12px;
+            white-space: nowrap;
+          }
+
+          .data-table th:first-child,
+          .data-table td:first-child {
+            position: sticky;
+            left: 0;
+            background: var(--white);
+            z-index: 1;
+          }
+
+          .data-table th:first-child {
+            background: var(--gray-50);
+          }
+
+          .data-table tbody tr:hover td:first-child {
+            background: var(--gray-50);
+          }
+
+          .date {
+            font-size: 13px;
+          }
+
+          .time {
+            font-size: 10px;
+          }
+
+          .student-link {
+            font-size: 13px;
+          }
+
+          .barcode {
+            font-size: 10px;
+          }
+
+          .type-badge {
+            padding: 4px 10px;
+            font-size: 10px;
+          }
+
+          .amount {
+            font-size: 12px;
+            padding: 3px 8px;
+          }
+
+          .balance-change {
+            font-size: 11px;
+          }
+
+          .notes-cell {
+            font-size: 11px;
+            max-width: 120px;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .stats-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+
+          .stat-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 14px;
+          }
+
+          .stat-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .stat-label {
+            font-size: 11px;
+          }
+
+          .stat-value {
+            font-size: 22px;
+          }
+
+          .stat-count {
+            font-size: 11px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .data-table th:nth-child(5),
+          .data-table td:nth-child(5),
+          .data-table th:nth-child(6),
+          .data-table td:nth-child(6) {
+            display: none;
+          }
+        }
       `}</style>
     </div>
   )

@@ -278,6 +278,101 @@ export default function RequestLinkPage() {
         .card-footer a:hover {
           text-decoration: underline;
         }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+          .request-container {
+            padding: 16px;
+            align-items: flex-start;
+            padding-top: 40px;
+          }
+
+          .request-card {
+            max-width: 100%;
+          }
+
+          .card-header {
+            padding: 20px 16px;
+          }
+
+          .card-header :global(.logo) {
+            height: 38px;
+          }
+
+          .card-content {
+            padding: 28px 20px;
+          }
+
+          h1 {
+            font-size: 20px;
+          }
+
+          .card-content p {
+            font-size: 13px;
+          }
+
+          .error-message {
+            padding: 10px 14px;
+            font-size: 13px;
+          }
+
+          .form-group {
+            margin-bottom: 16px;
+          }
+
+          .form-group label {
+            font-size: 12px;
+          }
+
+          .input {
+            padding: 14px;
+            font-size: 16px;
+          }
+
+          .btn {
+            padding: 14px;
+            font-size: 15px;
+          }
+
+          .success-state {
+            padding: 32px 20px;
+          }
+
+          .success-state h1 {
+            font-size: 20px;
+          }
+
+          .success-state p {
+            font-size: 13px;
+          }
+
+          .success-state .hint {
+            font-size: 12px;
+          }
+
+          .card-footer {
+            padding: 14px 20px;
+          }
+
+          .card-footer p {
+            font-size: 12px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .request-container {
+            padding: 12px;
+            padding-top: 24px;
+          }
+
+          .card-content {
+            padding: 24px 16px;
+          }
+
+          h1 {
+            font-size: 18px;
+          }
+        }
       `}</style>
     </div>
   )

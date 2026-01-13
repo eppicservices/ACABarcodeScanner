@@ -758,6 +758,201 @@ export default function ParentsPage() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+          }
+
+          .page-header .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          h1 {
+            font-size: 22px;
+          }
+
+          .stats-row {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+          }
+
+          .stat-card {
+            padding: 14px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+          }
+
+          .stat-icon {
+            width: 36px;
+            height: 36px;
+          }
+
+          .stat-value {
+            font-size: 20px;
+          }
+
+          .stat-label {
+            font-size: 11px;
+          }
+
+          .filters {
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .search-box {
+            max-width: 100%;
+          }
+
+          .table-container {
+            margin: 0 -12px;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+          }
+
+          .data-table {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .data-table th,
+          .data-table td {
+            padding: 12px 14px;
+            font-size: 13px;
+            white-space: nowrap;
+          }
+
+          .data-table th:first-child,
+          .data-table td:first-child {
+            position: sticky;
+            left: 0;
+            background: var(--white);
+            z-index: 1;
+          }
+
+          .data-table th:first-child {
+            background: linear-gradient(to bottom, var(--gray-50) 0%, var(--white) 100%);
+          }
+
+          .data-table tbody tr:hover td:first-child {
+            background: var(--gray-50);
+          }
+
+          .avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+          }
+
+          .action-buttons {
+            flex-wrap: nowrap;
+            gap: 4px;
+          }
+
+          .action-btn {
+            padding: 5px 8px;
+            font-size: 12px;
+            white-space: nowrap;
+          }
+
+          .action-btn svg {
+            width: 12px;
+            height: 12px;
+          }
+
+          .portal-btn,
+          .payment-btn {
+            padding: 5px 8px;
+          }
+
+          .student-tag {
+            font-size: 11px;
+            padding: 3px 8px;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .stats-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+
+          .stat-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 12px 16px;
+          }
+
+          .stat-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .stat-value {
+            font-size: 22px;
+          }
+
+          .header-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .header-icon svg {
+            width: 20px;
+            height: 20px;
+          }
+
+          .contact-info {
+            gap: 2px;
+          }
+
+          .email-link {
+            font-size: 12px;
+          }
+
+          .phone {
+            font-size: 11px;
+          }
+
+          .children-info {
+            gap: 4px;
+          }
+
+          .student-count {
+            font-size: 13px;
+          }
+
+          .student-names {
+            gap: 4px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .action-btn span {
+            display: none;
+          }
+
+          .action-btn {
+            padding: 6px;
+          }
+
+          .action-btn svg {
+            width: 14px;
+            height: 14px;
+          }
+
+          .copy-btn span {
+            display: inline;
+          }
+        }
       `}</style>
     </div>
   )

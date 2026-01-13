@@ -655,6 +655,175 @@ export default function StudentsPage() {
           font-size: 14px;
           margin: 0;
         }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+          }
+
+          .page-header .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          h1 {
+            font-size: 22px;
+          }
+
+          .stats-row {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+          }
+
+          .stat-card {
+            padding: 14px 16px;
+          }
+
+          .stat-icon {
+            width: 36px;
+            height: 36px;
+          }
+
+          .stat-value {
+            font-size: 18px;
+          }
+
+          .stat-label {
+            font-size: 11px;
+          }
+
+          .filters {
+            flex-direction: column;
+            padding: 12px;
+            gap: 12px;
+          }
+
+          .filter-buttons {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .filter-buttons::-webkit-scrollbar {
+            display: none;
+          }
+
+          .filter-btn {
+            flex-shrink: 0;
+            padding: 8px 14px;
+            font-size: 12px;
+          }
+
+          .table-container {
+            margin: 0 -12px;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+          }
+
+          .data-table {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .data-table th,
+          .data-table td {
+            padding: 12px 14px;
+            font-size: 13px;
+            white-space: nowrap;
+          }
+
+          .data-table th:first-child,
+          .data-table td:first-child {
+            position: sticky;
+            left: 0;
+            background: var(--white);
+            z-index: 1;
+          }
+
+          .data-table th:first-child {
+            background: var(--gray-50);
+          }
+
+          .data-table tbody tr:hover td:first-child {
+            background: var(--gray-50);
+          }
+
+          .name-cell {
+            min-width: 150px;
+          }
+
+          .student-avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 12px;
+          }
+
+          .barcode {
+            font-size: 11px;
+            padding: 4px 8px;
+          }
+
+          .level-badge {
+            font-size: 10px;
+            padding: 4px 10px;
+          }
+
+          .balance {
+            font-size: 12px;
+            padding: 3px 8px;
+          }
+
+          .action-btn {
+            padding: 5px 10px;
+            font-size: 12px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .stats-row {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .stat-card {
+            padding: 12px 14px;
+            gap: 10px;
+          }
+
+          .stat-icon {
+            width: 32px;
+            height: 32px;
+          }
+
+          .stat-icon svg {
+            width: 16px;
+            height: 16px;
+          }
+
+          .stat-value {
+            font-size: 16px;
+          }
+
+          .header-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .header-icon svg {
+            width: 20px;
+            height: 20px;
+          }
+
+          .search-input {
+            font-size: 14px;
+          }
+        }
       `}</style>
     </div>
   )

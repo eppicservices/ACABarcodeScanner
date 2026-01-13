@@ -972,6 +972,158 @@ function AddPaymentContent() {
             max-height: 200px;
           }
         }
+
+        @media (max-width: 768px) {
+          h1 {
+            font-size: 22px;
+          }
+
+          .header-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .header-icon svg {
+            width: 20px;
+            height: 20px;
+          }
+
+          .parent-selector,
+          .payment-form {
+            padding: 16px;
+          }
+
+          .student-card {
+            padding: 16px;
+          }
+
+          .student-header {
+            gap: 10px;
+          }
+
+          .student-avatar {
+            width: 42px;
+            height: 42px;
+            font-size: 18px;
+          }
+
+          .student-info h3 {
+            font-size: 15px;
+          }
+
+          .school-level {
+            font-size: 12px;
+          }
+
+          .balance-display {
+            padding: 14px;
+          }
+
+          .balance-label {
+            font-size: 12px;
+          }
+
+          .balance-value {
+            font-size: 13px;
+          }
+
+          .quick-amounts {
+            gap: 6px;
+          }
+
+          .quick-amounts button {
+            padding: 7px 12px;
+            font-size: 12px;
+          }
+
+          .payment-summary {
+            padding: 16px;
+          }
+
+          .payment-summary h3 {
+            font-size: 14px;
+          }
+
+          .summary-item {
+            font-size: 13px;
+          }
+
+          .summary-total {
+            font-size: 15px;
+          }
+
+          .payment-method-options {
+            gap: 6px;
+          }
+
+          .method-btn {
+            padding: 7px 12px;
+            font-size: 12px;
+          }
+
+          .selected-parent-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+
+          .selected-parent-header h2 {
+            font-size: 16px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .parent-selector,
+          .payment-form {
+            padding: 12px;
+          }
+
+          .parent-item {
+            padding: 10px;
+          }
+
+          .parent-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+          }
+
+          .parent-name {
+            font-size: 13px;
+          }
+
+          .parent-email {
+            font-size: 11px;
+          }
+
+          .student-card {
+            padding: 14px;
+          }
+
+          .student-avatar {
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+          }
+
+          .amount-input {
+            font-size: 16px;
+          }
+
+          .quick-amounts button {
+            padding: 6px 10px;
+            font-size: 11px;
+          }
+
+          .lunch-card-btn {
+            font-size: 10px !important;
+          }
+
+          .submit-btn {
+            font-size: 14px;
+            padding: 12px;
+          }
+        }
       `}</style>
     </div>
   )
