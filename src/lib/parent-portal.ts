@@ -1,0 +1,116 @@
+import { createClient } from '@/lib/supabase/client'
+import type { ParentAccessToken, ParentWithStudents, AppSettings } from '@/types/database'
+
+// Generate a cryptographically secure token
+export function generateSecureToken(length: number = 64): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const array = new Uint8Array(length)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => chars[byte % chars.length]).join('')
+}
+
+// Calculate expiry date (7 days from now)
+export function getTokenExpiryDate(): string {
+  const date = new Date()
+  date.setDate(date.getDate() + 7)
+  return date.toISOString()
+}
+
+// Check if a token is expired
+export function isTokenExpired(expiresAt: string): boolean {
+  return new Date(expiresAt) < new Date()
+}
+
+// Get days until token expires
+export function getDaysUntilExpiry(expiresAt: string): number {
+  const now = new Date()
+  const expiry = new Date(expiresAt)
+  const diffMs = expiry.getTime() - now.getTime()
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+}
+
+// Generate the portal URL for a token
+export function getPortalUrl(token: string): string {
+  const baseUrl = typeof window !== 'undefined'
+    ? window.location.origin
+    : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  return `${baseUrl}/parent/${token}`
+}
+
+// Calculate lunches from payment amount
+export function calculateLunches(
+  amount: number,
+  schoolLevel: 'elementary' | 'high_school',
+  settings: AppSettings,
+  isLunchCard: boolean = false
+): number {
+  if (isLunchCard && schoolLevel === 'high_school') {
+    // Lunch card gives fixed number of lunches
+    const cardsCount = Math.floor(amount / settings.highschool_lunch_card_price)
+    return cardsCount * settings.highschool_lunch_card_lunches
+  }
+
+  const pricePerLunch = schoolLevel === 'elementary'
+    ? settings.elementary_lunch_price
+    : settings.highschool_lunch_price
+
+  return Math.floor(amount / pricePerLunch)
+}
+
+// Validate token and get parent data
+export async function validateTokenAndGetParent(token: string): Promise<{
+  valid: boolean
+  error?: string
+  parent?: ParentWithStudents
+  tokenData?: ParentAccessToken
+  settings?: AppSettings
+}> {
+  const supabase = createClient()
+
+  // Look up the token
+  const { data: tokenData, error: tokenError } = await supabase
+    .from('parent_access_tokens')
+    .select('*')
+    .eq('token', token)
+    .single()
+
+  if (tokenError || !tokenData) {
+    return { valid: false, error: 'Invalid or expired link' }
+  }
+
+  // Check if expired
+  if (isTokenExpired(tokenData.expires_at)) {
+    return { valid: false, error: 'This link has expired. Please request a new one.' }
+  }
+
+  // Get parent with students
+  const { data: parent, error: parentError } = await supabase
+    .from('parents')
+    .select('*, students(*)')
+    .eq('id', tokenData.parent_id)
+    .single()
+
+  if (parentError || !parent) {
+    return { valid: false, error: 'Parent account not found' }
+  }
+
+  // Get settings for pricing
+  const { data: settings } = await supabase
+    .from('app_settings')
+    .select('*')
+    .eq('id', 1)
+    .single()
+
+  // Update last_used_at
+  await supabase
+    .from('parent_access_tokens')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('id', tokenData.id)
+
+  return {
+    valid: true,
+    parent: parent as ParentWithStudents,
+    tokenData: tokenData as ParentAccessToken,
+    settings: settings as AppSettings
+  }
+}

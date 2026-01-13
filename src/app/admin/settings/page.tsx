@@ -2,45 +2,337 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { AppSettings } from '@/types/database'
+import type { AppSettings, AdminUser, PendingPayment, EmailProvider } from '@/types/database'
+import CsvImport from '@/components/admin/CsvImport'
+
+type TabId = 'pricing' | 'notifications' | 'email' | 'scanner' | 'school' | 'admins' | 'payments' | 'import' | 'data'
+
+const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  {
+    id: 'pricing',
+    label: 'Pricing',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    ),
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+    ),
+  },
+  {
+    id: 'email',
+    label: 'Email',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+      </svg>
+    ),
+  },
+  {
+    id: 'scanner',
+    label: 'Scanner',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+        <line x1="7" y1="12" x2="17" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    id: 'school',
+    label: 'School Info',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+        <path d="M6 12v5c3 3 9 3 12 0v-5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'admins',
+    label: 'Admins',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    id: 'payments',
+    label: 'Payments',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+        <line x1="1" y1="10" x2="23" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    id: 'import',
+    label: 'Import',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    ),
+  },
+  {
+    id: 'data',
+    label: 'Data & Export',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+    ),
+  },
+]
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<TabId>('pricing')
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [admins, setAdmins] = useState<AdminUser[]>([])
+  const [pendingPayments, setPendingPayments] = useState<(PendingPayment & { parent_name?: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const [elementaryThreshold, setElementaryThreshold] = useState('10.00')
-  const [highSchoolThreshold, setHighSchoolThreshold] = useState('15.00')
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  // Form state
+  const [formData, setFormData] = useState({
+    // Pricing
+    elementary_lunch_price: '4.00',
+    highschool_lunch_price: '6.00',
+    highschool_lunch_card_price: '50.00',
+    highschool_lunch_card_lunches: '10',
+    second_meal_price: '4.50',
+    // Negative limits
+    elementary_negative_limit: '-5',
+    highschool_negative_limit: '0',
+    // Notifications
+    elementary_low_lunch_threshold: '5',
+    highschool_low_lunch_threshold: '3',
+    notifications_enabled: true,
+    zero_balance_alerts: true,
+    weekly_summary_enabled: false,
+    notification_frequency: 'immediate' as 'immediate' | 'daily',
+    // Scanner
+    scanner_sound_enabled: true,
+    scanner_auto_deduct: true,
+    show_student_photo: false,
+    // School
+    school_name: 'Aldersgate Christian Academy',
+    school_year: '2025-2026',
+    contact_email: '',
+    // Email
+    email_provider: 'none' as EmailProvider,
+    email_from_address: '',
+    email_from_name: '',
+    gmail_user: '',
+    gmail_app_password: '',
+    sendgrid_api_key: '',
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_password: '',
+    smtp_secure: true,
+  })
+
+  // Admin invite state
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+
+  // Test email state
+  const [testingEmail, setTestingEmail] = useState(false)
 
   const supabase = createClient()
 
   useEffect(() => {
-    fetchSettings()
+    fetchData()
   }, [])
 
-  async function fetchSettings() {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
+  async function fetchData() {
+    const [settingsRes, adminsRes, paymentsRes] = await Promise.all([
+      supabase.from('app_settings').select('*').eq('id', 1).single(),
+      supabase.from('admin_users').select('*').order('created_at'),
+      supabase.from('pending_payments').select('*, parent:parents(name)').eq('status', 'pending').order('created_at', { ascending: false }),
+    ])
 
-    if (data) {
-      setSettings(data)
-      setElementaryThreshold(data.elementary_low_balance_threshold?.toString() || '10.00')
-      setHighSchoolThreshold(data.high_school_low_balance_threshold?.toString() || '15.00')
-      setNotificationsEnabled(data.notifications_enabled ?? true)
+    if (settingsRes.data) {
+      const s = settingsRes.data
+      setSettings(s)
+      setFormData({
+        elementary_lunch_price: s.elementary_lunch_price?.toString() || '4.00',
+        highschool_lunch_price: s.highschool_lunch_price?.toString() || '6.00',
+        highschool_lunch_card_price: s.highschool_lunch_card_price?.toString() || '50.00',
+        highschool_lunch_card_lunches: s.highschool_lunch_card_lunches?.toString() || '10',
+        second_meal_price: s.second_meal_price?.toString() || '4.50',
+        elementary_negative_limit: s.elementary_negative_limit?.toString() || '-5',
+        highschool_negative_limit: s.highschool_negative_limit?.toString() || '0',
+        elementary_low_lunch_threshold: s.elementary_low_lunch_threshold?.toString() || '5',
+        highschool_low_lunch_threshold: s.highschool_low_lunch_threshold?.toString() || '3',
+        notifications_enabled: s.notifications_enabled ?? true,
+        zero_balance_alerts: s.zero_balance_alerts ?? true,
+        weekly_summary_enabled: s.weekly_summary_enabled ?? false,
+        notification_frequency: s.notification_frequency || 'immediate',
+        scanner_sound_enabled: s.scanner_sound_enabled ?? true,
+        scanner_auto_deduct: s.scanner_auto_deduct ?? true,
+        show_student_photo: s.show_student_photo ?? false,
+        school_name: s.school_name || 'Aldersgate Christian Academy',
+        school_year: s.school_year || '2025-2026',
+        contact_email: s.contact_email || '',
+        email_provider: (s.email_provider as EmailProvider) || 'none',
+        email_from_address: s.email_from_address || '',
+        email_from_name: s.email_from_name || '',
+        gmail_user: s.gmail_user || '',
+        gmail_app_password: s.gmail_app_password || '',
+        sendgrid_api_key: s.sendgrid_api_key || '',
+        smtp_host: s.smtp_host || '',
+        smtp_port: s.smtp_port?.toString() || '587',
+        smtp_user: s.smtp_user || '',
+        smtp_password: s.smtp_password || '',
+        smtp_secure: s.smtp_secure ?? true,
+      })
     }
+
+    if (adminsRes.data) {
+      setAdmins(adminsRes.data)
+    }
+
+    if (paymentsRes.data) {
+      setPendingPayments(paymentsRes.data.map((p: PendingPayment & { parent?: { name: string } }) => ({
+        ...p,
+        parent_name: p.parent?.name
+      })))
+    }
+
     setLoading(false)
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
+  async function handleCompletePayment(paymentId: string) {
+    if (!confirm('Mark this payment as completed? This will add lunches to the students\' accounts.')) return
+
+    setProcessingPayment(paymentId)
+    setMessage(null)
+
+    const payment = pendingPayments.find(p => p.id === paymentId)
+    if (!payment) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Track new balances for receipt
+    const receiptItems: { student_name: string; amount: number; lunches: number; is_lunch_card: boolean; new_balance: number }[] = []
+
+    // Process each student payment
+    for (const sp of payment.student_payments) {
+      // Get current student balance
+      const { data: student } = await supabase
+        .from('students')
+        .select('balance')
+        .eq('id', sp.student_id)
+        .single()
+
+      if (!student) continue
+
+      const previousBalance = student.balance
+      const newBalance = previousBalance + sp.lunches_to_add
+
+      // Update student balance
+      await supabase
+        .from('students')
+        .update({ balance: newBalance })
+        .eq('id', sp.student_id)
+
+      // Create transaction record
+      await supabase
+        .from('balance_transactions')
+        .insert({
+          student_id: sp.student_id,
+          lunches_change: sp.lunches_to_add,
+          previous_lunches: previousBalance,
+          new_lunches: newBalance,
+          amount_paid: sp.amount,
+          lunches_added: sp.lunches_to_add,
+          transaction_type: sp.is_lunch_card ? 'lunch_card' : 'payment',
+          notes: 'Online payment via parent portal',
+          created_by: user?.id || null
+        })
+
+      // Add to receipt items
+      receiptItems.push({
+        student_name: sp.student_name,
+        amount: sp.amount,
+        lunches: sp.lunches_to_add,
+        is_lunch_card: sp.is_lunch_card,
+        new_balance: newBalance
+      })
+    }
+
+    // Mark payment as completed
+    await supabase
+      .from('pending_payments')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        completed_by: user?.id || null
+      })
+      .eq('id', paymentId)
+
+    // Send receipt email
+    try {
+      await fetch('/api/admin/send-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parent_id: payment.parent_id,
+          payment_method: 'online',
+          items: receiptItems,
+          total: payment.total_amount
+        })
+      })
+    } catch {
+      // Don't fail if email fails, just log it
+      console.error('Failed to send receipt email')
+    }
+
+    setMessage({ type: 'success', text: 'Payment completed and lunches added!' })
+    setProcessingPayment(null)
+    fetchData()
+  }
+
+  async function handleCancelPayment(paymentId: string) {
+    if (!confirm('Cancel this pending payment?')) return
+
+    await supabase
+      .from('pending_payments')
+      .update({ status: 'cancelled' })
+      .eq('id', paymentId)
+
+    setMessage({ type: 'success', text: 'Payment cancelled' })
+    fetchData()
+  }
+
+  async function handleSave() {
+    setMessage(null)
     setSaving(true)
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -48,113 +340,931 @@ export default function SettingsPage() {
     const { error } = await supabase
       .from('app_settings')
       .update({
-        elementary_low_balance_threshold: parseFloat(elementaryThreshold),
-        high_school_low_balance_threshold: parseFloat(highSchoolThreshold),
-        notifications_enabled: notificationsEnabled,
+        elementary_lunch_price: parseFloat(formData.elementary_lunch_price),
+        highschool_lunch_price: parseFloat(formData.highschool_lunch_price),
+        highschool_lunch_card_price: parseFloat(formData.highschool_lunch_card_price),
+        highschool_lunch_card_lunches: parseInt(formData.highschool_lunch_card_lunches),
+        second_meal_price: parseFloat(formData.second_meal_price),
+        elementary_negative_limit: parseInt(formData.elementary_negative_limit),
+        highschool_negative_limit: parseInt(formData.highschool_negative_limit),
+        elementary_low_lunch_threshold: parseFloat(formData.elementary_low_lunch_threshold),
+        highschool_low_lunch_threshold: parseFloat(formData.highschool_low_lunch_threshold),
+        notifications_enabled: formData.notifications_enabled,
+        zero_balance_alerts: formData.zero_balance_alerts,
+        weekly_summary_enabled: formData.weekly_summary_enabled,
+        notification_frequency: formData.notification_frequency,
+        scanner_sound_enabled: formData.scanner_sound_enabled,
+        scanner_auto_deduct: formData.scanner_auto_deduct,
+        show_student_photo: formData.show_student_photo,
+        school_name: formData.school_name,
+        school_year: formData.school_year,
+        contact_email: formData.contact_email || null,
+        email_provider: formData.email_provider,
+        email_from_address: formData.email_from_address || null,
+        email_from_name: formData.email_from_name || null,
+        gmail_user: formData.gmail_user || null,
+        gmail_app_password: formData.gmail_app_password || null,
+        sendgrid_api_key: formData.sendgrid_api_key || null,
+        smtp_host: formData.smtp_host || null,
+        smtp_port: formData.smtp_port ? parseInt(formData.smtp_port) : null,
+        smtp_user: formData.smtp_user || null,
+        smtp_password: formData.smtp_password || null,
+        smtp_secure: formData.smtp_secure,
         updated_at: new Date().toISOString(),
         updated_by: user?.id || null,
       })
       .eq('id', 1)
 
     if (error) {
-      setError(error.message)
+      setMessage({ type: 'error', text: error.message })
     } else {
-      setSuccess('Settings saved successfully')
-      fetchSettings()
+      setMessage({ type: 'success', text: 'Settings saved successfully' })
+      fetchData()
     }
 
     setSaving(false)
   }
 
+  async function handleInviteAdmin(e: React.FormEvent) {
+    e.preventDefault()
+    if (!inviteEmail) return
+
+    setInviting(true)
+    setMessage(null)
+
+    // For now, just show a message - full invitation system would need email sending
+    setMessage({
+      type: 'success',
+      text: `Invitation would be sent to ${inviteEmail}. (Email sending not yet configured)`
+    })
+    setInviteEmail('')
+    setInviting(false)
+  }
+
+  async function handleRemoveAdmin(adminId: string) {
+    if (!confirm('Are you sure you want to remove this admin?')) return
+
+    const { error } = await supabase
+      .from('admin_users')
+      .delete()
+      .eq('id', adminId)
+
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+    } else {
+      setMessage({ type: 'success', text: 'Admin removed successfully' })
+      fetchData()
+    }
+  }
+
+  async function handleTestEmail() {
+    setTestingEmail(true)
+    setMessage(null)
+
+    // First save the current settings
+    await handleSave()
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) {
+        setMessage({ type: 'error', text: 'Could not get your email address' })
+        setTestingEmail(false)
+        return
+      }
+
+      const res = await fetch('/api/admin/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to send test email' })
+      } else {
+        setMessage({ type: 'success', text: `Test email sent to ${user.email}` })
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to send test email' })
+    }
+
+    setTestingEmail(false)
+  }
+
+  async function exportData(type: 'students' | 'transactions' | 'parents') {
+    setMessage(null)
+
+    let query
+    let filename
+
+    if (type === 'students') {
+      query = supabase.from('students').select('*, parent:parents(name, email)')
+      filename = 'students.csv'
+    } else if (type === 'transactions') {
+      query = supabase.from('balance_transactions').select('*, student:students(name, barcode)')
+      filename = 'transactions.csv'
+    } else {
+      query = supabase.from('parents').select('*')
+      filename = 'parents.csv'
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+      return
+    }
+
+    if (!data || data.length === 0) {
+      setMessage({ type: 'error', text: 'No data to export' })
+      return
+    }
+
+    // Convert to CSV
+    const headers = Object.keys(data[0])
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row =>
+        headers.map(h => {
+          const val = row[h as keyof typeof row]
+          if (typeof val === 'object') return JSON.stringify(val)
+          if (typeof val === 'string' && val.includes(',')) return `"${val}"`
+          return val
+        }).join(',')
+      )
+    ].join('\n')
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+
+    setMessage({ type: 'success', text: `${type} exported successfully` })
+  }
+
+  const updateField = (field: string, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
   if (loading) {
-    return <div className="loading">Loading settings...</div>
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner" />
+        <span>Loading settings...</span>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px;
+            gap: 16px;
+            color: var(--gray-400);
+          }
+          .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--gray-100);
+            border-top-color: var(--aca-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
   }
 
   return (
     <div className="settings-page">
       <div className="page-header">
-        <h1>Settings</h1>
-        <p className="subtitle">Configure notification thresholds and preferences</p>
+        <div className="header-content">
+          <div className="header-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </div>
+          <div>
+            <h1>Settings</h1>
+            <p className="subtitle">Manage your lunch system configuration</p>
+          </div>
+        </div>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+      {message && (
+        <div className={`alert alert-${message.type}`}>
+          {message.text}
+        </div>
+      )}
 
-      <form onSubmit={handleSave}>
-        <div className="card settings-card">
-          <h2>Low Balance Notifications</h2>
-          <p className="section-desc">
-            Parents will receive an email notification when their child&apos;s account balance
-            falls below these thresholds.
-          </p>
+      <div className="settings-layout">
+        <div className="tabs-sidebar">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span className="tab-icon">{tab.icon}</span>
+              <span className="tab-label">{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
-          <div className="toggle-group">
-            <label className="toggle-label">
-              <span className="toggle-text">
-                <strong>Enable Notifications</strong>
-                <span className="toggle-desc">Send email alerts for low balances</span>
-              </span>
-              <button
-                type="button"
-                className={`toggle ${notificationsEnabled ? 'on' : ''}`}
-                onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-              >
-                <span className="toggle-handle" />
+        <div className="tab-content">
+          {activeTab === 'pricing' && (
+            <div className="tab-panel">
+              <h2>Lunch Pricing</h2>
+              <p className="section-desc">Set the prices for lunches and lunch cards.</p>
+
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Elementary Lunch Price</label>
+                  <div className="input-with-prefix">
+                    <span className="prefix">$</span>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.elementary_lunch_price}
+                      onChange={e => updateField('elementary_lunch_price', e.target.value)}
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>High School Lunch Price</label>
+                  <div className="input-with-prefix">
+                    <span className="prefix">$</span>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.highschool_lunch_price}
+                      onChange={e => updateField('highschool_lunch_price', e.target.value)}
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Second Meal Price</label>
+                  <div className="input-with-prefix">
+                    <span className="prefix">$</span>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.second_meal_price}
+                      onChange={e => updateField('second_meal_price', e.target.value)}
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                  <span className="hint">Price for additional meals in the same day</span>
+                </div>
+              </div>
+
+              <h3>Lunch Cards</h3>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>High School Lunch Card Price</label>
+                  <div className="input-with-prefix">
+                    <span className="prefix">$</span>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.highschool_lunch_card_price}
+                      onChange={e => updateField('highschool_lunch_card_price', e.target.value)}
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Lunches per Card</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.highschool_lunch_card_lunches}
+                    onChange={e => updateField('highschool_lunch_card_lunches', e.target.value)}
+                    min="1"
+                  />
+                  <span className="hint">Number of lunches included in a lunch card</span>
+                </div>
+              </div>
+
+              <h3>Negative Balance Limits</h3>
+              <p className="section-desc">How many lunches students can go negative before being blocked.</p>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Elementary Limit</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.elementary_negative_limit}
+                    onChange={e => updateField('elementary_negative_limit', e.target.value)}
+                    max="0"
+                  />
+                  <span className="hint">Use negative number (e.g., -5)</span>
+                </div>
+
+                <div className="form-group">
+                  <label>High School Limit</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.highschool_negative_limit}
+                    onChange={e => updateField('highschool_negative_limit', e.target.value)}
+                    max="0"
+                  />
+                  <span className="hint">0 means no negative balance allowed</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'notifications' && (
+            <div className="tab-panel">
+              <h2>Notification Settings</h2>
+              <p className="section-desc">Configure how and when parents receive notifications.</p>
+
+              <div className="toggle-card">
+                <div className="toggle-info">
+                  <strong>Enable Notifications</strong>
+                  <span>Send email alerts to parents</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle ${formData.notifications_enabled ? 'on' : ''}`}
+                  onClick={() => updateField('notifications_enabled', !formData.notifications_enabled)}
+                >
+                  <span className="toggle-handle" />
+                </button>
+              </div>
+
+              <div className={`notification-options ${!formData.notifications_enabled ? 'disabled' : ''}`}>
+                <div className="toggle-card">
+                  <div className="toggle-info">
+                    <strong>Zero Balance Alerts</strong>
+                    <span>Notify when balance reaches zero</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`toggle ${formData.zero_balance_alerts ? 'on' : ''}`}
+                    onClick={() => updateField('zero_balance_alerts', !formData.zero_balance_alerts)}
+                    disabled={!formData.notifications_enabled}
+                  >
+                    <span className="toggle-handle" />
+                  </button>
+                </div>
+
+                <div className="toggle-card">
+                  <div className="toggle-info">
+                    <strong>Weekly Summary</strong>
+                    <span>Send weekly balance summaries to all parents</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`toggle ${formData.weekly_summary_enabled ? 'on' : ''}`}
+                    onClick={() => updateField('weekly_summary_enabled', !formData.weekly_summary_enabled)}
+                    disabled={!formData.notifications_enabled}
+                  >
+                    <span className="toggle-handle" />
+                  </button>
+                </div>
+
+                <div className="form-group">
+                  <label>Notification Frequency</label>
+                  <select
+                    className="input"
+                    value={formData.notification_frequency}
+                    onChange={e => updateField('notification_frequency', e.target.value)}
+                    disabled={!formData.notifications_enabled}
+                  >
+                    <option value="immediate">Immediate</option>
+                    <option value="daily">Daily Digest</option>
+                  </select>
+                  <span className="hint">When to send low balance alerts</span>
+                </div>
+
+                <h3>Low Balance Thresholds</h3>
+                <p className="section-desc">Alert parents when lunches remaining falls below these amounts.</p>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Elementary Threshold</label>
+                    <div className="input-with-suffix">
+                      <input
+                        type="number"
+                        className="input"
+                        value={formData.elementary_low_lunch_threshold}
+                        onChange={e => updateField('elementary_low_lunch_threshold', e.target.value)}
+                        min="0"
+                        disabled={!formData.notifications_enabled}
+                      />
+                      <span className="suffix">lunches</span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>High School Threshold</label>
+                    <div className="input-with-suffix">
+                      <input
+                        type="number"
+                        className="input"
+                        value={formData.highschool_low_lunch_threshold}
+                        onChange={e => updateField('highschool_low_lunch_threshold', e.target.value)}
+                        min="0"
+                        disabled={!formData.notifications_enabled}
+                      />
+                      <span className="suffix">lunches</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'email' && (
+            <div className="tab-panel">
+              <h2>Email Configuration</h2>
+              <p className="section-desc">Configure email service for sending receipts and notifications.</p>
+
+              <div className="form-group">
+                <label>Email Provider</label>
+                <select
+                  className="input"
+                  value={formData.email_provider}
+                  onChange={e => updateField('email_provider', e.target.value)}
+                >
+                  <option value="none">None (Email Disabled)</option>
+                  <option value="gmail">Gmail</option>
+                  <option value="sendgrid">SendGrid</option>
+                  <option value="smtp">Custom SMTP</option>
+                </select>
+              </div>
+
+              {formData.email_provider !== 'none' && (
+                <>
+                  <h3>From Settings</h3>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>From Name</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={formData.email_from_name}
+                        onChange={e => updateField('email_from_name', e.target.value)}
+                        placeholder="ACA Lunch Program"
+                      />
+                      <span className="hint">Display name in emails</span>
+                    </div>
+                    <div className="form-group">
+                      <label>From Email</label>
+                      <input
+                        type="email"
+                        className="input"
+                        value={formData.email_from_address}
+                        onChange={e => updateField('email_from_address', e.target.value)}
+                        placeholder="lunch@school.edu"
+                      />
+                      <span className="hint">Sender email address</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {formData.email_provider === 'gmail' && (
+                <>
+                  <h3>Gmail Settings</h3>
+                  <div className="info-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 16v-4" />
+                      <path d="M12 8h.01" />
+                    </svg>
+                    <div>
+                      <strong>App Password Required</strong>
+                      <p>Gmail requires an App Password, not your regular password. Generate one at: Google Account → Security → 2-Step Verification → App passwords</p>
+                    </div>
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Gmail Address</label>
+                      <input
+                        type="email"
+                        className="input"
+                        value={formData.gmail_user}
+                        onChange={e => updateField('gmail_user', e.target.value)}
+                        placeholder="your.email@gmail.com"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>App Password</label>
+                      <input
+                        type="password"
+                        className="input"
+                        value={formData.gmail_app_password}
+                        onChange={e => updateField('gmail_app_password', e.target.value)}
+                        placeholder="xxxx xxxx xxxx xxxx"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {formData.email_provider === 'sendgrid' && (
+                <>
+                  <h3>SendGrid Settings</h3>
+                  <div className="form-group">
+                    <label>API Key</label>
+                    <input
+                      type="password"
+                      className="input"
+                      value={formData.sendgrid_api_key}
+                      onChange={e => updateField('sendgrid_api_key', e.target.value)}
+                      placeholder="SG.xxxxxxxxxxxxxxxxxxxxxxxx"
+                    />
+                    <span className="hint">Find this in your SendGrid dashboard under Settings → API Keys</span>
+                  </div>
+                </>
+              )}
+
+              {formData.email_provider === 'smtp' && (
+                <>
+                  <h3>SMTP Settings</h3>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>SMTP Host</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={formData.smtp_host}
+                        onChange={e => updateField('smtp_host', e.target.value)}
+                        placeholder="smtp.example.com"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Port</label>
+                      <input
+                        type="number"
+                        className="input"
+                        value={formData.smtp_port}
+                        onChange={e => updateField('smtp_port', e.target.value)}
+                        placeholder="587"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Username</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={formData.smtp_user}
+                        onChange={e => updateField('smtp_user', e.target.value)}
+                        placeholder="username"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Password</label>
+                      <input
+                        type="password"
+                        className="input"
+                        value={formData.smtp_password}
+                        onChange={e => updateField('smtp_password', e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+                  <div className="toggle-card">
+                    <div className="toggle-info">
+                      <strong>Use TLS/SSL</strong>
+                      <span>Enable secure connection (recommended)</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={`toggle ${formData.smtp_secure ? 'on' : ''}`}
+                      onClick={() => updateField('smtp_secure', !formData.smtp_secure)}
+                    >
+                      <span className="toggle-handle" />
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {formData.email_provider !== 'none' && (
+                <div className="test-email-section">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleTestEmail}
+                    disabled={testingEmail}
+                  >
+                    {testingEmail ? 'Sending...' : 'Send Test Email'}
+                  </button>
+                  <span className="hint">Sends a test email to your admin email address</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'scanner' && (
+            <div className="tab-panel">
+              <h2>Scanner Settings</h2>
+              <p className="section-desc">Configure how the barcode scanner behaves.</p>
+
+              <div className="toggle-card">
+                <div className="toggle-info">
+                  <strong>Sound Effects</strong>
+                  <span>Play sounds on successful/failed scans</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle ${formData.scanner_sound_enabled ? 'on' : ''}`}
+                  onClick={() => updateField('scanner_sound_enabled', !formData.scanner_sound_enabled)}
+                >
+                  <span className="toggle-handle" />
+                </button>
+              </div>
+
+              <div className="toggle-card">
+                <div className="toggle-info">
+                  <strong>Auto-Deduct</strong>
+                  <span>Automatically deduct lunch on scan</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle ${formData.scanner_auto_deduct ? 'on' : ''}`}
+                  onClick={() => updateField('scanner_auto_deduct', !formData.scanner_auto_deduct)}
+                >
+                  <span className="toggle-handle" />
+                </button>
+              </div>
+
+              <div className="toggle-card">
+                <div className="toggle-info">
+                  <strong>Show Student Photo</strong>
+                  <span>Display student photo on scan (if available)</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle ${formData.show_student_photo ? 'on' : ''}`}
+                  onClick={() => updateField('show_student_photo', !formData.show_student_photo)}
+                >
+                  <span className="toggle-handle" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'school' && (
+            <div className="tab-panel">
+              <h2>School Information</h2>
+              <p className="section-desc">Basic information about your school.</p>
+
+              <div className="form-stack">
+                <div className="form-group">
+                  <label>School Name</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={formData.school_name}
+                    onChange={e => updateField('school_name', e.target.value)}
+                    placeholder="Enter school name"
+                  />
+                  <span className="hint">Used in emails and reports</span>
+                </div>
+
+                <div className="form-group">
+                  <label>School Year</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={formData.school_year}
+                    onChange={e => updateField('school_year', e.target.value)}
+                    placeholder="e.g., 2025-2026"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Contact Email</label>
+                  <input
+                    type="email"
+                    className="input"
+                    value={formData.contact_email}
+                    onChange={e => updateField('contact_email', e.target.value)}
+                    placeholder="lunch@school.edu"
+                  />
+                  <span className="hint">Reply-to address for notification emails</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'admins' && (
+            <div className="tab-panel">
+              <h2>Admin Management</h2>
+              <p className="section-desc">Manage who has access to the admin dashboard.</p>
+
+              <div className="invite-form">
+                <h3>Invite New Admin</h3>
+                <form onSubmit={handleInviteAdmin} className="invite-row">
+                  <input
+                    type="email"
+                    className="input"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="email@school.edu"
+                    required
+                  />
+                  <button type="submit" className="btn btn-primary" disabled={inviting}>
+                    {inviting ? 'Sending...' : 'Send Invite'}
+                  </button>
+                </form>
+              </div>
+
+              <h3>Current Admins</h3>
+              <div className="admin-list">
+                {admins.map(admin => (
+                  <div key={admin.id} className="admin-card">
+                    <div className="admin-info">
+                      <div className="admin-avatar">
+                        {admin.email.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="admin-email">{admin.email}</div>
+                        <div className="admin-role">
+                          <span className={`role-badge ${admin.role}`}>
+                            {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                          </span>
+                          <span className="admin-date">
+                            Added {new Date(admin.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {admin.role !== 'super_admin' && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleRemoveAdmin(admin.id)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="tab-panel">
+              <h2>Pending Payments</h2>
+              <p className="section-desc">Review and complete payments from the parent portal.</p>
+
+              {pendingPayments.length === 0 ? (
+                <div className="empty-payments">
+                  <div className="empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                      <line x1="1" y1="10" x2="23" y2="10" />
+                    </svg>
+                  </div>
+                  <p>No pending payments</p>
+                  <span className="empty-hint">Payments from the parent portal will appear here</span>
+                </div>
+              ) : (
+                <div className="payments-list">
+                  {pendingPayments.map(payment => (
+                    <div key={payment.id} className="payment-card">
+                      <div className="payment-header">
+                        <div className="payment-info">
+                          <strong>{payment.parent_name || 'Unknown Parent'}</strong>
+                          <span className="payment-date">
+                            {new Date(payment.created_at).toLocaleDateString()} at {new Date(payment.created_at).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <div className="payment-total">${payment.total_amount.toFixed(2)}</div>
+                      </div>
+
+                      <div className="payment-students">
+                        {payment.student_payments.map((sp, idx) => (
+                          <div key={idx} className="student-payment">
+                            <span className="student-name">{sp.student_name}</span>
+                            <span className="student-amount">
+                              ${sp.amount.toFixed(2)} → {sp.lunches_to_add} {sp.lunches_to_add === 1 ? 'lunch' : 'lunches'}
+                              {sp.is_lunch_card && <span className="lunch-card-tag">Card</span>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="payment-actions">
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleCompletePayment(payment.id)}
+                          disabled={processingPayment === payment.id}
+                        >
+                          {processingPayment === payment.id ? 'Processing...' : 'Mark as Paid'}
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleCancelPayment(payment.id)}
+                          disabled={processingPayment === payment.id}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'import' && (
+            <div className="tab-panel">
+              <h2>Bulk Import</h2>
+              <p className="section-desc">Import students and parents from a CSV file.</p>
+              <CsvImport />
+            </div>
+          )}
+
+          {activeTab === 'data' && (
+            <div className="tab-panel">
+              <h2>Data & Export</h2>
+              <p className="section-desc">Export your data for backup or analysis.</p>
+
+              <div className="export-grid">
+                <div className="export-card">
+                  <div className="export-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div className="export-info">
+                    <h4>Students</h4>
+                    <p>Export all students with their balances and parent info</p>
+                  </div>
+                  <button className="btn btn-secondary" onClick={() => exportData('students')}>
+                    Export CSV
+                  </button>
+                </div>
+
+                <div className="export-card">
+                  <div className="export-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div className="export-info">
+                    <h4>Parents</h4>
+                    <p>Export all parent contact information</p>
+                  </div>
+                  <button className="btn btn-secondary" onClick={() => exportData('parents')}>
+                    Export CSV
+                  </button>
+                </div>
+
+                <div className="export-card">
+                  <div className="export-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
+                      <path d="M8 10h8" />
+                      <path d="M8 14h4" />
+                    </svg>
+                  </div>
+                  <div className="export-info">
+                    <h4>Transactions</h4>
+                    <p>Export complete transaction history</p>
+                  </div>
+                  <button className="btn btn-secondary" onClick={() => exportData('transactions')}>
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab !== 'admins' && activeTab !== 'payments' && activeTab !== 'import' && activeTab !== 'data' && (
+            <div className="form-actions">
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
-            </label>
-          </div>
-
-          <div className={`threshold-settings ${!notificationsEnabled ? 'disabled' : ''}`}>
-            <div className="threshold-group">
-              <div className="threshold-header">
-                <span className="level-badge elementary">Elementary</span>
-              </div>
-              <div className="threshold-input">
-                <span className="currency">$</span>
-                <input
-                  type="number"
-                  className="input"
-                  value={elementaryThreshold}
-                  onChange={(e) => setElementaryThreshold(e.target.value)}
-                  step="0.01"
-                  min="0"
-                  disabled={!notificationsEnabled}
-                />
-              </div>
-              <p className="threshold-hint">
-                Notify when balance drops below this amount
-              </p>
             </div>
-
-            <div className="threshold-group">
-              <div className="threshold-header">
-                <span className="level-badge high_school">High School</span>
-              </div>
-              <div className="threshold-input">
-                <span className="currency">$</span>
-                <input
-                  type="number"
-                  className="input"
-                  value={highSchoolThreshold}
-                  onChange={(e) => setHighSchoolThreshold(e.target.value)}
-                  step="0.01"
-                  min="0"
-                  disabled={!notificationsEnabled}
-                />
-              </div>
-              <p className="threshold-hint">
-                Notify when balance drops below this amount
-              </p>
-            </div>
-          </div>
+          )}
         </div>
-
-        <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
-      </form>
+      </div>
 
       {settings?.updated_at && (
         <p className="last-updated">
@@ -164,48 +1274,135 @@ export default function SettingsPage() {
 
       <style jsx>{`
         .settings-page {
-          max-width: 700px;
+          max-width: 1000px;
         }
 
         .page-header {
-          margin-bottom: 32px;
+          margin-bottom: 24px;
+        }
+
+        .header-content {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .header-icon {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, var(--gray-100) 0%, var(--white) 100%);
+          border: 1px solid var(--gray-200);
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--gray-600);
         }
 
         h1 {
-          font-size: 32px;
+          font-size: 26px;
           margin: 0;
           color: var(--aca-navy);
         }
 
         .subtitle {
           color: var(--gray-400);
-          margin: 4px 0 0 0;
+          margin: 2px 0 0 0;
+          font-size: 14px;
         }
 
         .alert {
-          padding: 12px 16px;
+          padding: 14px 18px;
           border-radius: var(--border-radius);
           margin-bottom: 20px;
           font-size: 14px;
+          font-weight: 500;
         }
 
         .alert-error {
           background: var(--error-bg);
           color: var(--error);
+          border: 1px solid var(--error-border);
         }
 
         .alert-success {
           background: var(--success-bg);
           color: var(--success);
+          border: 1px solid var(--success-border);
         }
 
-        .settings-card {
-          margin-bottom: 24px;
+        .settings-layout {
+          display: flex;
+          gap: 24px;
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-200);
+          overflow: hidden;
         }
 
-        .settings-card h2 {
+        .tabs-sidebar {
+          width: 200px;
+          background: var(--gray-50);
+          border-right: 1px solid var(--gray-200);
+          padding: 16px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .tab-btn {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 14px;
+          border: none;
+          background: transparent;
+          border-radius: var(--border-radius);
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--gray-600);
+          text-align: left;
+          transition: all 0.15s ease;
+          font-family: var(--font-body);
+        }
+
+        .tab-btn:hover {
+          background: var(--gray-100);
+          color: var(--gray-700);
+        }
+
+        .tab-btn.active {
+          background: var(--white);
+          color: var(--aca-blue);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .tab-icon {
+          display: flex;
+          opacity: 0.7;
+        }
+
+        .tab-btn.active .tab-icon {
+          opacity: 1;
+        }
+
+        .tab-content {
+          flex: 1;
+          padding: 28px;
+          min-height: 500px;
+        }
+
+        .tab-panel h2 {
           font-size: 18px;
-          margin: 0 0 8px 0;
+          margin: 0 0 6px 0;
+          color: var(--aca-navy);
+        }
+
+        .tab-panel h3 {
+          font-size: 15px;
+          margin: 28px 0 12px 0;
+          color: var(--gray-700);
         }
 
         .section-desc {
@@ -214,43 +1411,113 @@ export default function SettingsPage() {
           margin: 0 0 24px 0;
         }
 
-        .toggle-group {
-          margin-bottom: 32px;
-          padding-bottom: 24px;
-          border-bottom: 1px solid var(--gray-100);
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
         }
 
-        .toggle-label {
+        .form-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          max-width: 400px;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-group label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--gray-700);
+        }
+
+        .input-with-prefix,
+        .input-with-suffix {
+          display: flex;
+          align-items: center;
+        }
+
+        .input-with-prefix .input {
+          border-top-left-radius: 0;
+          border-bottom-left-radius: 0;
+        }
+
+        .prefix {
+          padding: 10px 12px;
+          background: var(--gray-100);
+          border: 1px solid var(--gray-300);
+          border-right: none;
+          border-radius: var(--border-radius) 0 0 var(--border-radius);
+          color: var(--gray-500);
+          font-weight: 500;
+        }
+
+        .input-with-suffix .input {
+          border-top-right-radius: 0;
+          border-bottom-right-radius: 0;
+        }
+
+        .suffix {
+          padding: 10px 12px;
+          background: var(--gray-100);
+          border: 1px solid var(--gray-300);
+          border-left: none;
+          border-radius: 0 var(--border-radius) var(--border-radius) 0;
+          color: var(--gray-500);
+          font-size: 13px;
+        }
+
+        .hint {
+          font-size: 12px;
+          color: var(--gray-400);
+        }
+
+        .toggle-card {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          cursor: pointer;
+          padding: 16px;
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
+          margin-bottom: 12px;
         }
 
-        .toggle-text {
+        .toggle-info {
           display: flex;
           flex-direction: column;
           gap: 2px;
         }
 
-        .toggle-text strong {
+        .toggle-info strong {
+          font-size: 14px;
           color: var(--gray-700);
         }
 
-        .toggle-desc {
+        .toggle-info span {
           font-size: 13px;
-          color: var(--gray-400);
+          color: var(--gray-500);
         }
 
         .toggle {
-          width: 50px;
+          width: 48px;
           height: 28px;
-          background: var(--gray-200);
+          background: var(--gray-300);
           border-radius: 14px;
           border: none;
           cursor: pointer;
           position: relative;
           transition: background 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .toggle:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .toggle.on {
@@ -265,92 +1532,338 @@ export default function SettingsPage() {
           height: 22px;
           background: var(--white);
           border-radius: 50%;
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
           transition: transform 0.2s ease;
         }
 
         .toggle.on .toggle-handle {
-          transform: translateX(22px);
+          transform: translateX(20px);
         }
 
-        .threshold-settings {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 24px;
+        .notification-options {
+          transition: opacity 0.2s ease;
         }
 
-        .threshold-settings.disabled {
+        .notification-options.disabled {
           opacity: 0.5;
           pointer-events: none;
         }
 
-        .threshold-group {
+        .invite-form {
           background: var(--gray-50);
           border-radius: var(--border-radius);
           padding: 20px;
+          margin-bottom: 28px;
         }
 
-        .threshold-header {
-          margin-bottom: 12px;
+        .invite-form h3 {
+          margin: 0 0 12px 0;
         }
 
-        .level-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          border-radius: 12px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .level-badge.elementary {
-          background: #dbeafe;
-          color: #1e40af;
-        }
-
-        .level-badge.high_school {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .threshold-input {
+        .invite-row {
           display: flex;
-          align-items: center;
+          gap: 12px;
+        }
+
+        .invite-row .input {
+          flex: 1;
+        }
+
+        .admin-list {
+          display: flex;
+          flex-direction: column;
           gap: 8px;
         }
 
-        .currency {
-          font-size: 20px;
-          font-weight: 600;
-          color: var(--gray-400);
+        .admin-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
         }
 
-        .threshold-input .input {
-          font-size: 24px;
-          font-weight: 600;
-          padding: 12px 16px;
+        .admin-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
 
-        .threshold-hint {
+        .admin-avatar {
+          width: 40px;
+          height: 40px;
+          background: var(--aca-blue);
+          color: var(--white);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+        }
+
+        .admin-email {
+          font-weight: 600;
+          color: var(--gray-700);
+        }
+
+        .admin-role {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 2px;
+        }
+
+        .role-badge {
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-weight: 600;
+        }
+
+        .role-badge.super_admin {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .role-badge.admin {
+          background: var(--gray-200);
+          color: var(--gray-600);
+        }
+
+        .admin-date {
           font-size: 12px;
           color: var(--gray-400);
-          margin: 8px 0 0 0;
+        }
+
+        .export-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .export-card {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 20px;
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
+        }
+
+        .export-icon {
+          width: 48px;
+          height: 48px;
+          background: var(--white);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--aca-blue);
+        }
+
+        .export-info {
+          flex: 1;
+        }
+
+        .export-info h4 {
+          margin: 0 0 4px 0;
+          font-size: 15px;
+          color: var(--gray-700);
+        }
+
+        .export-info p {
+          margin: 0;
+          font-size: 13px;
+          color: var(--gray-500);
         }
 
         .form-actions {
-          display: flex;
-          gap: 12px;
+          margin-top: 28px;
+          padding-top: 20px;
+          border-top: 1px solid var(--gray-200);
         }
 
         .last-updated {
           font-size: 12px;
           color: var(--gray-400);
           margin-top: 16px;
+          text-align: right;
         }
 
-        .loading {
+        .info-box {
+          display: flex;
+          gap: 12px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: var(--border-radius);
+          padding: 16px;
+          margin-bottom: 20px;
+          color: #1e40af;
+        }
+
+        .info-box svg {
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
+        .info-box strong {
+          display: block;
+          margin-bottom: 4px;
+        }
+
+        .info-box p {
+          margin: 0;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #3b82f6;
+        }
+
+        .test-email-section {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-top: 24px;
+          padding-top: 20px;
+          border-top: 1px solid var(--gray-200);
+        }
+
+        .test-email-section .hint {
+          margin: 0;
+        }
+
+        .btn-ghost {
+          background: transparent;
+          color: var(--gray-500);
+          padding: 6px 12px;
+          font-size: 13px;
+        }
+
+        .btn-ghost:hover {
+          background: var(--error-bg);
+          color: var(--error);
+        }
+
+        .btn-sm {
+          padding: 6px 12px;
+          font-size: 13px;
+        }
+
+        .empty-payments {
           text-align: center;
-          padding: 60px;
+          padding: 48px 24px;
           color: var(--gray-400);
+        }
+
+        .empty-payments .empty-icon {
+          margin-bottom: 16px;
+          color: var(--gray-300);
+        }
+
+        .empty-payments p {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--gray-500);
+          margin: 0 0 4px 0;
+        }
+
+        .empty-hint {
+          font-size: 13px;
+        }
+
+        .payments-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .payment-card {
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
+          padding: 20px;
+        }
+
+        .payment-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 16px;
+        }
+
+        .payment-info strong {
+          display: block;
+          font-size: 15px;
+          color: var(--gray-700);
+        }
+
+        .payment-date {
+          font-size: 12px;
+          color: var(--gray-400);
+        }
+
+        .payment-total {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--aca-teal);
+        }
+
+        .payment-students {
+          border-top: 1px solid var(--gray-200);
+          border-bottom: 1px solid var(--gray-200);
+          padding: 12px 0;
+          margin-bottom: 16px;
+        }
+
+        .student-payment {
+          display: flex;
+          justify-content: space-between;
+          padding: 6px 0;
+          font-size: 14px;
+        }
+
+        .student-name {
+          color: var(--gray-600);
+        }
+
+        .student-amount {
+          color: var(--gray-500);
+        }
+
+        .lunch-card-tag {
+          display: inline-block;
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          margin-left: 6px;
+        }
+
+        .payment-actions {
+          display: flex;
+          gap: 8px;
+        }
+
+        @media (max-width: 768px) {
+          .settings-layout {
+            flex-direction: column;
+          }
+
+          .tabs-sidebar {
+            width: 100%;
+            flex-direction: row;
+            overflow-x: auto;
+            border-right: none;
+            border-bottom: 1px solid var(--gray-200);
+          }
+
+          .tab-btn {
+            white-space: nowrap;
+          }
+
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { addLunchesFromPayment, getSettings, LunchSettings } from '@/lib/supabase'
 import type { Student, Parent, BalanceTransaction } from '@/types/database'
 
 interface StudentWithParent extends Student {
@@ -15,6 +16,7 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
   const [student, setStudent] = useState<StudentWithParent | null>(null)
   const [parents, setParents] = useState<Parent[]>([])
   const [transactions, setTransactions] = useState<BalanceTransaction[]>([])
+  const [settings, setSettings] = useState<LunchSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,9 +30,9 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
 
   // Balance update
   const [showBalanceModal, setShowBalanceModal] = useState(false)
-  const [balanceAmount, setBalanceAmount] = useState('')
-  const [balanceType, setBalanceType] = useState<'payment' | 'adjustment' | 'refund'>('payment')
-  const [balanceNotes, setBalanceNotes] = useState('')
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentType, setPaymentType] = useState<'payment' | 'lunch_card' | 'adjustment'>('payment')
+  const [paymentNotes, setPaymentNotes] = useState('')
 
   const router = useRouter()
   const supabase = createClient()
@@ -40,10 +42,11 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
   }, [id])
 
   async function fetchData() {
-    const [studentRes, parentsRes, transactionsRes] = await Promise.all([
+    const [studentRes, parentsRes, transactionsRes, settingsData] = await Promise.all([
       supabase.from('students').select('*, parent:parents(*)').eq('id', id).single(),
       supabase.from('parents').select('*').order('name'),
       supabase.from('balance_transactions').select('*').eq('student_id', id).order('created_at', { ascending: false }).limit(10),
+      getSettings(),
     ])
 
     if (studentRes.data) {
@@ -61,6 +64,10 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
 
     if (transactionsRes.data) {
       setTransactions(transactionsRes.data)
+    }
+
+    if (settingsData) {
+      setSettings(settingsData)
     }
 
     setLoading(false)
@@ -94,32 +101,65 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
 
   async function handleBalanceUpdate(e: React.FormEvent) {
     e.preventDefault()
-    if (!student) return
+    if (!student || !settings) return
 
-    const amount = parseFloat(balanceAmount)
-    if (isNaN(amount) || amount === 0) {
+    let amount = parseFloat(paymentAmount)
+
+    // For lunch card, use the fixed price
+    if (paymentType === 'lunch_card') {
+      amount = settings.highschool_lunch_card_price
+    }
+
+    if (isNaN(amount) || amount <= 0) {
       setError('Please enter a valid amount')
       return
     }
 
-    const previousBalance = student.balance
-    const newBalance = balanceType === 'refund'
-      ? previousBalance - Math.abs(amount)
-      : previousBalance + Math.abs(amount)
+    const result = await addLunchesFromPayment(
+      student.id,
+      student.school_level,
+      student.balance,
+      amount,
+      paymentType === 'lunch_card'
+    )
 
-    // Get current user
+    if (!result.success) {
+      setError(result.error || 'Failed to update balance')
+      return
+    }
+
+    setShowBalanceModal(false)
+    setPaymentAmount('')
+    setPaymentNotes('')
+    setPaymentType('payment')
+    setSuccess(`Added ${result.lunchesAdded} lunches (paid $${amount.toFixed(2)})`)
+    fetchData()
+  }
+
+  async function handleManualAdjustment(e: React.FormEvent) {
+    e.preventDefault()
+    if (!student) return
+
+    const lunches = parseInt(paymentAmount)
+    if (isNaN(lunches) || lunches === 0) {
+      setError('Please enter a valid number of lunches')
+      return
+    }
+
     const { data: { user } } = await supabase.auth.getUser()
+    const previousBalance = student.balance
+    const newBalance = previousBalance + lunches
 
     // Create transaction record
     const { error: txError } = await supabase
       .from('balance_transactions')
       .insert({
         student_id: id,
-        amount: balanceType === 'refund' ? -Math.abs(amount) : Math.abs(amount),
-        previous_balance: previousBalance,
-        new_balance: newBalance,
-        transaction_type: balanceType,
-        notes: balanceNotes || null,
+        lunches_change: lunches,
+        previous_lunches: previousBalance,
+        new_lunches: newBalance,
+        transaction_type: 'adjustment',
+        notes: paymentNotes || 'Manual adjustment',
         created_by: user?.id || null,
       })
 
@@ -140,9 +180,10 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
     }
 
     setShowBalanceModal(false)
-    setBalanceAmount('')
-    setBalanceNotes('')
-    setSuccess('Balance updated successfully')
+    setPaymentAmount('')
+    setPaymentNotes('')
+    setPaymentType('payment')
+    setSuccess(`Balance adjusted by ${lunches > 0 ? '+' : ''}${lunches} lunches`)
     fetchData()
   }
 
@@ -160,25 +201,70 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  // Calculate lunches from payment amount
+  const calculateLunches = () => {
+    if (!settings || !student) return 0
+    if (paymentType === 'lunch_card') return settings.highschool_lunch_card_lunches
+    const amount = parseFloat(paymentAmount) || 0
+    const price = student.school_level === 'elementary'
+      ? settings.elementary_lunch_price
+      : settings.highschool_lunch_price
+    return Math.floor(amount / price)
+  }
+
   if (loading) {
-    return <div className="loading">Loading...</div>
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner" />
+        <span>Loading student...</span>
+      </div>
+    )
   }
 
   if (!student) {
-    return <div className="error">Student not found</div>
+    return (
+      <div className="error-container">
+        <div className="error-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </div>
+        <p>Student not found</p>
+        <Link href="/admin/students" className="btn btn-outline">Back to Students</Link>
+      </div>
+    )
   }
+
+  const lunchPrice = settings
+    ? (student.school_level === 'elementary' ? settings.elementary_lunch_price : settings.highschool_lunch_price)
+    : 0
 
   return (
     <div className="edit-student-page">
       <div className="page-header">
-        <div>
+        <div className="header-content">
           <Link href="/admin/students" className="back-link">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="15 18 9 12 15 6" />
             </svg>
             Back to Students
           </Link>
-          <h1>Edit Student</h1>
+          <div className="header-title-row">
+            <div className="student-avatar-large">
+              {student.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h1>{student.name}</h1>
+              <p className="subtitle">
+                <span className={`level-badge ${student.school_level}`}>
+                  {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                </span>
+                <span className="barcode-badge">{student.barcode}</span>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -256,15 +342,17 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
 
         <div className="sidebar">
           <div className="card balance-card">
-            <h3>Account Balance</h3>
-            <div className={`balance-display ${student.balance <= 0 ? 'negative' : student.balance < 10 ? 'low' : ''}`}>
-              ${student.balance.toFixed(2)}
+            <h3>Lunch Balance</h3>
+            <div className={`balance-display ${student.balance <= 0 ? 'negative' : student.balance <= 3 ? 'low' : ''}`}>
+              {student.balance}
+              <span className="balance-unit">{student.balance === 1 ? 'lunch' : 'lunches'}</span>
             </div>
+            <p className="price-info">${lunchPrice.toFixed(2)} per lunch</p>
             <button
               className="btn btn-primary btn-full"
               onClick={() => setShowBalanceModal(true)}
             >
-              Update Balance
+              Add Lunches
             </button>
           </div>
 
@@ -278,14 +366,14 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
                   <li key={tx.id} className="transaction-item">
                     <div className="tx-info">
                       <span className={`tx-type ${tx.transaction_type}`}>
-                        {tx.transaction_type}
+                        {tx.transaction_type === 'lunch_used' ? 'Used' : tx.transaction_type}
                       </span>
                       <span className="tx-date">
                         {new Date(tx.created_at!).toLocaleDateString()}
                       </span>
                     </div>
-                    <span className={`tx-amount ${tx.amount >= 0 ? 'positive' : 'negative'}`}>
-                      {tx.amount >= 0 ? '+' : ''}${tx.amount.toFixed(2)}
+                    <span className={`tx-amount ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`}>
+                      {tx.lunches_change >= 0 ? '+' : ''}{tx.lunches_change}
                     </span>
                   </li>
                 ))}
@@ -295,47 +383,88 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {showBalanceModal && (
+      {showBalanceModal && settings && (
         <div className="modal-overlay" onClick={() => setShowBalanceModal(false)}>
           <div className="modal card" onClick={(e) => e.stopPropagation()}>
-            <h2>Update Balance</h2>
-            <p className="current-balance">Current balance: <strong>${student.balance.toFixed(2)}</strong></p>
+            <h2>Add Lunches</h2>
+            <p className="current-balance">
+              Current balance: <strong>{student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}</strong>
+            </p>
 
-            <form onSubmit={handleBalanceUpdate}>
+            <form onSubmit={paymentType === 'adjustment' ? handleManualAdjustment : handleBalanceUpdate}>
               <div className="form-group">
-                <label>Transaction Type</label>
+                <label>Payment Type</label>
                 <select
                   className="input"
-                  value={balanceType}
-                  onChange={(e) => setBalanceType(e.target.value as 'payment' | 'adjustment' | 'refund')}
+                  value={paymentType}
+                  onChange={(e) => {
+                    setPaymentType(e.target.value as 'payment' | 'lunch_card' | 'adjustment')
+                    setPaymentAmount('')
+                  }}
                 >
-                  <option value="payment">Payment (Add Funds)</option>
-                  <option value="adjustment">Adjustment</option>
-                  <option value="refund">Refund (Remove Funds)</option>
+                  <option value="payment">Cash Payment</option>
+                  {student.school_level === 'high_school' && (
+                    <option value="lunch_card">Lunch Card ($50 for 10 lunches)</option>
+                  )}
+                  <option value="adjustment">Manual Adjustment</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label>Amount ($)</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={balanceAmount}
-                  onChange={(e) => setBalanceAmount(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </div>
+              {paymentType === 'payment' && (
+                <div className="form-group">
+                  <label>Amount Paid ($)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0.01"
+                    required
+                  />
+                  {parseFloat(paymentAmount) > 0 && (
+                    <p className="lunch-preview">
+                      = <strong>{calculateLunches()} lunches</strong> at ${lunchPrice.toFixed(2)} each
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {paymentType === 'lunch_card' && (
+                <div className="lunch-card-info">
+                  <div className="lunch-card-details">
+                    <span className="lunch-card-price">${settings.highschool_lunch_card_price.toFixed(2)}</span>
+                    <span className="lunch-card-value">{settings.highschool_lunch_card_lunches} lunches</span>
+                  </div>
+                  <p className="lunch-card-savings">
+                    ${(settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch (save ${(settings.highschool_lunch_price - settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch)
+                  </p>
+                </div>
+              )}
+
+              {paymentType === 'adjustment' && (
+                <div className="form-group">
+                  <label>Lunches to Add/Remove</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder="Enter positive or negative number"
+                    required
+                  />
+                  <p className="adjustment-hint">Use negative number to remove lunches</p>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Notes (optional)</label>
                 <input
                   type="text"
                   className="input"
-                  value={balanceNotes}
-                  onChange={(e) => setBalanceNotes(e.target.value)}
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
                   placeholder="e.g., Cash payment"
                 />
               </div>
@@ -345,7 +474,7 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Update Balance
+                  {paymentType === 'adjustment' ? 'Adjust Balance' : 'Add Lunches'}
                 </button>
               </div>
             </form>
@@ -358,56 +487,165 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
           max-width: 1000px;
         }
 
+        .loading-container,
+        .error-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 80px;
+          gap: 16px;
+          color: var(--gray-400);
+        }
+
+        .loading-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--gray-100);
+          border-top-color: var(--aca-teal);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .error-icon {
+          color: var(--gray-300);
+          margin-bottom: 8px;
+        }
+
         .page-header {
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+        }
+
+        .header-content {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
         }
 
         .back-link {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
           color: var(--gray-400);
           text-decoration: none;
-          font-size: 14px;
-          margin-bottom: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          padding: 6px 12px;
+          margin: -6px -12px;
+          border-radius: var(--border-radius-sm);
+          transition: all var(--transition-fast);
         }
 
         .back-link:hover {
-          color: var(--aca-blue);
+          color: var(--aca-teal);
+          background: var(--aca-teal-subtle);
+        }
+
+        .back-link svg {
+          transition: transform var(--transition-fast);
+        }
+
+        .back-link:hover svg {
+          transform: translateX(-3px);
+        }
+
+        .header-title-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .student-avatar-large {
+          width: 56px;
+          height: 56px;
+          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white);
+          font-weight: 600;
+          font-size: 22px;
+          box-shadow: 0 4px 12px rgba(0, 177, 193, 0.3);
         }
 
         h1 {
-          font-size: 32px;
+          font-size: 26px;
           margin: 0;
           color: var(--aca-navy);
+          letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 6px 0 0 0;
+        }
+
+        .level-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 16px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .level-badge.elementary {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+
+        .level-badge.high_school {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .barcode-badge {
+          font-family: 'SF Mono', Monaco, monospace;
+          font-size: 12px;
+          color: var(--gray-400);
+          background: var(--gray-100);
+          padding: 4px 10px;
+          border-radius: var(--border-radius-sm);
         }
 
         .content-grid {
           display: grid;
-          grid-template-columns: 1fr 300px;
+          grid-template-columns: 1fr 320px;
           gap: 24px;
         }
 
         .alert {
-          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 18px;
           border-radius: var(--border-radius);
           margin-bottom: 20px;
           font-size: 14px;
+          font-weight: 500;
         }
 
         .alert-error {
           background: var(--error-bg);
           color: var(--error);
+          border: 1px solid var(--error-border);
         }
 
         .alert-success {
           background: var(--success-bg);
           color: var(--success);
+          border: 1px solid var(--success-border);
+          animation: successPop 0.35s ease-out;
         }
 
         .form-card h2 {
-          font-size: 18px;
+          font-size: 17px;
           margin: 0 0 24px 0;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
 
         .form-group {
@@ -417,7 +655,7 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
         .form-group label {
           display: block;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 13px;
           color: var(--gray-600);
           margin-bottom: 8px;
         }
@@ -436,24 +674,42 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
           border-top: 1px solid var(--gray-100);
         }
 
+        .sidebar {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
         .balance-card {
           text-align: center;
+          padding: 28px 24px;
+          background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
         }
 
         .balance-card h3 {
-          font-size: 14px;
+          font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.08em;
           color: var(--gray-400);
-          margin: 0 0 12px 0;
+          margin: 0 0 16px 0;
+          font-weight: 600;
         }
 
         .balance-display {
-          font-size: 36px;
+          font-size: 48px;
           font-weight: 700;
-          font-family: monospace;
           color: var(--success);
-          margin-bottom: 16px;
+          margin-bottom: 4px;
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+
+        .balance-unit {
+          display: block;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--gray-400);
+          margin-top: 4px;
         }
 
         .balance-display.low {
@@ -464,22 +720,34 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
           color: var(--error);
         }
 
+        .price-info {
+          font-size: 13px;
+          color: var(--gray-400);
+          margin: 12px 0 20px;
+        }
+
         .btn-full {
           width: 100%;
         }
 
+        .transactions-card {
+          padding: 20px;
+        }
+
         .transactions-card h3 {
-          font-size: 14px;
+          font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.08em;
           color: var(--gray-400);
           margin: 0 0 16px 0;
+          font-weight: 600;
         }
 
         .no-transactions {
           color: var(--gray-400);
           font-size: 14px;
           text-align: center;
+          padding: 20px;
         }
 
         .transactions-list {
@@ -492,7 +760,7 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px 0;
+          padding: 12px 0;
           border-bottom: 1px solid var(--gray-100);
         }
 
@@ -503,7 +771,7 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
         .tx-info {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 3px;
         }
 
         .tx-type {
@@ -512,16 +780,16 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
           text-transform: capitalize;
         }
 
-        .tx-type.payment {
+        .tx-type.payment, .tx-type.lunch_card {
           color: var(--success);
         }
 
-        .tx-type.refund {
+        .tx-type.refund, .tx-type.lunch_used {
           color: var(--error);
         }
 
         .tx-type.adjustment {
-          color: var(--aca-blue);
+          color: var(--aca-teal);
         }
 
         .tx-date {
@@ -530,58 +798,116 @@ export default function EditStudentPage({ params }: { params: Promise<{ id: stri
         }
 
         .tx-amount {
-          font-family: monospace;
+          font-family: 'SF Mono', Monaco, monospace;
           font-weight: 600;
+          font-size: 14px;
+          padding: 4px 8px;
+          border-radius: var(--border-radius-sm);
         }
 
         .tx-amount.positive {
           color: var(--success);
+          background: var(--success-bg);
         }
 
         .tx-amount.negative {
           color: var(--error);
+          background: var(--error-bg);
         }
 
         .modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 1000;
+          animation: overlayEnter 0.2s ease-out;
         }
 
         .modal {
           width: 100%;
-          max-width: 420px;
-          animation: fadeIn 0.2s ease;
+          max-width: 440px;
+          animation: modalEnter 0.3s ease-out;
+          padding: 32px;
         }
 
         .modal h2 {
           margin: 0 0 8px 0;
           font-size: 20px;
+          color: var(--aca-navy);
         }
 
         .current-balance {
           color: var(--gray-500);
-          margin: 0 0 24px 0;
+          margin: 0 0 28px 0;
+          font-size: 15px;
+        }
+
+        .current-balance strong {
+          color: var(--gray-700);
+        }
+
+        .lunch-preview {
+          margin: 8px 0 0;
+          font-size: 14px;
+          color: var(--success);
+        }
+
+        .lunch-preview strong {
+          font-weight: 600;
+        }
+
+        .lunch-card-info {
+          background: linear-gradient(135deg, var(--aca-gold-subtle) 0%, #fef3c7 100%);
+          border: 2px solid var(--aca-gold);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+
+        .lunch-card-details {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+
+        .lunch-card-price {
+          font-size: 24px;
+          font-weight: 700;
+          color: var(--aca-gold-dark);
+        }
+
+        .lunch-card-value {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--aca-navy);
+        }
+
+        .lunch-card-savings {
+          font-size: 13px;
+          color: var(--success);
+          margin: 0;
+        }
+
+        .adjustment-hint {
+          font-size: 12px;
+          color: var(--gray-400);
+          margin: 6px 0 0;
         }
 
         .modal-actions {
           display: flex;
           gap: 12px;
-          margin-top: 24px;
+          margin-top: 28px;
         }
 
         .modal-actions .btn {
           flex: 1;
-        }
-
-        .loading, .error {
-          text-align: center;
-          padding: 60px;
-          color: var(--gray-400);
+          padding: 14px 24px;
         }
       `}</style>
     </div>

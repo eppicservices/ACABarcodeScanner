@@ -38,10 +38,10 @@ export default function StatsBar({ totalScans, successfulScans }: StatsBarProps)
         }
 
         .stat-value {
-          font-family: var(--font-display);
+          font-family: var(--font-body);
           font-size: 28px;
           font-weight: 700;
-          color: var(--aca-blue);
+          color: var(--aca-teal);
           line-height: 1;
         }
 

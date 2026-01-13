@@ -12,7 +12,7 @@ interface TransactionWithStudent extends BalanceTransaction {
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionWithStudent[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'payment' | 'adjustment' | 'refund'>('all')
+  const [filter, setFilter] = useState<'all' | 'payment' | 'lunch_card' | 'adjustment' | 'lunch_used'>('all')
   const supabase = createClient()
 
   useEffect(() => {
@@ -36,35 +36,75 @@ export default function TransactionsPage() {
     (tx) => filter === 'all' || tx.transaction_type === filter
   )
 
-  const totalPayments = transactions
-    .filter((tx) => tx.transaction_type === 'payment')
-    .reduce((sum, tx) => sum + tx.amount, 0)
+  const totalLunchesAdded = transactions
+    .filter((tx) => tx.lunches_change > 0)
+    .reduce((sum, tx) => sum + tx.lunches_change, 0)
 
-  const totalRefunds = transactions
-    .filter((tx) => tx.transaction_type === 'refund')
-    .reduce((sum, tx) => sum + Math.abs(tx.amount), 0)
+  const totalLunchesUsed = transactions
+    .filter((tx) => tx.transaction_type === 'lunch_used')
+    .reduce((sum, tx) => sum + Math.abs(tx.lunches_change), 0)
+
+  const paymentCount = transactions.filter((tx) => tx.transaction_type === 'payment' || tx.transaction_type === 'lunch_card').length
+  const adjustmentCount = transactions.filter((tx) => tx.transaction_type === 'adjustment').length
+  const usedCount = transactions.filter((tx) => tx.transaction_type === 'lunch_used').length
 
   return (
     <div className="transactions-page">
       <div className="page-header">
-        <div>
-          <h1>Transactions</h1>
-          <p className="subtitle">Balance history and payment records</p>
+        <div className="header-content">
+          <div className="header-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
+              <path d="M8 10h8" />
+              <path d="M8 14h4" />
+            </svg>
+          </div>
+          <div>
+            <h1>Transactions</h1>
+            <p className="subtitle">Balance history and payment records</p>
+          </div>
         </div>
       </div>
 
       <div className="stats-row">
-        <div className="stat-card card">
-          <span className="stat-label">Total Payments</span>
-          <span className="stat-value positive">${totalPayments.toFixed(2)}</span>
+        <div className="stat-card success-card">
+          <div className="stat-icon success">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Lunches Added</span>
+            <span className="stat-value positive">{totalLunchesAdded}</span>
+            <span className="stat-count">{paymentCount} payments</span>
+          </div>
         </div>
-        <div className="stat-card card">
-          <span className="stat-label">Total Refunds</span>
-          <span className="stat-value negative">${totalRefunds.toFixed(2)}</span>
+        <div className="stat-card danger-card">
+          <div className="stat-icon danger">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Lunches Used</span>
+            <span className="stat-value negative">{totalLunchesUsed}</span>
+            <span className="stat-count">{usedCount} check-ins</span>
+          </div>
         </div>
-        <div className="stat-card card">
-          <span className="stat-label">Total Transactions</span>
-          <span className="stat-value">{transactions.length}</span>
+        <div className="stat-card info-card">
+          <div className="stat-icon info">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Total Transactions</span>
+            <span className="stat-value">{transactions.length}</span>
+            <span className="stat-count">{adjustmentCount} adjustments</span>
+          </div>
         </div>
       </div>
 
@@ -83,16 +123,22 @@ export default function TransactionsPage() {
             Payments
           </button>
           <button
+            className={`filter-btn ${filter === 'lunch_card' ? 'active' : ''}`}
+            onClick={() => setFilter('lunch_card')}
+          >
+            Lunch Cards
+          </button>
+          <button
+            className={`filter-btn ${filter === 'lunch_used' ? 'active' : ''}`}
+            onClick={() => setFilter('lunch_used')}
+          >
+            Used
+          </button>
+          <button
             className={`filter-btn ${filter === 'adjustment' ? 'active' : ''}`}
             onClick={() => setFilter('adjustment')}
           >
             Adjustments
-          </button>
-          <button
-            className={`filter-btn ${filter === 'refund' ? 'active' : ''}`}
-            onClick={() => setFilter('refund')}
-          >
-            Refunds
           </button>
         </div>
       </div>
@@ -107,7 +153,7 @@ export default function TransactionsPage() {
                 <th>Date</th>
                 <th>Student</th>
                 <th>Type</th>
-                <th>Amount</th>
+                <th>Lunches</th>
                 <th>Balance</th>
                 <th>Notes</th>
               </tr>
@@ -134,17 +180,17 @@ export default function TransactionsPage() {
                   </td>
                   <td>
                     <span className={`type-badge ${tx.transaction_type}`}>
-                      {tx.transaction_type}
+                      {tx.transaction_type === 'lunch_used' ? 'used' : tx.transaction_type === 'lunch_card' ? 'lunch card' : tx.transaction_type}
                     </span>
                   </td>
                   <td>
-                    <span className={`amount ${tx.amount >= 0 ? 'positive' : 'negative'}`}>
-                      {tx.amount >= 0 ? '+' : ''}${tx.amount.toFixed(2)}
+                    <span className={`amount ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`}>
+                      {tx.lunches_change >= 0 ? '+' : ''}{tx.lunches_change}
                     </span>
                   </td>
                   <td>
                     <span className="balance-change">
-                      ${tx.previous_balance.toFixed(2)} → ${tx.new_balance.toFixed(2)}
+                      {tx.previous_lunches} → {tx.new_lunches}
                     </span>
                   </td>
                   <td className="notes-cell">
@@ -170,18 +216,39 @@ export default function TransactionsPage() {
         }
 
         .page-header {
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+        }
+
+        .header-content {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .header-icon {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, var(--aca-teal-subtle) 0%, var(--white) 100%);
+          border: 1px solid var(--gray-100);
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--aca-teal);
+          box-shadow: var(--shadow-sm);
         }
 
         h1 {
-          font-size: 32px;
+          font-size: 26px;
           margin: 0;
           color: var(--aca-navy);
+          letter-spacing: -0.02em;
         }
 
         .subtitle {
           color: var(--gray-400);
-          margin: 4px 0 0 0;
+          margin: 2px 0 0 0;
+          font-size: 14px;
         }
 
         .stats-row {
@@ -192,24 +259,78 @@ export default function TransactionsPage() {
         }
 
         .stat-card {
-          text-align: center;
-          padding: 20px;
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          padding: 20px 24px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          border: 1px solid var(--gray-100);
+          box-shadow: var(--shadow-xs);
+          transition: all var(--transition-fast);
+        }
+
+        .stat-card:hover {
+          box-shadow: var(--shadow-sm);
+          transform: translateY(-1px);
+        }
+
+        .success-card {
+          border-color: var(--success-border);
+        }
+
+        .danger-card {
+          border-color: var(--error-border);
+        }
+
+        .info-card {
+          border-color: var(--gray-200);
+        }
+
+        .stat-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .stat-icon.success {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .stat-icon.danger {
+          background: var(--error-bg);
+          color: var(--error);
+        }
+
+        .stat-icon.info {
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
+        }
+
+        .stat-content {
+          display: flex;
+          flex-direction: column;
         }
 
         .stat-label {
-          display: block;
           font-size: 12px;
           font-weight: 600;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.04em;
           color: var(--gray-400);
-          margin-bottom: 8px;
+          margin-bottom: 4px;
         }
 
         .stat-value {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: 700;
-          font-family: monospace;
+          font-family: 'SF Mono', Monaco, monospace;
+          line-height: 1;
         }
 
         .stat-value.positive {
@@ -220,44 +341,86 @@ export default function TransactionsPage() {
           color: var(--error);
         }
 
+        .stat-count {
+          font-size: 12px;
+          color: var(--gray-400);
+          margin-top: 4px;
+        }
+
         .filters {
           display: flex;
           gap: 16px;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
           align-items: center;
+          padding: 16px 20px;
         }
 
         .filter-buttons {
           display: flex;
-          gap: 8px;
+          gap: 6px;
+          background: var(--gray-50);
+          padding: 4px;
+          border-radius: var(--border-radius);
         }
 
         .filter-btn {
-          padding: 10px 16px;
-          border: 2px solid var(--gray-200);
-          border-radius: 8px;
-          background: var(--white);
+          padding: 8px 16px;
+          border: none;
+          border-radius: var(--border-radius-sm);
+          background: transparent;
           color: var(--gray-500);
           font-weight: 600;
-          font-size: 14px;
+          font-size: 13px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all var(--transition-fast);
           font-family: var(--font-body);
         }
 
         .filter-btn:hover {
-          border-color: var(--aca-blue);
-          color: var(--aca-blue);
+          color: var(--gray-700);
+          background: var(--white);
         }
 
         .filter-btn.active {
-          background: var(--aca-blue);
-          border-color: var(--aca-blue);
-          color: var(--white);
+          background: var(--white);
+          color: var(--aca-teal);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 60px;
+          gap: 16px;
+          color: var(--gray-400);
+        }
+
+        .loading-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--gray-100);
+          border-top-color: var(--aca-teal);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
         }
 
         .table-container {
-          overflow-x: auto;
+          overflow: hidden;
+          padding: 0;
+        }
+
+        .table-header {
+          padding: 14px 20px;
+          border-bottom: 1px solid var(--gray-100);
+          background: var(--gray-50);
+        }
+
+        .results-count {
+          font-size: 13px;
+          color: var(--gray-500);
+          font-weight: 500;
         }
 
         .data-table {
@@ -267,22 +430,31 @@ export default function TransactionsPage() {
 
         .data-table th,
         .data-table td {
-          padding: 14px 16px;
+          padding: 14px 20px;
           text-align: left;
           border-bottom: 1px solid var(--gray-100);
         }
 
         .data-table th {
           font-weight: 600;
-          font-size: 12px;
+          font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.06em;
           color: var(--gray-400);
           background: var(--gray-50);
         }
 
+        .data-table tbody tr {
+          animation: tableRowEnter 0.3s ease-out backwards;
+          transition: background var(--transition-fast);
+        }
+
         .data-table tbody tr:hover {
           background: var(--gray-50);
+        }
+
+        .data-table tbody tr:last-child td {
+          border-bottom: none;
         }
 
         .date-cell {
@@ -296,13 +468,13 @@ export default function TransactionsPage() {
         }
 
         .time {
-          font-size: 12px;
+          font-size: 11px;
           color: var(--gray-400);
         }
 
         .student-link {
           display: block;
-          color: var(--aca-blue);
+          color: var(--aca-teal);
           text-decoration: none;
           font-weight: 600;
         }
@@ -313,58 +485,76 @@ export default function TransactionsPage() {
 
         .barcode {
           display: block;
-          font-size: 12px;
+          font-size: 11px;
           color: var(--gray-400);
-          font-family: monospace;
+          font-family: 'SF Mono', Monaco, monospace;
         }
 
         .type-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          border-radius: 12px;
-          font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 12px;
+          border-radius: 20px;
+          font-size: 11px;
           font-weight: 600;
           text-transform: capitalize;
+          letter-spacing: 0.02em;
         }
 
-        .type-badge.payment {
+        .type-badge.payment, .type-badge.lunch_card {
           background: var(--success-bg);
           color: var(--success);
         }
 
-        .type-badge.refund {
+        .type-badge.lunch_used {
           background: var(--error-bg);
           color: var(--error);
         }
 
         .type-badge.adjustment {
-          background: #dbeafe;
-          color: #1e40af;
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
         }
 
         .amount {
-          font-family: monospace;
-          font-weight: 600;
-          font-size: 15px;
+          font-family: 'SF Mono', Monaco, monospace;
+          font-weight: 700;
+          font-size: 14px;
+          padding: 4px 10px;
+          border-radius: var(--border-radius-sm);
         }
 
         .amount.positive {
           color: var(--success);
+          background: var(--success-bg);
         }
 
         .amount.negative {
           color: var(--error);
+          background: var(--error-bg);
         }
 
         .balance-change {
-          font-family: monospace;
-          font-size: 13px;
+          font-family: 'SF Mono', Monaco, monospace;
+          font-size: 12px;
           color: var(--gray-500);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .balance-change::before {
+          content: '';
+          display: inline-block;
+          width: 16px;
+          height: 2px;
+          background: var(--gray-300);
         }
 
         .notes-cell {
           color: var(--gray-400);
-          font-size: 14px;
+          font-size: 13px;
           max-width: 200px;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -373,8 +563,24 @@ export default function TransactionsPage() {
 
         .empty-state {
           text-align: center;
+          padding: 60px 20px !important;
+        }
+
+        .empty-icon {
+          color: var(--gray-300);
+          margin-bottom: 16px;
+        }
+
+        .empty-title {
+          font-weight: 600;
+          color: var(--gray-600);
+          margin: 0 0 4px 0;
+        }
+
+        .empty-desc {
           color: var(--gray-400);
-          padding: 40px !important;
+          font-size: 14px;
+          margin: 0;
         }
 
         .loading {

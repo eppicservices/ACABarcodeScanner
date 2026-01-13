@@ -2,7 +2,7 @@
 
 interface ScanResultProps {
   code: string;
-  status: 'success' | 'error' | 'duplicate';
+  status: 'success' | 'error' | 'duplicate' | 'insufficient';
   studentName?: string;
   message?: string;
   onDismiss: () => void;
@@ -39,6 +39,17 @@ export default function ScanResult({ code, status, studentName, message, onDismi
       ),
       title: 'Already Checked In',
       bgClass: 'result-duplicate',
+    },
+    insufficient: {
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6M12 14v.01" />
+          <path d="M9 18h6" strokeLinecap="round" />
+        </svg>
+      ),
+      title: 'Insufficient Balance',
+      bgClass: 'result-insufficient',
     },
   };
 
@@ -92,12 +103,21 @@ export default function ScanResult({ code, status, studentName, message, onDismi
           color: var(--warning);
         }
 
+        .result-insufficient {
+          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+          color: #92400e;
+        }
+
+        .result-insufficient .result-icon {
+          color: #d97706;
+        }
+
         .result-icon {
           margin-bottom: 16px;
         }
 
         .result-title {
-          font-family: var(--font-display);
+          font-family: var(--font-body);
           font-size: 24px;
           font-weight: 700;
           margin: 0 0 8px 0;

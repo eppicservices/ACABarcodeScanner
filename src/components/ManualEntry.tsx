@@ -85,8 +85,10 @@ export default function ManualEntry({ onSubmit, isOpen, onClose }: ManualEntryPr
         }
 
         .modal-header h3 {
-          font-family: var(--font-display);
+          font-family: var(--font-body);
           font-size: 20px;
+          font-weight: 700;
+          color: var(--aca-navy);
           margin: 0;
         }
 

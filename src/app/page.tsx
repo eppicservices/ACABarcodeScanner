@@ -5,9 +5,9 @@ import Image from 'next/image';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
 import StatsBar from '@/components/StatsBar';
-import { lookupStudentByBarcode, StudentRecord } from '@/lib/supabase';
+import { lookupStudentByBarcode, useLunch, StudentRecord } from '@/lib/supabase';
 
-type ScanStatus = 'success' | 'error' | 'duplicate';
+type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient';
 
 interface ScanResultData {
   code: string;
@@ -33,7 +33,7 @@ export default function Home() {
 
     setTotalScans((prev) => prev + 1);
 
-    // Check for duplicate
+    // Check for duplicate (already checked in today)
     if (scannedCodes.has(trimmedCode)) {
       setScanResult({
         code: trimmedCode,
@@ -46,21 +46,41 @@ export default function Home() {
     // Look up student in Supabase
     const student: StudentRecord | null = await lookupStudentByBarcode(trimmedCode);
 
-    if (student) {
+    if (!student) {
+      setScanResult({
+        code: trimmedCode,
+        status: 'error',
+        message: 'No student found with this ID',
+      });
+      return;
+    }
+
+    // Try to use a lunch (decrement balance)
+    const result = await useLunch(student.id, student.school_level, student.balance);
+    const level = student.school_level === 'elementary' ? 'Elementary' : 'High School';
+
+    if (result.success) {
       setScannedCodes((prev) => new Set(prev).add(trimmedCode));
       setSuccessfulScans((prev) => prev + 1);
-      const level = student.school_level === 'elementary' ? 'Elementary' : 'High School';
+      const lunchText = result.newBalance === 1 ? 'lunch' : 'lunches';
       setScanResult({
         code: trimmedCode,
         status: 'success',
         studentName: student.name,
-        message: `${level} • Balance: $${student.balance.toFixed(2)}`,
+        message: `${level} • ${result.newBalance} ${lunchText} remaining`,
+      });
+    } else if (result.error === 'insufficient_balance') {
+      setScanResult({
+        code: trimmedCode,
+        status: 'insufficient',
+        studentName: student.name,
+        message: result.message || 'Insufficient lunch balance',
       });
     } else {
       setScanResult({
         code: trimmedCode,
         status: 'error',
-        message: 'No student found with this ID',
+        message: result.message || 'Error processing check-in',
       });
     }
   }, [scannedCodes]);
@@ -287,8 +307,8 @@ export default function Home() {
           justify-content: center;
           gap: 12px;
           min-height: 300px;
-          background: linear-gradient(135deg, #e8f4fd 0%, #d1e9fa 100%);
-          border: 3px solid var(--aca-blue);
+          background: linear-gradient(135deg, var(--aca-teal-subtle) 0%, #cdf3f5 100%);
+          border: 3px solid var(--aca-teal);
           border-radius: var(--border-radius-lg);
           color: var(--aca-navy);
           position: relative;
@@ -299,11 +319,11 @@ export default function Home() {
         }
 
         .ready-icon {
-          color: var(--aca-blue);
+          color: var(--aca-teal);
         }
 
         .ready-text {
-          font-family: var(--font-display);
+          font-family: var(--font-body);
           font-size: 28px;
           font-weight: 700;
           margin: 0;
@@ -373,7 +393,7 @@ export default function Home() {
           padding: 4px 12px;
           border-radius: 4px;
           font-size: 14px;
-          color: var(--aca-blue);
+          color: var(--aca-teal);
           border: 1px solid var(--gray-200);
         }
 

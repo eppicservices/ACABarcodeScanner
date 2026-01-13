@@ -13,6 +13,8 @@ export default function ParentsPage() {
   const [parents, setParents] = useState<ParentWithStudents[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [generatingLink, setGeneratingLink] = useState<string | null>(null)
+  const [linkMessage, setLinkMessage] = useState<{ parentId: string; url: string } | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -36,20 +38,108 @@ export default function ParentsPage() {
     parent.email.toLowerCase().includes(search.toLowerCase())
   )
 
+  const totalStudents = parents.reduce((sum, p) => sum + p.students.length, 0)
+  const parentsWithMultipleKids = parents.filter(p => p.students.length > 1).length
+
+  async function handleGenerateLink(parentId: string) {
+    setGeneratingLink(parentId)
+    setLinkMessage(null)
+
+    try {
+      const res = await fetch('/api/parent-portal/generate-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parent_id: parentId })
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        setLinkMessage({ parentId, url: data.portalUrl })
+      } else {
+        alert(data.error || 'Failed to generate link')
+      }
+    } catch {
+      alert('Failed to generate link')
+    }
+
+    setGeneratingLink(null)
+  }
+
+  function copyLink(url: string) {
+    navigator.clipboard.writeText(url)
+    alert('Link copied to clipboard!')
+  }
+
   return (
     <div className="parents-page">
       <div className="page-header">
-        <div>
-          <h1>Parents</h1>
-          <p className="subtitle">{parents.length} total parents</p>
+        <div className="header-content">
+          <div className="header-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div>
+            <h1>Parents</h1>
+            <p className="subtitle">Manage parent contact information</p>
+          </div>
         </div>
         <Link href="/admin/parents/new" className="btn btn-primary">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           Add Parent
         </Link>
+      </div>
+
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="stat-icon total">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">{parents.length}</span>
+            <span className="stat-label">Total Parents</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon students">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">{totalStudents}</span>
+            <span className="stat-label">Total Students</span>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon families">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </div>
+          <div className="stat-content">
+            <span className="stat-value">{parentsWithMultipleKids}</span>
+            <span className="stat-label">Multiple Children</span>
+          </div>
+        </div>
       </div>
 
       <div className="filters card">
@@ -65,56 +155,164 @@ export default function ParentsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button className="search-clear" onClick={() => setSearch('')}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
         </div>
+        {search && (
+          <span className="search-results">
+            {filteredParents.length} result{filteredParents.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {loading ? (
-        <div className="loading">Loading parents...</div>
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <span>Loading parents...</span>
+        </div>
       ) : (
         <div className="table-container card">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Students</th>
+                <th>Parent</th>
+                <th>Contact</th>
+                <th>Children</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredParents.map((parent) => (
-                <tr key={parent.id}>
+              {filteredParents.map((parent, index) => (
+                <tr key={parent.id} style={{ animationDelay: `${index * 30}ms` }}>
                   <td className="name-cell">
-                    <span className="parent-name">{parent.name}</span>
+                    <div className="parent-info">
+                      <div className="avatar">
+                        {parent.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="parent-name">{parent.name}</span>
+                    </div>
                   </td>
                   <td>
-                    <a href={`mailto:${parent.email}`} className="email-link">
-                      {parent.email}
-                    </a>
+                    <div className="contact-info">
+                      <a href={`mailto:${parent.email}`} className="email-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                          <polyline points="22,6 12,13 2,6" />
+                        </svg>
+                        {parent.email}
+                      </a>
+                      {parent.phone && (
+                        <span className="phone">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                          </svg>
+                          {parent.phone}
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td>{parent.phone || '—'}</td>
                   <td>
-                    <span className="student-count">
-                      {parent.students.length} student{parent.students.length !== 1 ? 's' : ''}
-                    </span>
-                    {parent.students.length > 0 && (
-                      <span className="student-names">
-                        {parent.students.map((s) => s.name).join(', ')}
+                    <div className="children-info">
+                      <span className="student-count">
+                        {parent.students.length} {parent.students.length === 1 ? 'child' : 'children'}
                       </span>
-                    )}
+                      {parent.students.length > 0 && (
+                        <div className="student-names">
+                          {parent.students.map((s, i) => (
+                            <Link key={s.id} href={`/admin/students/${s.id}`} className="student-tag">
+                              {s.name.split(' ')[0]}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td>
-                    <Link href={`/admin/parents/${parent.id}`} className="action-btn">
-                      Edit
-                    </Link>
+                    <div className="action-buttons">
+                      {linkMessage?.parentId === parent.id ? (
+                        <div className="link-generated">
+                          <button onClick={() => copyLink(linkMessage.url)} className="action-btn copy-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            Copy Link
+                          </button>
+                          <button onClick={() => setLinkMessage(null)} className="action-btn dismiss-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleGenerateLink(parent.id)}
+                          className="action-btn portal-btn"
+                          disabled={generatingLink === parent.id}
+                        >
+                          {generatingLink === parent.id ? (
+                            <span className="btn-spinner" />
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          )}
+                          Portal Link
+                        </button>
+                      )}
+                      <Link href={`/admin/add-payment?parent=${parent.id}`} className="action-btn payment-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add Payment
+                      </Link>
+                      <Link href={`/admin/parents/${parent.id}`} className="action-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        Edit
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {filteredParents.length === 0 && (
+              {filteredParents.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={5} className="empty-state">
-                    No parents found
+                  <td colSpan={4} className="empty-state">
+                    <div className="empty-content">
+                      <div className="empty-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                      </div>
+                      {search ? (
+                        <>
+                          <p className="empty-title">No parents match &ldquo;{search}&rdquo;</p>
+                          <p className="empty-desc">Try a different search term</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="empty-title">No parents yet</p>
+                          <p className="empty-desc">Add your first parent to get started</p>
+                          <Link href="/admin/parents/new" className="btn btn-primary btn-sm">
+                            Add Parent
+                          </Link>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )}
@@ -132,18 +330,103 @@ export default function ParentsPage() {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+        }
+
+        .header-content {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .header-icon {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, var(--aca-teal-subtle) 0%, var(--white) 100%);
+          border: 1px solid var(--gray-100);
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--aca-teal);
+          box-shadow: var(--shadow-sm);
         }
 
         h1 {
-          font-size: 32px;
+          font-size: 26px;
           margin: 0;
           color: var(--aca-navy);
+          letter-spacing: -0.02em;
         }
 
         .subtitle {
           color: var(--gray-400);
-          margin: 4px 0 0 0;
+          margin: 2px 0 0 0;
+          font-size: 14px;
+        }
+
+        .stats-row {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        .stat-card {
+          background: var(--white);
+          border: 1px solid var(--gray-100);
+          border-radius: var(--border-radius-lg);
+          padding: 20px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          transition: all var(--transition-fast);
+        }
+
+        .stat-card:hover {
+          border-color: var(--gray-200);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .stat-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .stat-icon.total {
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
+        }
+
+        .stat-icon.students {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+
+        .stat-icon.families {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .stat-content {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .stat-value {
+          font-size: 24px;
+          font-weight: 700;
+          color: var(--gray-700);
+          line-height: 1.2;
+        }
+
+        .stat-label {
+          font-size: 13px;
+          color: var(--gray-400);
         }
 
         .filters {
@@ -156,18 +439,46 @@ export default function ParentsPage() {
         .search-box {
           flex: 1;
           position: relative;
+          max-width: 400px;
         }
 
-        .search-box svg {
+        .search-box > svg {
           position: absolute;
           left: 14px;
           top: 50%;
           transform: translateY(-50%);
           color: var(--gray-400);
+          pointer-events: none;
         }
 
         .search-input {
           padding-left: 44px;
+          padding-right: 40px;
+        }
+
+        .search-clear {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          color: var(--gray-400);
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          border-radius: 4px;
+          transition: all var(--transition-fast);
+        }
+
+        .search-clear:hover {
+          color: var(--gray-600);
+          background: var(--gray-100);
+        }
+
+        .search-results {
+          font-size: 14px;
+          color: var(--gray-400);
         }
 
         .table-container {
@@ -181,22 +492,60 @@ export default function ParentsPage() {
 
         .data-table th,
         .data-table td {
-          padding: 14px 16px;
+          padding: 16px 18px;
           text-align: left;
           border-bottom: 1px solid var(--gray-100);
         }
 
         .data-table th {
           font-weight: 600;
-          font-size: 12px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           color: var(--gray-400);
-          background: var(--gray-50);
+          background: linear-gradient(to bottom, var(--gray-50) 0%, var(--white) 100%);
+        }
+
+        .data-table tbody tr {
+          animation: tableRowEnter 0.3s ease-out backwards;
+        }
+
+        @keyframes tableRowEnter {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .data-table tbody tr:hover {
           background: var(--gray-50);
+        }
+
+        .data-table tbody tr:last-child td {
+          border-bottom: none;
+        }
+
+        .parent-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          color: var(--white);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          font-size: 16px;
         }
 
         .parent-name {
@@ -204,48 +553,210 @@ export default function ParentsPage() {
           color: var(--gray-700);
         }
 
+        .contact-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
         .email-link {
-          color: var(--aca-blue);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--aca-teal);
           text-decoration: none;
+          font-size: 14px;
+          transition: color var(--transition-fast);
         }
 
         .email-link:hover {
-          text-decoration: underline;
+          color: var(--aca-teal-dark);
+        }
+
+        .phone {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          color: var(--gray-400);
+        }
+
+        .children-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
 
         .student-count {
           font-weight: 600;
+          font-size: 14px;
           color: var(--gray-600);
         }
 
         .student-names {
-          display: block;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .student-tag {
+          display: inline-block;
+          padding: 4px 10px;
+          background: var(--gray-100);
+          color: var(--gray-600);
+          border-radius: 12px;
           font-size: 12px;
-          color: var(--gray-400);
-          margin-top: 2px;
+          text-decoration: none;
+          transition: all var(--transition-fast);
+        }
+
+        .student-tag:hover {
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
         }
 
         .action-btn {
-          color: var(--aca-blue);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--aca-teal);
           text-decoration: none;
           font-weight: 600;
           font-size: 14px;
+          padding: 6px 12px;
+          border-radius: var(--border-radius);
+          transition: all var(--transition-fast);
         }
 
         .action-btn:hover {
-          text-decoration: underline;
+          background: var(--aca-teal-subtle);
+        }
+
+        .action-buttons {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .portal-btn {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .portal-btn:hover {
+          background: var(--aca-gold);
+          color: var(--aca-navy);
+        }
+
+        .portal-btn:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+
+        .payment-btn {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .payment-btn:hover {
+          background: #bbf7d0;
+        }
+
+        .link-generated {
+          display: flex;
+          gap: 4px;
+          align-items: center;
+        }
+
+        .copy-btn {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .copy-btn:hover {
+          background: #bbf7d0;
+        }
+
+        .dismiss-btn {
+          padding: 6px;
+          color: var(--gray-400);
+        }
+
+        .dismiss-btn:hover {
+          background: var(--gray-100);
+          color: var(--gray-600);
+        }
+
+        .btn-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid var(--aca-gold);
+          border-top-color: var(--aca-navy);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
         }
 
         .empty-state {
-          text-align: center;
-          color: var(--gray-400);
-          padding: 40px !important;
+          padding: 60px 20px !important;
         }
 
-        .loading {
+        .empty-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
           text-align: center;
-          padding: 60px;
+        }
+
+        .empty-icon {
+          width: 80px;
+          height: 80px;
+          background: var(--gray-50);
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--gray-300);
+          margin-bottom: 16px;
+        }
+
+        .empty-title {
+          font-weight: 600;
+          color: var(--gray-600);
+          margin: 0 0 4px 0;
+        }
+
+        .empty-desc {
           color: var(--gray-400);
+          font-size: 14px;
+          margin: 0 0 16px 0;
+        }
+
+        .btn-sm {
+          padding: 10px 20px;
+          font-size: 14px;
+        }
+
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 80px;
+          gap: 16px;
+          color: var(--gray-400);
+        }
+
+        .loading-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--gray-100);
+          border-top-color: var(--aca-teal);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
