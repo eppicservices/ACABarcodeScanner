@@ -58,6 +58,44 @@ export default function StatsBar({ totalScans, successfulScans }: StatsBarProps)
           height: 40px;
           background: var(--gray-200);
         }
+
+        @media (max-width: 480px) {
+          .stats-bar {
+            gap: 16px;
+            padding: 12px 16px;
+          }
+
+          .stat-value {
+            font-size: 24px;
+          }
+
+          .stat-label {
+            font-size: 11px;
+          }
+
+          .stat-divider {
+            height: 32px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .stats-bar {
+            gap: 12px;
+            padding: 10px 12px;
+          }
+
+          .stat-value {
+            font-size: 20px;
+          }
+
+          .stat-label {
+            font-size: 10px;
+          }
+
+          .stat-divider {
+            height: 28px;
+          }
+        }
       `}</style>
     </div>
   );

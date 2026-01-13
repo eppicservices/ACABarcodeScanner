@@ -581,6 +581,119 @@ export default function CsvImport() {
           max-width: 500px;
           text-align: left;
         }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+          .template-download {
+            flex-direction: column;
+            text-align: center;
+            gap: 12px;
+          }
+
+          .template-download .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .drop-zone {
+            padding: 32px 16px;
+          }
+
+          .drop-icon svg {
+            width: 40px;
+            height: 40px;
+          }
+
+          .drop-text {
+            font-size: 15px;
+          }
+
+          .preview-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+
+          .preview-table-container {
+            max-height: 300px;
+          }
+
+          .preview-table {
+            font-size: 12px;
+          }
+
+          .preview-table th,
+          .preview-table td {
+            padding: 8px 10px;
+            white-space: nowrap;
+          }
+
+          .preview-actions {
+            flex-direction: column;
+          }
+
+          .preview-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .result-stats {
+            gap: 20px;
+          }
+
+          .stat-value {
+            font-size: 26px;
+          }
+
+          .complete-section {
+            padding: 24px 16px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .preview-stats {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .preview-table-container {
+            max-height: 250px;
+          }
+
+          .preview-table {
+            font-size: 11px;
+          }
+
+          .preview-table th,
+          .preview-table td {
+            padding: 6px 8px;
+          }
+
+          .result-stats {
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .stat-value {
+            font-size: 28px;
+          }
+
+          .error-list {
+            padding: 12px;
+          }
+
+          .error-list h4 {
+            font-size: 13px;
+          }
+
+          .error-item {
+            font-size: 12px;
+          }
+
+          .importing-section {
+            padding: 40px 20px;
+          }
+        }
       `}</style>
     </div>
   )

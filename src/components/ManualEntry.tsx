@@ -123,6 +123,67 @@ export default function ManualEntry({ onSubmit, isOpen, onClose }: ManualEntryPr
         .modal-actions .btn {
           flex: 1;
         }
+
+        @media (max-width: 480px) {
+          .modal-overlay {
+            padding: 16px;
+          }
+
+          .modal-content {
+            padding: 20px;
+            max-width: 100%;
+          }
+
+          .modal-header h3 {
+            font-size: 18px;
+          }
+
+          .close-btn {
+            padding: 8px;
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .input-label {
+            font-size: 13px;
+          }
+
+          .modal-actions {
+            gap: 10px;
+            margin-top: 16px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .modal-overlay {
+            padding: 12px;
+          }
+
+          .modal-content {
+            padding: 16px;
+          }
+
+          .modal-header h3 {
+            font-size: 16px;
+          }
+
+          .modal-header {
+            margin-bottom: 16px;
+          }
+
+          .input-label {
+            font-size: 12px;
+            margin-bottom: 6px;
+          }
+
+          .modal-actions {
+            flex-direction: column;
+            gap: 8px;
+          }
+        }
       `}</style>
     </div>
   );

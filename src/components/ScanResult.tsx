@@ -154,6 +154,66 @@ export default function ScanResult({ code, status, studentName, message, onDismi
         .dismiss-btn:hover {
           background: rgba(255, 255, 255, 1);
         }
+
+        @media (max-width: 480px) {
+          .result-container {
+            padding: 32px 20px;
+          }
+
+          .result-icon :global(svg) {
+            width: 56px;
+            height: 56px;
+          }
+
+          .result-title {
+            font-size: 20px;
+          }
+
+          .student-name {
+            font-size: 18px;
+          }
+
+          .result-message {
+            font-size: 13px;
+          }
+
+          .barcode-display {
+            font-size: 11px;
+            margin-bottom: 20px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .result-container {
+            padding: 24px 16px;
+          }
+
+          .result-icon :global(svg) {
+            width: 48px;
+            height: 48px;
+          }
+
+          .result-icon {
+            margin-bottom: 12px;
+          }
+
+          .result-title {
+            font-size: 18px;
+          }
+
+          .student-name {
+            font-size: 16px;
+          }
+
+          .result-message {
+            font-size: 12px;
+          }
+
+          .barcode-display {
+            font-size: 10px;
+            margin-bottom: 16px;
+          }
+        }
       `}</style>
     </div>
   );

@@ -116,16 +116,31 @@ export default function AdminNav() {
 
   return (
     <>
-      {/* Mobile Menu Toggle Button */}
-      <button
-        className={`mobile-menu-toggle ${isOpen ? 'is-open' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? 'Close menu' : 'Open menu'}
-      >
-        <span className="hamburger-line" />
-        <span className="hamburger-line" />
-        <span className="hamburger-line" />
-      </button>
+      {/* Mobile Header Bar */}
+      <header className="mobile-header">
+        <div className="mobile-header-gold-bar" />
+        <div className="mobile-header-content">
+          <button
+            className={`mobile-menu-toggle ${isOpen ? 'is-open' : ''}`}
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
+          >
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
+          </button>
+          <Link href="/admin/students" className="mobile-header-logo">
+            <Image
+              src="https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png"
+              alt="ACA"
+              width={140}
+              height={35}
+              priority
+            />
+          </Link>
+          <div className="mobile-header-spacer" />
+        </div>
+      </header>
 
       {/* Overlay */}
       <div
@@ -203,36 +218,70 @@ export default function AdminNav() {
         </div>
 
         <style jsx>{`
+          /* Mobile Header Bar */
+          .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 150;
+            background: #002c5f;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+          }
+
+          .mobile-header-gold-bar {
+            height: 3px;
+            background: linear-gradient(90deg, #d4af37 0%, #ffe082 50%, #d4af37 100%);
+          }
+
+          .mobile-header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            gap: 12px;
+          }
+
+          .mobile-header-logo {
+            display: flex;
+            align-items: center;
+          }
+
+          .mobile-header-spacer {
+            width: 44px;
+          }
+
           /* Mobile Menu Toggle Button */
           .mobile-menu-toggle {
             display: none;
-            position: fixed;
-            top: 16px;
-            left: 16px;
-            z-index: 200;
-            width: 48px;
-            height: 48px;
-            background: #002c5f;
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            min-height: 44px;
+            background: rgba(255, 255, 255, 0.1);
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             cursor: pointer;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 5px;
-            padding: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 10px;
+            transition: all 0.2s ease;
           }
 
           .mobile-menu-toggle:hover {
-            background: #003366;
-            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.15);
+          }
+
+          .mobile-menu-toggle:active {
+            transform: scale(0.95);
           }
 
           .hamburger-line {
             display: block;
-            width: 22px;
+            width: 20px;
             height: 2px;
             background: #d4af37;
             border-radius: 2px;
@@ -277,8 +326,10 @@ export default function AdminNav() {
             position: absolute;
             top: 16px;
             right: 16px;
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            min-height: 44px;
             background: rgba(255, 255, 255, 0.1);
             border: none;
             border-radius: 10px;
@@ -479,12 +530,17 @@ export default function AdminNav() {
 
           /* Mobile Styles */
           @media (max-width: 767px) {
+            .mobile-header {
+              display: block;
+            }
+
             .mobile-menu-toggle {
               display: flex;
             }
 
             .nav-overlay {
               display: block;
+              top: 0;
             }
 
             .mobile-close-btn {
@@ -496,6 +552,7 @@ export default function AdminNav() {
               transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
               width: 280px;
               box-shadow: none;
+              top: 0;
             }
 
             .admin-nav.is-open {
@@ -505,7 +562,7 @@ export default function AdminNav() {
 
             .nav-header {
               padding: 24px 20px;
-              padding-top: 60px;
+              padding-top: 20px;
             }
 
             .add-payment-section {

@@ -679,7 +679,12 @@ export default function ParentsPage() {
 
         .dismiss-btn {
           padding: 6px;
+          min-width: 44px;
+          min-height: 44px;
           color: var(--gray-400);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .dismiss-btn:hover {
