@@ -225,6 +225,7 @@ export default function AdminNav() {
             top: 0;
             left: 0;
             right: 0;
+            width: 100%;
             z-index: 150;
             background: #002c5f;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
@@ -232,6 +233,7 @@ export default function AdminNav() {
 
           .mobile-header-gold-bar {
             height: 3px;
+            width: 100%;
             background: linear-gradient(90deg, #d4af37 0%, #ffe082 50%, #d4af37 100%);
           }
 
@@ -241,6 +243,8 @@ export default function AdminNav() {
             justify-content: space-between;
             padding: 10px 16px;
             gap: 12px;
+            height: 56px;
+            box-sizing: border-box;
           }
 
           .mobile-header-logo {
@@ -532,6 +536,8 @@ export default function AdminNav() {
           @media (max-width: 767px) {
             .mobile-header {
               display: block;
+              height: auto;
+              min-height: 59px;
             }
 
             .mobile-menu-toggle {
@@ -551,6 +557,7 @@ export default function AdminNav() {
               transform: translateX(-100%);
               transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
               width: 280px;
+              max-width: 85vw;
               box-shadow: none;
               top: 0;
             }

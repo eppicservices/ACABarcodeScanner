@@ -658,6 +658,11 @@ export default function StudentsPage() {
 
         /* Mobile optimizations */
         @media (max-width: 768px) {
+          .students-page {
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+
           .page-header {
             flex-direction: column;
             align-items: flex-start;
@@ -720,14 +725,14 @@ export default function StudentsPage() {
           }
 
           .table-container {
-            margin: 0 -12px;
-            border-radius: 0;
-            border-left: none;
-            border-right: none;
+            margin: 0;
+            border-radius: var(--border-radius-lg);
+            overflow: hidden;
           }
 
           .data-table {
             display: block;
+            width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
           }
@@ -745,6 +750,7 @@ export default function StudentsPage() {
             left: 0;
             background: var(--white);
             z-index: 1;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
           }
 
           .data-table th:first-child {

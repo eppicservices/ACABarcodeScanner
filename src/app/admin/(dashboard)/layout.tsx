@@ -19,6 +19,8 @@ export default function DashboardLayout({
           display: flex;
           min-height: 100vh;
           min-height: 100dvh;
+          width: 100%;
+          overflow-x: hidden;
         }
 
         .admin-main {
@@ -26,6 +28,9 @@ export default function DashboardLayout({
           margin-left: 260px;
           min-height: 100vh;
           min-height: 100dvh;
+          width: calc(100% - 260px);
+          max-width: 100%;
+          overflow-x: hidden;
           background:
             radial-gradient(ellipse at 100% 0%, rgba(46, 139, 192, 0.03) 0%, transparent 50%),
             radial-gradient(ellipse at 0% 100%, rgba(212, 169, 41, 0.02) 0%, transparent 50%),
@@ -45,6 +50,8 @@ export default function DashboardLayout({
           position: relative;
           padding: 32px 40px;
           max-width: 1400px;
+          width: 100%;
+          box-sizing: border-box;
           animation: fadeIn 0.3s ease-out;
         }
 
@@ -57,6 +64,7 @@ export default function DashboardLayout({
         @media (max-width: 767px) {
           .admin-main {
             margin-left: 0;
+            width: 100%;
           }
 
           .admin-content {
