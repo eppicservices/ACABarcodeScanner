@@ -20,24 +20,32 @@ export default function StudentsPage() {
   const [filter, setFilter] = useState<'all' | 'elementary' | 'high_school'>('all')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    fetchStudents()
-  }, [])
+    const supabase = createClient()
+    let isMounted = true
 
-  async function fetchStudents() {
-    const { data, error } = await supabase
-      .from('students')
-      .select('*, parent:parents(*)')
-      .order('name')
+    async function fetchStudents() {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*, parent:parents(*)')
+        .order('name')
 
-    if (!error && data) {
-      setStudents(data as StudentWithParent[])
+      if (isMounted) {
+        if (!error && data) {
+          setStudents(data as StudentWithParent[])
+        }
+        setLoading(false)
+      }
     }
-    setLoading(false)
-  }
+
+    fetchStudents()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -290,9 +298,7 @@ export default function StudentsPage() {
                     </td>
                     <td className="parent-cell">{student.parent.name}</td>
                     <td>
-                      <span className={`balance ${getBalanceClass(student.balance)}`}>
-                        {student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}
-                      </span>
+                      <span className={`balance ${getBalanceClass(student.balance)}`}></span>
                     </td>
                   </tr>
                 ))}
@@ -871,6 +877,7 @@ export default function StudentsPage() {
         .student-name {
           font-weight: 600;
           color: var(--gray-700);
+          white-space: nowrap;
         }
 
         .barcode {
@@ -904,6 +911,7 @@ export default function StudentsPage() {
 
         .parent-cell {
           color: var(--gray-500);
+          white-space: nowrap;
         }
 
         .balance {
@@ -912,6 +920,7 @@ export default function StudentsPage() {
           font-size: 14px;
           padding: 4px 10px;
           border-radius: var(--border-radius-sm);
+          white-space: nowrap;
         }
 
         .balance-good {

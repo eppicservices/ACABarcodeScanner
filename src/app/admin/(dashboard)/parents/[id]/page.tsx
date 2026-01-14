@@ -25,29 +25,38 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   const [address, setAddress] = useState('')
 
   const router = useRouter()
-  const supabase = createClient()
+  const [refetchTrigger, setRefetchTrigger] = useState(0)
 
   useEffect(() => {
-    fetchParent()
-  }, [id])
+    const supabase = createClient()
+    let isMounted = true
 
-  async function fetchParent() {
-    const { data, error } = await supabase
-      .from('parents')
-      .select('*, students(*)')
-      .eq('id', id)
-      .single()
+    async function fetchParent() {
+      const { data } = await supabase
+        .from('parents')
+        .select('*, students(*)')
+        .eq('id', id)
+        .single()
 
-    if (data) {
-      const p = data as ParentWithStudents
-      setParent(p)
-      setName(p.name)
-      setEmail(p.email)
-      setPhone(p.phone || '')
-      setAddress(p.address || '')
+      if (isMounted) {
+        if (data) {
+          const p = data as ParentWithStudents
+          setParent(p)
+          setName(p.name)
+          setEmail(p.email)
+          setPhone(p.phone || '')
+          setAddress(p.address || '')
+        }
+        setLoading(false)
+      }
     }
-    setLoading(false)
-  }
+
+    fetchParent()
+
+    return () => {
+      isMounted = false
+    }
+  }, [id, refetchTrigger])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -55,7 +64,8 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     setSuccess(null)
     setSaving(true)
 
-    const { error } = await supabase
+    const supabase = createClient()
+    const { error: saveError } = await supabase
       .from('parents')
       .update({
         name,
@@ -65,12 +75,12 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
       })
       .eq('id', id)
 
-    if (error) {
-      setError(error.message)
+    if (saveError) {
+      setError(saveError.message)
     } else {
       setSuccess('Parent updated successfully')
       setIsEditing(false)
-      fetchParent()
+      setRefetchTrigger(prev => prev + 1)
     }
 
     setSaving(false)
@@ -99,10 +109,11 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
       return
     }
 
-    const { error } = await supabase.from('parents').delete().eq('id', id)
+    const supabase = createClient()
+    const { error: deleteError } = await supabase.from('parents').delete().eq('id', id)
 
-    if (error) {
-      setError('Failed to delete parent: ' + error.message)
+    if (deleteError) {
+      setError('Failed to delete parent: ' + deleteError.message)
     } else {
       router.push('/admin/parents')
     }
