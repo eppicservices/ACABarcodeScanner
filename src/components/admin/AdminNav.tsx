@@ -409,7 +409,7 @@ export default function AdminNav() {
           }
 
           .add-payment-section {
-            padding: 16px 16px 20px;
+            padding: 16px 20px 20px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           }
 
@@ -468,7 +468,7 @@ export default function AdminNav() {
             display: flex;
             flex-direction: column;
             gap: 2px;
-            padding: 0 12px;
+            padding: 0 16px;
           }
 
           .nav-link {
@@ -538,7 +538,7 @@ export default function AdminNav() {
           }
 
           .nav-footer {
-            padding: 16px 12px 20px;
+            padding: 16px 16px 20px;
             border-top: 1px solid rgba(255, 255, 255, 0.08);
           }
 
@@ -583,7 +583,7 @@ export default function AdminNav() {
             }
 
             .add-payment-section {
-              padding: 12px 14px 16px;
+              padding: 12px 16px 16px;
             }
 
             .nav-section {
@@ -595,7 +595,7 @@ export default function AdminNav() {
             }
 
             .nav-links {
-              padding: 0 10px;
+              padding: 0 14px;
             }
 
             .nav-link {
@@ -603,7 +603,7 @@ export default function AdminNav() {
             }
 
             .nav-footer {
-              padding: 14px 10px 24px;
+              padding: 14px 14px 24px;
             }
           }
         `}</style>
