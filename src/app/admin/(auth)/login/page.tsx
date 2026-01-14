@@ -56,10 +56,10 @@ export default function LoginPage() {
         <div className="brand-content">
           <div className="logo-wrapper">
             <Image
-              src="https://www.aldersgatechristian.com/wp-content/uploads/2020/09/aca-logo-blue.png"
+              src="https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png"
               alt="Aldersgate Christian Academy"
               width={220}
-              height={80}
+              height={55}
               className="brand-logo"
               priority
             />
@@ -288,7 +288,6 @@ export default function LoginPage() {
         }
 
         :global(.brand-logo) {
-          filter: brightness(0) invert(1);
           height: auto;
           width: auto;
           max-height: 60px;
