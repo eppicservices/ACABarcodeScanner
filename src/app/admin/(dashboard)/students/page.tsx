@@ -304,6 +304,148 @@ export default function StudentsPage() {
         </>
       )}
 
+      <style jsx global>{`
+        /* Mobile List Styles - Global to work with Link components */
+        .mobile-list {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-100);
+          overflow: hidden;
+        }
+
+        .mobile-list .list-header {
+          padding: 12px 16px;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .mobile-list .list-items {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .mobile-list .list-item {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          gap: 12px;
+          padding: 14px 16px;
+          text-decoration: none;
+          border-bottom: 1px solid var(--gray-100);
+          transition: background 0.15s ease;
+        }
+
+        .mobile-list .list-item:last-child {
+          border-bottom: none;
+        }
+
+        .mobile-list .list-item:active {
+          background: var(--gray-50);
+        }
+
+        .mobile-list .list-item-avatar {
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white);
+          font-weight: 600;
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+
+        .mobile-list .list-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .mobile-list .list-item-name {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 15px;
+          margin-bottom: 4px;
+        }
+
+        .mobile-list .list-item-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          color: var(--gray-400);
+        }
+
+        .mobile-list .list-item-level {
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .mobile-list .list-item-level.elementary {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+
+        .mobile-list .list-item-level.high_school {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .mobile-list .list-item-barcode {
+          font-family: 'SF Mono', Monaco, monospace;
+          color: var(--gray-400);
+        }
+
+        .mobile-list .list-item-balance-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--gray-300);
+          flex-shrink: 0;
+        }
+
+        .mobile-list .list-item-balance {
+          font-family: 'SF Mono', Monaco, monospace;
+          font-weight: 700;
+          font-size: 18px;
+          min-width: 28px;
+          text-align: right;
+        }
+
+        .mobile-list .list-item-balance.balance-good {
+          color: var(--success);
+        }
+
+        .mobile-list .list-item-balance.balance-warning {
+          color: var(--warning);
+        }
+
+        .mobile-list .list-item-balance.balance-danger {
+          color: var(--error);
+        }
+
+        .mobile-list .empty-state-mobile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          color: var(--gray-400);
+          gap: 12px;
+        }
+
+        .mobile-list .empty-state-mobile p {
+          margin: 0;
+          font-size: 14px;
+        }
+      `}</style>
+
       <style jsx>{`
         .students-page {
           max-width: 1200px;
@@ -718,155 +860,6 @@ export default function StudentsPage() {
 
         .mobile-only {
           display: none;
-        }
-
-        /* Mobile List Styles */
-        .mobile-list {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-100);
-          overflow: hidden;
-        }
-
-        .list-header {
-          padding: 12px 16px;
-          background: var(--gray-50);
-          border-bottom: 1px solid var(--gray-100);
-        }
-
-        .list-items {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .list-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 16px;
-          text-decoration: none;
-          border-bottom: 1px solid var(--gray-100);
-          transition: background 0.15s ease;
-          animation: listItemEnter 0.3s ease-out backwards;
-        }
-
-        .list-item:last-child {
-          border-bottom: none;
-        }
-
-        .list-item:active {
-          background: var(--gray-50);
-        }
-
-        @keyframes listItemEnter {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .list-item-avatar {
-          width: 44px;
-          height: 44px;
-          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--white);
-          font-weight: 600;
-          font-size: 16px;
-          flex-shrink: 0;
-        }
-
-        .list-item-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .list-item-name {
-          font-weight: 600;
-          color: var(--gray-700);
-          font-size: 15px;
-          margin-bottom: 4px;
-        }
-
-        .list-item-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 12px;
-          color: var(--gray-400);
-        }
-
-        .list-item-level {
-          padding: 2px 8px;
-          border-radius: 10px;
-          font-weight: 600;
-          font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-        }
-
-        .list-item-level.elementary {
-          background: #dbeafe;
-          color: #1e40af;
-        }
-
-        .list-item-level.high_school {
-          background: var(--aca-gold-subtle);
-          color: var(--aca-gold-dark);
-        }
-
-        .list-item-barcode {
-          font-family: 'SF Mono', Monaco, monospace;
-          color: var(--gray-400);
-        }
-
-        .list-item-balance-wrap {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--gray-300);
-        }
-
-        .list-item-balance {
-          font-family: 'SF Mono', Monaco, monospace;
-          font-weight: 700;
-          font-size: 18px;
-          min-width: 28px;
-          text-align: right;
-        }
-
-        .list-item-balance.balance-good {
-          color: var(--success);
-        }
-
-        .list-item-balance.balance-warning {
-          color: var(--warning);
-        }
-
-        .list-item-balance.balance-danger {
-          color: var(--error);
-        }
-
-        .empty-state-mobile {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 20px;
-          color: var(--gray-400);
-          gap: 12px;
-        }
-
-        .empty-state-mobile p {
-          margin: 0;
-          font-size: 14px;
         }
 
         /* Mobile optimizations */
