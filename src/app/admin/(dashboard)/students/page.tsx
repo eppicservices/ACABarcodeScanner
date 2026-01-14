@@ -110,7 +110,7 @@ export default function StudentsPage() {
             <p className="subtitle">Manage student accounts and balances</p>
           </div>
         </div>
-        <Link href="/admin/students/new" className="btn btn-primary">
+        <Link href="/admin/students/new" className="btn btn-primary desktop-only">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -243,6 +243,30 @@ export default function StudentsPage() {
             <option value="level-desc">Level (HS First)</option>
           </select>
         </div>
+      </div>
+
+      {/* Mobile Action Bar */}
+      <div className="mobile-action-bar mobile-only">
+        <Link href="/admin/students/new" className="action-bar-btn primary">
+          <div className="action-bar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+          </div>
+          <span>Add Student</span>
+        </Link>
+        <Link href="/admin/add-payment" className="action-bar-btn secondary">
+          <div className="action-bar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <span>Add Payment</span>
+        </Link>
       </div>
 
       {loading ? (
@@ -1050,6 +1074,11 @@ export default function StudentsPage() {
           display: grid;
         }
 
+        /* Mobile action bar - hidden on desktop */
+        .mobile-action-bar {
+          display: none;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
           .desktop-only {
@@ -1107,6 +1136,93 @@ export default function StudentsPage() {
 
           .mobile-stats {
             display: flex !important;
+          }
+
+          /* Mobile action bar */
+          .mobile-action-bar {
+            display: flex !important;
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+
+          .action-bar-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 12px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .action-bar-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+
+          .action-bar-btn.primary {
+            background: linear-gradient(145deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+            color: var(--white);
+            box-shadow: 0 4px 14px rgba(0, 177, 193, 0.35);
+          }
+
+          .action-bar-btn.primary::before {
+            background: linear-gradient(145deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+          }
+
+          .action-bar-btn.primary:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 8px rgba(0, 177, 193, 0.25);
+          }
+
+          .action-bar-btn.primary:active::before {
+            opacity: 1;
+          }
+
+          .action-bar-btn.secondary {
+            background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
+            color: var(--white);
+            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+          }
+
+          .action-bar-btn.secondary::before {
+            background: linear-gradient(145deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+          }
+
+          .action-bar-btn.secondary:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+          }
+
+          .action-bar-btn.secondary:active::before {
+            opacity: 1;
+          }
+
+          .action-bar-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+          }
+
+          .action-bar-btn span {
+            letter-spacing: 0.01em;
           }
 
           /* Mini Pills Stats */

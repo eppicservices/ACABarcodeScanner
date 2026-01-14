@@ -19,8 +19,6 @@ export default function ParentsPage() {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [generatingLink, setGeneratingLink] = useState<string | null>(null)
-  const [linkMessage, setLinkMessage] = useState<{ parentId: string; url: string } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -75,36 +73,6 @@ export default function ParentsPage() {
   const totalStudents = parents.reduce((sum, p) => sum + p.students.length, 0)
   const parentsWithMultipleKids = parents.filter(p => p.students.length > 1).length
 
-  async function handleGenerateLink(parentId: string) {
-    setGeneratingLink(parentId)
-    setLinkMessage(null)
-
-    try {
-      const res = await fetch('/api/parent-portal/generate-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent_id: parentId })
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        setLinkMessage({ parentId, url: data.portalUrl })
-      } else {
-        alert(data.error || 'Failed to generate link')
-      }
-    } catch {
-      alert('Failed to generate link')
-    }
-
-    setGeneratingLink(null)
-  }
-
-  function copyLink(url: string) {
-    navigator.clipboard.writeText(url)
-    alert('Link copied to clipboard!')
-  }
-
   return (
     <div className="parents-page">
       <div className="page-header">
@@ -122,7 +90,7 @@ export default function ParentsPage() {
             <p className="subtitle">Manage parent contact information</p>
           </div>
         </div>
-        <Link href="/admin/parents/new" className="btn btn-primary">
+        <Link href="/admin/parents/new" className="btn btn-primary desktop-only">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -131,7 +99,8 @@ export default function ParentsPage() {
         </Link>
       </div>
 
-      <div className="stats-row">
+      {/* Desktop Stats Grid */}
+      <div className="stats-row desktop-stats">
         <div className="stat-card">
           <div className="stat-icon total">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -174,6 +143,15 @@ export default function ParentsPage() {
             <span className="stat-label">Multiple Children</span>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Stats Pills */}
+      <div className="stats-pills mobile-stats">
+        <span className="stat-pill">{parents.length} Parents</span>
+        <span className="stat-pill students">{totalStudents} Students</span>
+        {parentsWithMultipleKids > 0 && (
+          <span className="stat-pill families">{parentsWithMultipleKids} Multi</span>
+        )}
       </div>
 
       <div className="filters card">
@@ -222,6 +200,30 @@ export default function ParentsPage() {
             <option value="children-asc">Children (Least First)</option>
           </select>
         </div>
+      </div>
+
+      {/* Mobile Action Bar */}
+      <div className="mobile-action-bar mobile-only">
+        <Link href="/admin/parents/new" className="action-bar-btn primary">
+          <div className="action-bar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+          </div>
+          <span>Add Parent</span>
+        </Link>
+        <Link href="/admin/add-payment" className="action-bar-btn secondary">
+          <div className="action-bar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <span>Add Payment</span>
+        </Link>
       </div>
 
       {loading ? (
@@ -283,52 +285,20 @@ export default function ParentsPage() {
                       <span className="student-count">
                         {parent.students.length} {parent.students.length === 1 ? 'child' : 'children'}
                       </span>
-                      {parent.students.length > 0 && (
-                        <div className="student-names">
-                          {parent.students.map((s) => (
-                            <Link key={s.id} href={`/admin/students/${s.id}`} className="student-tag">
-                              {s.name.split(' ')[0]}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td>
                     <div className="action-buttons">
-                      {linkMessage?.parentId === parent.id ? (
-                        <div className="link-generated">
-                          <button onClick={() => copyLink(linkMessage.url)} className="action-btn copy-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                            Copy Link
-                          </button>
-                          <button onClick={() => setLinkMessage(null)} className="action-btn dismiss-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleGenerateLink(parent.id)}
-                          className="action-btn portal-btn"
-                          disabled={generatingLink === parent.id}
-                        >
-                          {generatingLink === parent.id ? (
-                            <span className="btn-spinner" />
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
-                          )}
-                          Portal Link
-                        </button>
-                      )}
+                      <a
+                        href={`mailto:${parent.email}?subject=Lunch Balance Update&body=Hello ${parent.name},%0D%0A%0D%0AYour current family lunch balance is $${getFamilyBalance(parent).toFixed(2)}.%0D%0A%0D%0AThank you!`}
+                        className="action-btn email-btn"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                          <polyline points="22,6 12,13 2,6" />
+                        </svg>
+                        Email Balance
+                      </a>
                       <Link href={`/admin/add-payment?parent=${parent.id}`} className="action-btn payment-btn">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="12" y1="5" x2="12" y2="19" />
@@ -394,69 +364,28 @@ export default function ParentsPage() {
             ) : (
               <div className="list-items">
                 {filteredParents.map((parent, index) => (
-                  <div
+                  <Link
                     key={parent.id}
+                    href={`/admin/parents/${parent.id}`}
                     className="list-item"
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
-                    <Link href={`/admin/parents/${parent.id}`} className="list-item-main">
-                      <div className="list-item-avatar">
-                        {parent.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="list-item-content">
-                        <div className="list-item-name">{parent.name}</div>
-                        <div className="list-item-meta">
-                          <span className="list-item-email">{parent.email}</span>
-                        </div>
-                        <div className="list-item-children">
-                          {parent.students.length === 0 ? (
-                            <span className="no-children">No children</span>
-                          ) : (
-                            parent.students.map((s) => (
-                              <span key={s.id} className="child-tag">{s.name.split(' ')[0]}</span>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                      <svg className="list-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </Link>
-                    <div className="list-item-actions">
-                      {linkMessage?.parentId === parent.id ? (
-                        <button onClick={() => copyLink(linkMessage.url)} className="mobile-action-btn copy">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                          </svg>
-                          Copy
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleGenerateLink(parent.id)}
-                          className="mobile-action-btn link"
-                          disabled={generatingLink === parent.id}
-                        >
-                          {generatingLink === parent.id ? (
-                            <span className="btn-spinner-sm" />
-                          ) : (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
-                          )}
-                          Link
-                        </button>
-                      )}
-                      <Link href={`/admin/add-payment?parent=${parent.id}`} className="mobile-action-btn payment">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="12" y1="5" x2="12" y2="19" />
-                          <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Pay
-                      </Link>
+                    <div className="list-item-avatar">
+                      {parent.name.charAt(0).toUpperCase()}
                     </div>
-                  </div>
+                    <div className="list-item-content">
+                      <div className="list-item-name">{parent.name}</div>
+                      <div className="list-item-meta">
+                        <span className="list-item-children-count">
+                          {parent.students.length} {parent.students.length === 1 ? 'child' : 'children'}
+                        </span>
+                        <span className="list-item-email">{parent.email}</span>
+                      </div>
+                    </div>
+                    <svg className="list-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </Link>
                 ))}
               </div>
             )}
@@ -468,9 +397,10 @@ export default function ParentsPage() {
           /* Mobile List Styles - Global to work with Link components */
           .parents-page .mobile-list {
               background: var(--white);
-              border-radius: var(--border-radius-lg);
+              border-radius: 14px;
               border: 1px solid var(--gray-100);
               overflow: hidden;
+              box-shadow: 0 2px 8px rgba(0, 44, 95, 0.04);
           }
 
           .parents-page .mobile-list .list-header {
@@ -479,62 +409,97 @@ export default function ParentsPage() {
               border-bottom: 1px solid var(--gray-100);
           }
 
+          .parents-page .mobile-list .results-count {
+              font-size: 12px;
+              font-weight: 600;
+              color: var(--gray-500);
+              letter-spacing: 0.02em;
+          }
+
           .parents-page .mobile-list .list-items {
               display: flex;
               flex-direction: column;
           }
 
           .parents-page .mobile-list .list-item {
-              display: flex;
-              flex-direction: column;
+              display: flex !important;
+              flex-direction: row !important;
+              align-items: center !important;
+              gap: 14px;
+              padding: 14px 16px;
+              text-decoration: none;
               border-bottom: 1px solid var(--gray-100);
-              animation: listItemEnter 0.3s ease-out backwards;
+              transition: all 0.15s ease;
+              animation: listItemFadeIn 0.3s ease-out backwards;
+          }
+
+          @keyframes listItemFadeIn {
+              from {
+                  opacity: 0;
+                  transform: translateY(8px);
+              }
+              to {
+                  opacity: 1;
+                  transform: translateY(0);
+              }
           }
 
           .parents-page .mobile-list .list-item:last-child {
               border-bottom: none;
           }
 
-          .parents-page .mobile-list .list-item-main {
-              display: flex !important;
-              align-items: center !important;
-              gap: 12px;
-              padding: 14px 16px;
-              text-decoration: none;
-              transition: background 0.15s ease;
-          }
-
-          .parents-page .mobile-list .list-item-main:active {
+          .parents-page .mobile-list .list-item:active {
               background: var(--gray-50);
+              transform: scale(0.99);
           }
 
           .parents-page .mobile-list .list-item-avatar {
-              width: 44px;
-              height: 44px;
-              min-width: 44px;
-              background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
-              border-radius: 12px;
+              width: 46px;
+              height: 46px;
+              min-width: 46px;
+              background: linear-gradient(145deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+              border-radius: 13px;
               display: flex;
               align-items: center;
               justify-content: center;
               color: var(--white);
-              font-weight: 600;
-              font-size: 16px;
+              font-weight: 700;
+              font-size: 17px;
               flex-shrink: 0;
+              box-shadow: 0 2px 8px rgba(0, 177, 193, 0.25);
+              letter-spacing: -0.02em;
+          }
+
+          .parents-page .mobile-list .list-item-content {
+              flex: 1;
+              min-width: 0;
           }
 
           .parents-page .mobile-list .list-item-name {
               font-weight: 600;
               color: var(--gray-700);
               font-size: 15px;
-              margin-bottom: 2px;
+              margin-bottom: 5px;
+              letter-spacing: -0.01em;
           }
 
           .parents-page .mobile-list .list-item-meta {
               display: flex;
               align-items: center;
-              gap: 8px;
-              margin-bottom: 6px;
+              gap: 10px;
+              font-size: 12px;
+              color: var(--gray-400);
+          }
+
+          .parents-page .mobile-list .list-item-children-count {
+              padding: 3px 9px;
+              background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+              border-radius: 8px;
+              font-weight: 700;
+              font-size: 10px;
+              color: #1e40af;
+              text-transform: uppercase;
+              letter-spacing: 0.04em;
           }
 
           .parents-page .mobile-list .list-item-email {
@@ -545,91 +510,10 @@ export default function ParentsPage() {
               white-space: nowrap;
           }
 
-          .parents-page .mobile-list .list-item-children {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 4px;
-          }
-
-          .parents-page .mobile-list .child-tag {
-              padding: 2px 8px;
-              background: var(--gray-100);
-              border-radius: 8px;
-              font-size: 11px;
-              color: var(--gray-600);
-              font-weight: 500;
-          }
-
-          .parents-page .mobile-list .no-children {
-              font-size: 11px;
-              color: var(--gray-400);
-              font-style: italic;
-          }
-
           .parents-page .mobile-list .list-item-chevron {
               color: var(--gray-300);
               flex-shrink: 0;
-          }
-
-          .parents-page .mobile-list .list-item-actions {
-              display: flex;
-              gap: 8px;
-              padding: 0 16px 14px;
-              margin-top: -4px;
-          }
-
-          .parents-page .mobile-list .mobile-action-btn {
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              padding: 10px 14px;
-              border-radius: var(--border-radius);
-              font-size: 12px;
-              font-weight: 600;
-              text-decoration: none;
-              transition: all var(--transition-fast);
-              border: none;
-              cursor: pointer;
-              font-family: var(--font-body);
-              min-height: 44px;
-          }
-
-          .parents-page .mobile-list .mobile-action-btn.link {
-              background: var(--aca-gold-subtle);
-              color: var(--aca-gold-dark);
-          }
-
-          .parents-page .mobile-list .mobile-action-btn.link:active {
-              background: var(--aca-gold);
-              color: var(--aca-navy);
-          }
-
-          .parents-page .mobile-list .mobile-action-btn.link:disabled {
-              opacity: 0.6;
-              cursor: wait;
-          }
-
-          .parents-page .mobile-list .mobile-action-btn.copy {
-              background: var(--success-bg);
-              color: var(--success);
-          }
-
-          .parents-page .mobile-list .mobile-action-btn.payment {
-              background: var(--success-bg);
-              color: var(--success);
-          }
-
-          .parents-page .mobile-list .mobile-action-btn.payment:active {
-              background: #bbf7d0;
-          }
-
-          .parents-page .mobile-list .btn-spinner-sm {
-              width: 14px;
-              height: 14px;
-              border: 2px solid var(--aca-gold);
-              border-top-color: var(--aca-navy);
-              border-radius: 50%;
-              animation: spin 0.8s linear infinite;
+              opacity: 0.4;
           }
 
           .parents-page .mobile-list .empty-state-mobile {
@@ -637,14 +521,19 @@ export default function ParentsPage() {
               flex-direction: column;
               align-items: center;
               justify-content: center;
-              padding: 48px 20px;
+              padding: 56px 24px;
               color: var(--gray-400);
-              gap: 12px;
+              gap: 14px;
+          }
+
+          .parents-page .mobile-list .empty-state-mobile svg {
+              opacity: 0.5;
           }
 
           .parents-page .mobile-list .empty-state-mobile p {
               margin: 0;
               font-size: 14px;
+              font-weight: 500;
           }
       `}</style>
 
@@ -989,28 +878,6 @@ export default function ParentsPage() {
           color: var(--gray-600);
         }
 
-        .student-names {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-        }
-
-        .student-tag {
-          display: inline-block;
-          padding: 4px 10px;
-          background: var(--gray-100);
-          color: var(--gray-600);
-          border-radius: 12px;
-          font-size: 12px;
-          text-decoration: none;
-          transition: all var(--transition-fast);
-        }
-
-        .student-tag:hover {
-          background: var(--aca-teal-subtle);
-          color: var(--aca-teal);
-        }
-
         .action-btn {
           display: inline-flex;
           align-items: center;
@@ -1034,19 +901,14 @@ export default function ParentsPage() {
           align-items: center;
         }
 
-        .portal-btn {
-          background: var(--aca-gold-subtle);
-          color: var(--aca-gold-dark);
+        .email-btn {
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
         }
 
-        .portal-btn:hover {
-          background: var(--aca-gold);
-          color: var(--aca-navy);
-        }
-
-        .portal-btn:disabled {
-          opacity: 0.6;
-          cursor: wait;
+        .email-btn:hover {
+          background: var(--aca-teal);
+          color: var(--white);
         }
 
         .payment-btn {
@@ -1056,45 +918,6 @@ export default function ParentsPage() {
 
         .payment-btn:hover {
           background: #bbf7d0;
-        }
-
-        .link-generated {
-          display: flex;
-          gap: 4px;
-          align-items: center;
-        }
-
-        .copy-btn {
-          background: var(--success-bg);
-          color: var(--success);
-        }
-
-        .copy-btn:hover {
-          background: #bbf7d0;
-        }
-
-        .dismiss-btn {
-          padding: 6px;
-          min-width: 44px;
-          min-height: 44px;
-          color: var(--gray-400);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .dismiss-btn:hover {
-          background: var(--gray-100);
-          color: var(--gray-600);
-        }
-
-        .btn-spinner {
-          width: 14px;
-          height: 14px;
-          border: 2px solid var(--aca-gold);
-          border-top-color: var(--aca-navy);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
         }
 
         .empty-state {
@@ -1169,21 +992,18 @@ export default function ParentsPage() {
           display: none;
         }
 
-        .results-count {
-          font-size: 13px;
-          color: var(--gray-500);
-          font-weight: 500;
+        /* Mobile stats pills - hidden on desktop */
+        .mobile-stats {
+          display: none;
         }
 
-        @keyframes listItemEnter {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .desktop-stats {
+          display: grid;
+        }
+
+        /* Mobile action bar - hidden on desktop */
+        .mobile-action-bar {
+          display: none;
         }
 
         /* Mobile optimizations */
@@ -1195,6 +1015,103 @@ export default function ParentsPage() {
           .mobile-only {
             display: block !important;
           }
+
+          /* Hide desktop stats, show mobile pills */
+          .desktop-stats {
+            display: none !important;
+          }
+
+          .mobile-stats {
+            display: flex !important;
+          }
+
+          /* Mobile action bar */
+          .mobile-action-bar {
+            display: flex !important;
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+
+          .action-bar-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 12px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .action-bar-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+
+          .action-bar-btn.primary {
+            background: linear-gradient(145deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+            color: var(--white);
+            box-shadow: 0 4px 14px rgba(0, 177, 193, 0.35);
+          }
+
+          .action-bar-btn.primary::before {
+            background: linear-gradient(145deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+          }
+
+          .action-bar-btn.primary:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 8px rgba(0, 177, 193, 0.25);
+          }
+
+          .action-bar-btn.primary:active::before {
+            opacity: 1;
+          }
+
+          .action-bar-btn.secondary {
+            background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
+            color: var(--white);
+            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+          }
+
+          .action-bar-btn.secondary::before {
+            background: linear-gradient(145deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+          }
+
+          .action-bar-btn.secondary:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+          }
+
+          .action-bar-btn.secondary:active::before {
+            opacity: 1;
+          }
+
+          .action-bar-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+          }
+
+          .action-bar-btn span {
+            letter-spacing: 0.01em;
+          }
+
           .parents-page {
             max-width: 100%;
             width: 100%;
@@ -1202,84 +1119,151 @@ export default function ParentsPage() {
             box-sizing: border-box;
           }
 
-          .stats-row {
-            width: 100%;
-            max-width: 100%;
-          }
-
-          .filters {
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-          }
-
-          .mobile-list {
-            width: 100%;
-            max-width: 100%;
-          }
-
           .page-header {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
             gap: 16px;
+            margin-bottom: 20px;
+          }
+
+          .header-content {
+            gap: 12px;
+          }
+
+          .header-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
           }
 
           .page-header .btn {
             width: 100%;
             justify-content: center;
+            padding: 14px 24px;
           }
 
           h1 {
-            font-size: 22px;
-          }
-
-          .stats-row {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-          }
-
-          .stat-card {
-            padding: 14px;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-          }
-
-          .stat-icon {
-            width: 36px;
-            height: 36px;
-          }
-
-          .stat-value {
             font-size: 20px;
+            letter-spacing: -0.01em;
           }
 
-          .stat-label {
-            font-size: 11px;
+          .subtitle {
+            font-size: 13px;
+            display: none;
           }
 
+          /* Mini Pills Stats */
+          .stats-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-600);
+            white-space: nowrap;
+          }
+
+          .stat-pill.students {
+            background: #dbeafe;
+            border-color: #bfdbfe;
+            color: #1e40af;
+          }
+
+          .stat-pill.families {
+            background: var(--aca-gold-subtle);
+            border-color: #fde68a;
+            color: var(--aca-gold-dark);
+          }
+
+          /* Refined filters card */
           .filters {
             flex-direction: column;
-            gap: 10px;
+            padding: 14px;
+            gap: 14px;
+            margin-bottom: 16px;
+            border-radius: 14px;
+            background: var(--white);
+            border: 1px solid var(--gray-100);
+            box-shadow: 0 2px 8px rgba(0, 44, 95, 0.04);
           }
 
           .search-box {
+            width: 100%;
             max-width: 100%;
           }
 
+          .search-input {
+            font-size: 15px;
+            padding: 12px 40px 12px 44px;
+            border-radius: 10px;
+            background: var(--gray-50);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+          }
+
+          .search-input:focus {
+            background: var(--white);
+            border-color: var(--aca-teal);
+            box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+          }
+
+          .search-input::placeholder {
+            color: var(--gray-400);
+            font-size: 14px;
+          }
+
+          /* Compact sort dropdown */
           .sort-dropdown {
             width: 100%;
             margin-left: 0;
+            padding-top: 14px;
+            border-top: 1px solid var(--gray-100);
+          }
+
+          .sort-label {
+            font-size: 12px;
+            color: var(--gray-400);
           }
 
           .sort-select {
             flex: 1;
             width: 100%;
+            padding: 10px 36px 10px 14px;
+            font-size: 13px;
+            border-radius: 10px;
+            background-color: var(--gray-50);
+            border: 1px solid transparent;
+          }
+
+          .sort-select:focus {
+            background-color: var(--white);
+            border-color: var(--aca-teal);
+          }
+
+          /* Mobile list refinements */
+          .mobile-list {
+            width: 100%;
+            max-width: 100%;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 44, 95, 0.04);
           }
 
           .table-container {
             margin: 0;
-            border-radius: var(--border-radius-lg);
+            border-radius: 14px;
             overflow: hidden;
           }
 
@@ -1336,74 +1320,59 @@ export default function ParentsPage() {
             height: 12px;
           }
 
-          .portal-btn,
+          .email-btn,
           .payment-btn {
             padding: 5px 8px;
-          }
-
-          .student-tag {
-            font-size: 11px;
-            padding: 3px 8px;
-          }
-        }
-
-        @media (max-width: 600px) {
-          .stats-row {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-
-          .stat-card {
-            flex-direction: row;
-            align-items: center;
-            padding: 12px 16px;
-          }
-
-          .stat-icon {
-            width: 40px;
-            height: 40px;
-          }
-
-          .stat-value {
-            font-size: 22px;
-          }
-
-          .header-icon {
-            width: 40px;
-            height: 40px;
-          }
-
-          .header-icon svg {
-            width: 20px;
-            height: 20px;
-          }
-
-          .contact-info {
-            gap: 2px;
-          }
-
-          .email-link {
-            font-size: 12px;
-          }
-
-          .phone {
-            font-size: 11px;
-          }
-
-          .children-info {
-            gap: 4px;
-          }
-
-          .student-count {
-            font-size: 13px;
-          }
-
-          .student-names {
-            gap: 4px;
           }
         }
 
         @media (max-width: 480px) {
+          .page-header {
+            gap: 14px;
+          }
+
+          .header-icon {
+            width: 38px;
+            height: 38px;
+          }
+
+          .header-icon svg {
+            width: 18px;
+            height: 18px;
+          }
+
+          h1 {
+            font-size: 18px;
+          }
+
+          .stats-pills {
+            gap: 6px;
+          }
+
+          .stat-pill {
+            padding: 5px 10px;
+            font-size: 12px;
+          }
+
+          .filters {
+            padding: 12px;
+            gap: 12px;
+          }
+
+          .search-input {
+            font-size: 14px;
+            padding: 11px 38px 11px 42px;
+          }
+
+          .sort-dropdown {
+            padding-top: 12px;
+          }
+
+          .sort-select {
+            padding: 9px 32px 9px 12px;
+            font-size: 12px;
+          }
+
           .action-btn span {
             display: none;
           }
@@ -1416,9 +1385,16 @@ export default function ParentsPage() {
             width: 14px;
             height: 14px;
           }
+        }
 
-          .copy-btn span {
-            display: inline;
+        @media (max-width: 360px) {
+          .stats-pills {
+            gap: 5px;
+          }
+
+          .stat-pill {
+            padding: 4px 8px;
+            font-size: 11px;
           }
         }
       `}</style>

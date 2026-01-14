@@ -35,6 +35,10 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [paymentType, setPaymentType] = useState<'payment' | 'lunch_card' | 'adjustment'>('payment')
   const [paymentNotes, setPaymentNotes] = useState('')
 
+  // Delete confirmation
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const router = useRouter()
 
   const fetchData = useCallback(async () => {
@@ -63,9 +67,15 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       setTransactions(transactionsRes.data)
     }
 
-    if (settingsData) {
-      setSettings(settingsData)
-    }
+    // Use settings from DB or fallback to defaults
+    setSettings(settingsData || {
+      elementary_lunch_price: 4,
+      highschool_lunch_price: 6,
+      highschool_lunch_card_price: 50,
+      highschool_lunch_card_lunches: 10,
+      elementary_negative_limit: -3,
+      highschool_negative_limit: 0,
+    })
 
     setLoading(false)
   }, [id])
@@ -204,15 +214,14 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function handleDelete() {
-    if (!confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
-      return
-    }
-
+    setDeleting(true)
     const supabase = createClient()
     const { error } = await supabase.from('students').delete().eq('id', id)
 
     if (error) {
       setError('Failed to delete student: ' + error.message)
+      setDeleting(false)
+      setShowDeleteModal(false)
     } else {
       router.push('/admin/students')
     }
@@ -392,8 +401,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                   <span className="detail-label">Parent</span>
                   <span className="detail-value">
                     <Link href={`/admin/parents/${student.parent_id}`} className="parent-link">
-                      {student.parent.name}
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <span>{student.parent.name}</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
                     </Link>
@@ -402,7 +411,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
               </div>
 
               <div className="detail-actions">
-                <button type="button" className="btn btn-danger-outline" onClick={handleDelete}>
+                <button type="button" className="btn btn-danger-outline" onClick={() => setShowDeleteModal(true)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="3 6 5 6 21 6" />
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -417,12 +426,15 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         <div className="sidebar">
           <div className="card balance-card">
             <h3>Lunch Balance</h3>
-            <div className={`balance-display ${student.balance <= 0 ? 'negative' : student.balance <= 3 ? 'low' : ''}`}>
-              {student.balance}
-              <span className="balance-unit">{student.balance === 1 ? 'lunch' : 'lunches'}</span>
+            <div className="balance-content">
+              <div className={`balance-display ${student.balance <= 0 ? 'negative' : student.balance <= 3 ? 'low' : ''}`}>
+                {student.balance}
+                <span className="balance-unit">{student.balance === 1 ? 'lunch' : 'lunches'}</span>
+              </div>
+              <p className="price-info">${lunchPrice.toFixed(2)} per lunch</p>
             </div>
-            <p className="price-info">${lunchPrice.toFixed(2)} per lunch</p>
             <button
+              type="button"
               className="btn btn-primary btn-full"
               onClick={() => setShowBalanceModal(true)}
             >
@@ -457,101 +469,153 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {showBalanceModal && settings && (
+      {showBalanceModal && (
         <div className="modal-overlay" onClick={() => setShowBalanceModal(false)}>
           <div className="modal card" onClick={(e) => e.stopPropagation()}>
             <h2>Add Lunches</h2>
-            <p className="current-balance">
-              Current balance: <strong>{student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}</strong>
-            </p>
-
-            <form onSubmit={paymentType === 'adjustment' ? handleManualAdjustment : handleBalanceUpdate}>
-              <div className="form-group">
-                <label>Payment Type</label>
-                <select
-                  className="input"
-                  value={paymentType}
-                  onChange={(e) => {
-                    setPaymentType(e.target.value as 'payment' | 'lunch_card' | 'adjustment')
-                    setPaymentAmount('')
-                  }}
-                >
-                  <option value="payment">Cash Payment</option>
-                  {student.school_level === 'high_school' && (
-                    <option value="lunch_card">Lunch Card ($50 for 10 lunches)</option>
-                  )}
-                  <option value="adjustment">Manual Adjustment</option>
-                </select>
-              </div>
-
-              {paymentType === 'payment' && (
-                <div className="form-group">
-                  <label>Amount Paid ($)</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0.01"
-                    required
-                  />
-                  {parseFloat(paymentAmount) > 0 && (
-                    <p className="lunch-preview">
-                      = <strong>{calculateLunches()} lunches</strong> at ${lunchPrice.toFixed(2)} each
-                    </p>
-                  )}
+            {!settings ? (
+              <>
+                <div className="alert alert-error" style={{ marginBottom: 16 }}>
+                  Unable to load lunch settings. Please try again.
                 </div>
-              )}
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-outline" onClick={() => setShowBalanceModal(false)}>
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="current-balance">
+                  Current balance: <strong>{student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}</strong>
+                </p>
 
-              {paymentType === 'lunch_card' && (
-                <div className="lunch-card-info">
-                  <div className="lunch-card-details">
-                    <span className="lunch-card-price">${settings.highschool_lunch_card_price.toFixed(2)}</span>
-                    <span className="lunch-card-value">{settings.highschool_lunch_card_lunches} lunches</span>
+                <form onSubmit={paymentType === 'adjustment' ? handleManualAdjustment : handleBalanceUpdate}>
+                  <div className="form-group">
+                    <label>Payment Type</label>
+                    <select
+                      className="input"
+                      value={paymentType}
+                      onChange={(e) => {
+                        setPaymentType(e.target.value as 'payment' | 'lunch_card' | 'adjustment')
+                        setPaymentAmount('')
+                      }}
+                    >
+                      <option value="payment">Cash Payment</option>
+                      {student.school_level === 'high_school' && (
+                        <option value="lunch_card">Lunch Card ($50 for 10 lunches)</option>
+                      )}
+                      <option value="adjustment">Manual Adjustment</option>
+                    </select>
                   </div>
-                  <p className="lunch-card-savings">
-                    ${(settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch (save ${(settings.highschool_lunch_price - settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch)
-                  </p>
-                </div>
-              )}
 
-              {paymentType === 'adjustment' && (
-                <div className="form-group">
-                  <label>Lunches to Add/Remove</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder="Enter positive or negative number"
-                    required
-                  />
-                  <p className="adjustment-hint">Use negative number to remove lunches</p>
-                </div>
-              )}
+                  {paymentType === 'payment' && (
+                    <div className="form-group">
+                      <label>Amount Paid ($)</label>
+                      <input
+                        type="number"
+                        className="input"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.01"
+                        required
+                      />
+                      {parseFloat(paymentAmount) > 0 && (
+                        <p className="lunch-preview">
+                          = <strong>{calculateLunches()} lunches</strong> at ${lunchPrice.toFixed(2)} each
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-              <div className="form-group">
-                <label>Notes (optional)</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={paymentNotes}
-                  onChange={(e) => setPaymentNotes(e.target.value)}
-                  placeholder="e.g., Cash payment"
-                />
-              </div>
+                  {paymentType === 'lunch_card' && (
+                    <div className="lunch-card-info">
+                      <div className="lunch-card-details">
+                        <span className="lunch-card-price">${settings.highschool_lunch_card_price.toFixed(2)}</span>
+                        <span className="lunch-card-value">{settings.highschool_lunch_card_lunches} lunches</span>
+                      </div>
+                      <p className="lunch-card-savings">
+                        ${(settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch (save ${(settings.highschool_lunch_price - settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch)
+                      </p>
+                    </div>
+                  )}
 
-              <div className="modal-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setShowBalanceModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {paymentType === 'adjustment' ? 'Adjust Balance' : 'Add Lunches'}
-                </button>
-              </div>
-            </form>
+                  {paymentType === 'adjustment' && (
+                    <div className="form-group">
+                      <label>Lunches to Add/Remove</label>
+                      <input
+                        type="number"
+                        className="input"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder="Enter positive or negative number"
+                        required
+                      />
+                      <p className="adjustment-hint">Use negative number to remove lunches</p>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label>Notes (optional)</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                      placeholder="e.g., Cash payment"
+                    />
+                  </div>
+
+                  <div className="modal-actions">
+                    <button type="button" className="btn btn-outline" onClick={() => setShowBalanceModal(false)}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      {paymentType === 'adjustment' ? 'Adjust Balance' : 'Add Lunches'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={() => !deleting && setShowDeleteModal(false)}>
+          <div className="modal delete-modal card" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-modal-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 32, height: 32 }}>
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </div>
+            <h2>Delete Student</h2>
+            <p className="delete-message">
+              Are you sure you want to delete <strong>{student.name}</strong>? This will permanently remove all their data including transaction history.
+            </p>
+            <p className="delete-warning">This action cannot be undone.</p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Student'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -880,6 +944,10 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           font-weight: 600;
         }
 
+        .balance-content {
+          /* Wrapper for balance display and price info */
+        }
+
         .balance-display {
           font-size: 48px;
           font-weight: 700;
@@ -913,6 +981,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
         .btn-full {
           width: 100%;
+          position: relative;
+          z-index: 1;
         }
 
         .transactions-card {
@@ -1093,6 +1163,365 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         .modal-actions .btn {
           flex: 1;
           padding: 14px 24px;
+        }
+
+        /* Delete Modal Styles */
+        .delete-modal {
+          text-align: center;
+          max-width: 400px;
+        }
+
+        .delete-modal-icon {
+          width: 64px;
+          height: 64px;
+          background: var(--error-bg);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          color: var(--error);
+        }
+
+        .delete-modal h2 {
+          margin: 0 0 12px 0;
+          font-size: 20px;
+          color: var(--aca-navy);
+        }
+
+        .delete-message {
+          color: var(--gray-500);
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0 0 8px 0;
+        }
+
+        .delete-message strong {
+          color: var(--gray-700);
+        }
+
+        .delete-warning {
+          color: var(--error);
+          font-size: 13px;
+          font-weight: 500;
+          margin: 0 0 24px 0;
+        }
+
+        .btn-danger {
+          background: var(--error);
+          color: white;
+          border: none;
+          padding: 12px 20px;
+          border-radius: var(--border-radius);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          font-family: var(--font-body);
+        }
+
+        .btn-danger:hover {
+          background: #dc2626;
+        }
+
+        .btn-danger:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        /* ========== Mobile Responsive Styles ========== */
+        @media (max-width: 768px) {
+          .edit-student-page {
+            padding: 0;
+          }
+
+          .page-header {
+            margin-bottom: 20px;
+          }
+
+          .header-title-row {
+            gap: 12px;
+          }
+
+          .student-avatar-large {
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+            border-radius: 14px;
+          }
+
+          h1 {
+            font-size: 20px;
+          }
+
+          .subtitle {
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+          }
+
+          .level-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+          }
+
+          .barcode-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+          }
+
+          /* Stack sidebar below main content */
+          .content-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          /* Reorder: balance card first on mobile */
+          .sidebar {
+            order: -1;
+            gap: 16px;
+          }
+
+          /* Compact balance card */
+          .balance-card {
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            text-align: left;
+            gap: 16px;
+          }
+
+          .balance-card h3 {
+            display: none;
+          }
+
+          .balance-content {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .balance-display {
+            font-size: 36px;
+            margin-bottom: 0;
+          }
+
+          .balance-unit {
+            display: inline;
+            font-size: 13px;
+            margin-top: 0;
+            margin-left: 4px;
+          }
+
+          .price-info {
+            display: none;
+          }
+
+          .balance-card .btn-full {
+            width: auto;
+            padding: 12px 20px;
+            flex-shrink: 0;
+            pointer-events: auto;
+          }
+
+          /* Detail card adjustments */
+          .detail-card {
+            padding: 16px;
+          }
+
+          .detail-header {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+
+          .detail-header h2 {
+            font-size: 15px;
+          }
+
+          .detail-header .btn {
+            width: 100%;
+            justify-content: center;
+            padding: 10px 16px;
+          }
+
+          .detail-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          .detail-label {
+            font-size: 11px;
+            margin-bottom: 2px;
+          }
+
+          .detail-value {
+            font-size: 14px;
+          }
+
+          .barcode-display {
+            font-size: 13px;
+            padding: 5px 10px;
+          }
+
+          .detail-actions {
+            margin-top: 20px;
+            padding-top: 16px;
+          }
+
+          .btn-danger-outline {
+            width: 100%;
+            justify-content: center;
+            padding: 12px 16px;
+          }
+
+          /* Transactions card */
+          .transactions-card {
+            padding: 16px;
+          }
+
+          .transactions-card h3 {
+            margin-bottom: 12px;
+          }
+
+          .transaction-item {
+            padding: 10px 0;
+          }
+
+          .tx-type {
+            font-size: 11px;
+          }
+
+          .tx-date {
+            font-size: 10px;
+          }
+
+          .tx-amount {
+            font-size: 13px;
+            padding: 3px 6px;
+          }
+
+          /* Form styles for mobile editing */
+          .form-card {
+            padding: 16px;
+          }
+
+          .form-card h2 {
+            font-size: 16px;
+            margin-bottom: 20px;
+          }
+
+          .form-row {
+            grid-template-columns: 1fr;
+            gap: 0;
+          }
+
+          .form-group {
+            margin-bottom: 16px;
+          }
+
+          .form-group label {
+            font-size: 12px;
+            margin-bottom: 6px;
+          }
+
+          .form-actions {
+            flex-direction: column-reverse;
+            gap: 10px;
+            margin-top: 24px;
+            padding-top: 16px;
+          }
+
+          .form-actions .btn {
+            width: 100%;
+            padding: 14px 20px;
+            justify-content: center;
+          }
+
+          /* Modal mobile optimization */
+          .modal-overlay {
+            padding: 16px;
+            align-items: flex-end;
+          }
+
+          .modal {
+            max-width: 100%;
+            padding: 24px 20px;
+            border-radius: 20px 20px 0 0;
+            max-height: 90vh;
+            overflow-y: auto;
+          }
+
+          .modal h2 {
+            font-size: 18px;
+          }
+
+          .current-balance {
+            font-size: 14px;
+            margin-bottom: 20px;
+          }
+
+          .lunch-card-info {
+            padding: 16px;
+          }
+
+          .lunch-card-price {
+            font-size: 20px;
+          }
+
+          .lunch-card-value {
+            font-size: 16px;
+          }
+
+          .lunch-card-savings {
+            font-size: 12px;
+          }
+
+          .modal-actions {
+            flex-direction: column-reverse;
+            gap: 10px;
+            margin-top: 24px;
+          }
+
+          .modal-actions .btn {
+            padding: 16px 24px;
+          }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 380px) {
+          .header-title-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+          }
+
+          .student-avatar-large {
+            width: 44px;
+            height: 44px;
+            font-size: 18px;
+          }
+
+          h1 {
+            font-size: 18px;
+          }
+
+          .balance-card {
+            flex-direction: column;
+            text-align: center;
+            gap: 12px;
+          }
+
+          .balance-card .btn-full {
+            width: 100%;
+          }
+
+          .balance-display {
+            font-size: 32px;
+          }
         }
       `}</style>
     </div>
