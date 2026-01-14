@@ -412,6 +412,195 @@ export default function ParentsPage() {
         </>
       )}
 
+      <style jsx global>{`
+        /* Mobile List Styles - Global to work with Link components */
+        .parents-page .mobile-list {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-100);
+          overflow: hidden;
+        }
+
+        .parents-page .mobile-list .list-header {
+          padding: 12px 16px;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .parents-page .mobile-list .list-items {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .parents-page .mobile-list .list-item {
+          display: flex;
+          flex-direction: column;
+          border-bottom: 1px solid var(--gray-100);
+          animation: listItemEnter 0.3s ease-out backwards;
+        }
+
+        .parents-page .mobile-list .list-item:last-child {
+          border-bottom: none;
+        }
+
+        .parents-page .mobile-list .list-item-main {
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px;
+          padding: 14px 16px;
+          text-decoration: none;
+          transition: background 0.15s ease;
+        }
+
+        .parents-page .mobile-list .list-item-main:active {
+          background: var(--gray-50);
+        }
+
+        .parents-page .mobile-list .list-item-avatar {
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white);
+          font-weight: 600;
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+
+        .parents-page .mobile-list .list-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .parents-page .mobile-list .list-item-name {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 15px;
+          margin-bottom: 2px;
+        }
+
+        .parents-page .mobile-list .list-item-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+
+        .parents-page .mobile-list .list-item-email {
+          font-size: 12px;
+          color: var(--gray-400);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .parents-page .mobile-list .list-item-children {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+
+        .parents-page .mobile-list .child-tag {
+          padding: 2px 8px;
+          background: var(--gray-100);
+          border-radius: 8px;
+          font-size: 11px;
+          color: var(--gray-600);
+          font-weight: 500;
+        }
+
+        .parents-page .mobile-list .no-children {
+          font-size: 11px;
+          color: var(--gray-400);
+          font-style: italic;
+        }
+
+        .parents-page .mobile-list .list-item-chevron {
+          color: var(--gray-300);
+          flex-shrink: 0;
+        }
+
+        .parents-page .mobile-list .list-item-actions {
+          display: flex;
+          gap: 8px;
+          padding: 0 16px 14px;
+          margin-top: -4px;
+        }
+
+        .parents-page .mobile-list .mobile-action-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 14px;
+          border-radius: var(--border-radius);
+          font-size: 12px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: all var(--transition-fast);
+          border: none;
+          cursor: pointer;
+          font-family: var(--font-body);
+          min-height: 44px;
+        }
+
+        .parents-page .mobile-list .mobile-action-btn.link {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .parents-page .mobile-list .mobile-action-btn.link:active {
+          background: var(--aca-gold);
+          color: var(--aca-navy);
+        }
+
+        .parents-page .mobile-list .mobile-action-btn.link:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+
+        .parents-page .mobile-list .mobile-action-btn.copy {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .parents-page .mobile-list .mobile-action-btn.payment {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .parents-page .mobile-list .mobile-action-btn.payment:active {
+          background: #bbf7d0;
+        }
+
+        .parents-page .mobile-list .btn-spinner-sm {
+          width: 14px;
+          height: 14px;
+          border: 2px solid var(--aca-gold);
+          border-top-color: var(--aca-navy);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .parents-page .mobile-list .empty-state-mobile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          color: var(--gray-400);
+          gap: 12px;
+        }
+
+        .parents-page .mobile-list .empty-state-mobile p {
+          margin: 0;
+          font-size: 14px;
+        }
+      `}</style>
+
       <style jsx>{`
         .parents-page {
           max-width: 1200px;
@@ -864,40 +1053,10 @@ export default function ParentsPage() {
           display: none;
         }
 
-        /* Mobile List Styles */
-        .mobile-list {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-100);
-          overflow: hidden;
-        }
-
-        .list-header {
-          padding: 12px 16px;
-          background: var(--gray-50);
-          border-bottom: 1px solid var(--gray-100);
-        }
-
         .results-count {
           font-size: 13px;
           color: var(--gray-500);
           font-weight: 500;
-        }
-
-        .list-items {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .list-item {
-          display: flex;
-          flex-direction: column;
-          border-bottom: 1px solid var(--gray-100);
-          animation: listItemEnter 0.3s ease-out backwards;
-        }
-
-        .list-item:last-child {
-          border-bottom: none;
         }
 
         @keyframes listItemEnter {
@@ -909,161 +1068,6 @@ export default function ParentsPage() {
             opacity: 1;
             transform: translateY(0);
           }
-        }
-
-        .list-item-main {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 16px;
-          text-decoration: none;
-          transition: background 0.15s ease;
-        }
-
-        .list-item-main:active {
-          background: var(--gray-50);
-        }
-
-        .list-item-avatar {
-          width: 44px;
-          height: 44px;
-          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--white);
-          font-weight: 600;
-          font-size: 16px;
-          flex-shrink: 0;
-        }
-
-        .list-item-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .list-item-name {
-          font-weight: 600;
-          color: var(--gray-700);
-          font-size: 15px;
-          margin-bottom: 2px;
-        }
-
-        .list-item-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 6px;
-        }
-
-        .list-item-email {
-          font-size: 12px;
-          color: var(--gray-400);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .list-item-children {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-        }
-
-        .child-tag {
-          padding: 2px 8px;
-          background: var(--gray-100);
-          border-radius: 8px;
-          font-size: 11px;
-          color: var(--gray-600);
-          font-weight: 500;
-        }
-
-        .no-children {
-          font-size: 11px;
-          color: var(--gray-400);
-          font-style: italic;
-        }
-
-        .list-item-chevron {
-          color: var(--gray-300);
-          flex-shrink: 0;
-        }
-
-        .list-item-actions {
-          display: flex;
-          gap: 8px;
-          padding: 0 16px 14px;
-          margin-top: -4px;
-        }
-
-        .mobile-action-btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 14px;
-          border-radius: var(--border-radius);
-          font-size: 12px;
-          font-weight: 600;
-          text-decoration: none;
-          transition: all var(--transition-fast);
-          border: none;
-          cursor: pointer;
-          font-family: var(--font-body);
-        }
-
-        .mobile-action-btn.link {
-          background: var(--aca-gold-subtle);
-          color: var(--aca-gold-dark);
-        }
-
-        .mobile-action-btn.link:active {
-          background: var(--aca-gold);
-          color: var(--aca-navy);
-        }
-
-        .mobile-action-btn.link:disabled {
-          opacity: 0.6;
-          cursor: wait;
-        }
-
-        .mobile-action-btn.copy {
-          background: var(--success-bg);
-          color: var(--success);
-        }
-
-        .mobile-action-btn.payment {
-          background: var(--success-bg);
-          color: var(--success);
-        }
-
-        .mobile-action-btn.payment:active {
-          background: #bbf7d0;
-        }
-
-        .btn-spinner-sm {
-          width: 14px;
-          height: 14px;
-          border: 2px solid var(--aca-gold);
-          border-top-color: var(--aca-navy);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        .empty-state-mobile {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 20px;
-          color: var(--gray-400);
-          gap: 12px;
-        }
-
-        .empty-state-mobile p {
-          margin: 0;
-          font-size: 14px;
         }
 
         /* Mobile optimizations */

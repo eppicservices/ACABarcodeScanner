@@ -267,6 +267,162 @@ export default function TransactionsPage() {
         </>
       )}
 
+      <style jsx global>{`
+        /* Mobile List Styles - Global to work with Link components */
+        .transactions-page .mobile-list {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-100);
+          overflow: hidden;
+        }
+
+        .transactions-page .mobile-list .list-header {
+          padding: 12px 16px;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .transactions-page .mobile-list .list-items {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .transactions-page .mobile-list .list-item {
+          display: flex !important;
+          align-items: flex-start !important;
+          gap: 12px;
+          padding: 14px 16px;
+          text-decoration: none;
+          border-bottom: 1px solid var(--gray-100);
+          transition: background 0.15s ease;
+          animation: listItemEnter 0.3s ease-out backwards;
+        }
+
+        .transactions-page .mobile-list .list-item:last-child {
+          border-bottom: none;
+        }
+
+        .transactions-page .mobile-list .list-item:active {
+          background: var(--gray-50);
+        }
+
+        .transactions-page .mobile-list .list-item-indicator {
+          width: 4px;
+          height: 44px;
+          border-radius: 2px;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
+        .transactions-page .mobile-list .list-item-indicator.positive {
+          background: linear-gradient(180deg, var(--success) 0%, var(--success-border) 100%);
+        }
+
+        .transactions-page .mobile-list .list-item-indicator.negative {
+          background: linear-gradient(180deg, var(--error) 0%, var(--error-border) 100%);
+        }
+
+        .transactions-page .mobile-list .list-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .transactions-page .mobile-list .list-item-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+
+        .transactions-page .mobile-list .list-item-name {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 15px;
+        }
+
+        .transactions-page .mobile-list .list-item-amount {
+          font-family: 'SF Mono', Monaco, monospace;
+          font-weight: 700;
+          font-size: 16px;
+        }
+
+        .transactions-page .mobile-list .list-item-amount.positive {
+          color: var(--success);
+        }
+
+        .transactions-page .mobile-list .list-item-amount.negative {
+          color: var(--error);
+        }
+
+        .transactions-page .mobile-list .list-item-bottom {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .transactions-page .mobile-list .list-item-type {
+          padding: 2px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .transactions-page .mobile-list .list-item-type.payment,
+        .transactions-page .mobile-list .list-item-type.lunch_card {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .transactions-page .mobile-list .list-item-type.lunch_used {
+          background: var(--error-bg);
+          color: var(--error);
+        }
+
+        .transactions-page .mobile-list .list-item-type.adjustment {
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
+        }
+
+        .transactions-page .mobile-list .list-item-date {
+          font-size: 12px;
+          color: var(--gray-400);
+        }
+
+        .transactions-page .mobile-list .list-item-notes {
+          font-size: 12px;
+          color: var(--gray-400);
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px dashed var(--gray-200);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .transactions-page .mobile-list .list-item-chevron {
+          color: var(--gray-300);
+          flex-shrink: 0;
+          margin-top: 14px;
+        }
+
+        .transactions-page .mobile-list .empty-state-mobile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          color: var(--gray-400);
+          gap: 12px;
+        }
+
+        .transactions-page .mobile-list .empty-state-mobile p {
+          margin: 0;
+          font-size: 14px;
+        }
+      `}</style>
+
       <style jsx>{`
         .transactions-page {
           max-width: 1200px;
@@ -655,42 +811,10 @@ export default function TransactionsPage() {
           display: none;
         }
 
-        /* Mobile List Styles */
-        .mobile-list {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-100);
-          overflow: hidden;
-        }
-
-        .list-header {
-          padding: 12px 16px;
-          background: var(--gray-50);
-          border-bottom: 1px solid var(--gray-100);
-        }
-
-        .list-items {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .list-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 14px 16px;
-          text-decoration: none;
-          border-bottom: 1px solid var(--gray-100);
-          transition: background 0.15s ease;
-          animation: listItemEnter 0.3s ease-out backwards;
-        }
-
-        .list-item:last-child {
-          border-bottom: none;
-        }
-
-        .list-item:active {
-          background: var(--gray-50);
+        .results-count {
+          font-size: 13px;
+          color: var(--gray-500);
+          font-weight: 500;
         }
 
         @keyframes listItemEnter {
@@ -702,122 +826,6 @@ export default function TransactionsPage() {
             opacity: 1;
             transform: translateY(0);
           }
-        }
-
-        .list-item-indicator {
-          width: 4px;
-          height: 44px;
-          border-radius: 2px;
-          flex-shrink: 0;
-          margin-top: 2px;
-        }
-
-        .list-item-indicator.positive {
-          background: linear-gradient(180deg, var(--success) 0%, var(--success-border) 100%);
-        }
-
-        .list-item-indicator.negative {
-          background: linear-gradient(180deg, var(--error) 0%, var(--error-border) 100%);
-        }
-
-        .list-item-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .list-item-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 4px;
-        }
-
-        .list-item-name {
-          font-weight: 600;
-          color: var(--gray-700);
-          font-size: 15px;
-        }
-
-        .list-item-amount {
-          font-family: 'SF Mono', Monaco, monospace;
-          font-weight: 700;
-          font-size: 16px;
-        }
-
-        .list-item-amount.positive {
-          color: var(--success);
-        }
-
-        .list-item-amount.negative {
-          color: var(--error);
-        }
-
-        .list-item-bottom {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .list-item-type {
-          padding: 2px 8px;
-          border-radius: 8px;
-          font-size: 10px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-        }
-
-        .list-item-type.payment,
-        .list-item-type.lunch_card {
-          background: var(--success-bg);
-          color: var(--success);
-        }
-
-        .list-item-type.lunch_used {
-          background: var(--error-bg);
-          color: var(--error);
-        }
-
-        .list-item-type.adjustment {
-          background: var(--aca-teal-subtle);
-          color: var(--aca-teal);
-        }
-
-        .list-item-date {
-          font-size: 12px;
-          color: var(--gray-400);
-        }
-
-        .list-item-notes {
-          font-size: 12px;
-          color: var(--gray-400);
-          margin-top: 6px;
-          padding-top: 6px;
-          border-top: 1px dashed var(--gray-200);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .list-item-chevron {
-          color: var(--gray-300);
-          flex-shrink: 0;
-          margin-top: 14px;
-        }
-
-        .empty-state-mobile {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 20px;
-          color: var(--gray-400);
-          gap: 12px;
-        }
-
-        .empty-state-mobile p {
-          margin: 0;
-          font-size: 14px;
         }
 
         /* Mobile optimizations */

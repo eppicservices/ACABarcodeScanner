@@ -181,8 +181,29 @@ export default function AdminNav() {
         </div>
 
         <div className="add-payment-section">
-          <Link href="/admin/add-payment" className="add-payment-btn" onClick={handleNavClick}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <Link
+            href="/admin/add-payment"
+            className="add-payment-btn"
+            onClick={handleNavClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '12px 16px',
+              background: '#d4af37',
+              color: '#002c5f',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              textDecoration: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002c5f" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
