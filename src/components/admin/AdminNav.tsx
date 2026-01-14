@@ -535,13 +535,29 @@ export default function AdminNav() {
           /* Mobile Styles */
           @media (max-width: 767px) {
             .mobile-header {
-              display: block;
+              display: flex !important;
+              flex-direction: column;
               height: auto;
               min-height: 59px;
+              visibility: visible !important;
+              opacity: 1 !important;
+            }
+
+            .mobile-header-gold-bar {
+              display: block !important;
+              height: 4px !important;
+              min-height: 4px !important;
+              width: 100% !important;
+              background: linear-gradient(90deg, #d4af37 0%, #ffe082 50%, #d4af37 100%) !important;
+            }
+
+            .mobile-header-content {
+              display: flex !important;
+              height: 56px !important;
             }
 
             .mobile-menu-toggle {
-              display: flex;
+              display: flex !important;
             }
 
             .nav-overlay {
@@ -554,17 +570,23 @@ export default function AdminNav() {
             }
 
             .admin-nav {
-              transform: translateX(-100%);
-              transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+              position: fixed;
+              left: 0;
+              top: 0;
               width: 280px;
               max-width: 85vw;
+              height: 100vh;
+              height: 100dvh;
+              transform: translateX(-100%);
+              transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
               box-shadow: none;
-              top: 0;
+              visibility: hidden;
             }
 
             .admin-nav.is-open {
               transform: translateX(0);
               box-shadow: 8px 0 40px rgba(0, 0, 0, 0.3);
+              visibility: visible;
             }
 
             .nav-header {
