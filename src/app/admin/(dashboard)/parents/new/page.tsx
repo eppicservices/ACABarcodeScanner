@@ -41,10 +41,10 @@ export default function NewParentPage() {
     <div className="new-parent-page">
       <div className="page-header">
         <Link href="/admin/parents" className="back-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Back to Parents
+          <span>Back to Parents</span>
         </Link>
 
         <div className="header-content">
@@ -223,6 +223,9 @@ export default function NewParentPage() {
         }
 
         .back-link svg {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
           transition: transform var(--transition-fast);
         }
 

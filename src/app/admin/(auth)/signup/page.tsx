@@ -197,11 +197,11 @@ export default function SignupPage() {
 
           <div className="card-footer">
             <Link href="/" className="back-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
                 <line x1="19" y1="12" x2="5" y2="12" />
                 <polyline points="12 19 5 12 12 5" />
               </svg>
-              Back to Scanner
+              <span>Back to Scanner</span>
             </Link>
           </div>
         </div>
@@ -346,6 +346,9 @@ export default function SignupPage() {
           }
 
           .back-link svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
             transition: transform var(--transition-base);
           }
         `}</style>
@@ -496,11 +499,11 @@ export default function SignupPage() {
 
         <div className="card-footer">
           <Link href="/" className="back-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
               <line x1="19" y1="12" x2="5" y2="12" />
               <polyline points="12 19 5 12 12 5" />
             </svg>
-            Back to Scanner
+            <span>Back to Scanner</span>
           </Link>
         </div>
       </div>
@@ -754,6 +757,9 @@ export default function SignupPage() {
         }
 
         .back-link svg {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
           transition: transform var(--transition-base);
         }
 

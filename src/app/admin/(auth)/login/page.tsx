@@ -100,10 +100,10 @@ export default function LoginPage() {
 
         <div className="brand-footer">
           <Link href="/" className="back-home">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, minWidth: 16, minHeight: 16, maxWidth: 16, maxHeight: 16, flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, minWidth: 16, minHeight: 16, maxWidth: 16, maxHeight: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
               <path d="M10 19l-7-7m0 0l7-7m-7 7h18" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Back to Scanner
+            <span>Back to Scanner</span>
           </Link>
         </div>
       </div>
@@ -388,6 +388,7 @@ export default function LoginPage() {
           max-width: 16px;
           max-height: 16px;
           flex-shrink: 0;
+          margin-right: 8px;
           transition: transform 0.25s ease;
         }
 
