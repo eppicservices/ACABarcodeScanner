@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
-import StatsBar from '@/components/StatsBar';
 import { lookupStudentByBarcode, consumeLunch, StudentRecord } from '@/lib/supabase';
 
 type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient';
@@ -19,8 +18,8 @@ interface ScanResultData {
 export default function Home() {
   const [scanResult, setScanResult] = useState<ScanResultData | null>(null);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
-  const [totalScans, setTotalScans] = useState(0);
-  const [successfulScans, setSuccessfulScans] = useState(0);
+  const [elementaryCount, setElementaryCount] = useState(0);
+  const [highSchoolCount, setHighSchoolCount] = useState(0);
   const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
   const [scanBuffer, setScanBuffer] = useState('');
   const [isReady, setIsReady] = useState(true);
@@ -30,8 +29,6 @@ export default function Home() {
   const processCode = useCallback(async (code: string) => {
     const trimmedCode = code.trim();
     if (!trimmedCode) return;
-
-    setTotalScans((prev) => prev + 1);
 
     // Check for duplicate (already checked in today)
     if (scannedCodes.has(trimmedCode)) {
@@ -61,7 +58,11 @@ export default function Home() {
 
     if (result.success) {
       setScannedCodes((prev) => new Set(prev).add(trimmedCode));
-      setSuccessfulScans((prev) => prev + 1);
+      if (student.school_level === 'elementary') {
+        setElementaryCount((prev) => prev + 1);
+      } else {
+        setHighSchoolCount((prev) => prev + 1);
+      }
       const lunchText = result.newBalance === 1 ? 'lunch' : 'lunches';
       setScanResult({
         code: trimmedCode,
@@ -161,10 +162,10 @@ export default function Home() {
       <header className="header">
         <div className="logo-container">
           <Image
-            src="https://www.aldersgatechristian.com/wp-content/uploads/2020/09/aca-logo-blue.png"
+            src="https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png"
             alt="Aldersgate Christian Academy"
-            width={180}
-            height={60}
+            width={220}
+            height={55}
             className="logo"
             priority
           />
@@ -175,7 +176,17 @@ export default function Home() {
       {/* Main Content */}
       <main className="main-content">
         {/* Stats */}
-        <StatsBar totalScans={totalScans} successfulScans={successfulScans} />
+        <div className="stats-bar">
+          <div className="stat-item">
+            <span className="stat-label">Elementary</span>
+            <span className="stat-value">{elementaryCount}</span>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat-item">
+            <span className="stat-label">High School</span>
+            <span className="stat-value">{highSchoolCount}</span>
+          </div>
+        </div>
 
         {/* Scanner or Result Display */}
         <div className="scanner-section">
@@ -227,18 +238,6 @@ export default function Home() {
             Manual Entry
           </button>
         </div>
-
-        {/* Test IDs Helper */}
-        <div className="test-ids">
-          <p className="test-ids-title">Test IDs:</p>
-          <div className="test-ids-list">
-            <code>1001</code>
-            <code>1002</code>
-            <code>1003</code>
-            <code>1004</code>
-            <code>1005</code>
-          </div>
-        </div>
       </main>
 
       {/* Footer */}
@@ -261,28 +260,76 @@ export default function Home() {
           flex-direction: column;
           max-width: var(--container-max);
           margin: 0 auto;
-          padding: 0 16px;
+          padding: 16px 16px 0;
         }
 
         .header {
-          padding: 24px 0 16px;
+          background: var(--white);
+          border-radius: 12px;
+          padding: 24px;
           text-align: center;
+          margin-bottom: 8px;
+          box-shadow: var(--shadow-sm);
         }
 
         .logo-container {
           margin-bottom: 12px;
+          display: flex;
+          justify-content: center;
         }
 
         :global(.logo) {
           height: auto;
           width: auto;
           max-height: 60px;
+          filter: brightness(0) saturate(100%) invert(12%) sepia(45%) saturate(2500%) hue-rotate(200deg) brightness(95%) contrast(105%);
         }
 
         .app-title {
-          font-size: 24px;
+          font-size: 20px;
           margin: 0;
           color: var(--aca-navy);
+          font-weight: 600;
+        }
+
+        .stats-bar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 24px;
+          padding: 16px 24px;
+          background: var(--white);
+          border-radius: var(--border-radius);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .stat-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .stat-value {
+          font-family: var(--font-body);
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--aca-teal);
+          line-height: 1;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--gray-400);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .stat-divider {
+          width: 1px;
+          height: 40px;
+          background: var(--gray-200);
         }
 
         .main-content {
@@ -373,38 +420,6 @@ export default function Home() {
           width: 100%;
         }
 
-        .test-ids {
-          background: var(--gray-50);
-          border-radius: var(--border-radius);
-          padding: 12px 16px;
-          text-align: center;
-        }
-
-        .test-ids-title {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--gray-400);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin: 0 0 8px 0;
-        }
-
-        .test-ids-list {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          gap: 8px;
-        }
-
-        .test-ids-list code {
-          background: var(--white);
-          padding: 4px 12px;
-          border-radius: 4px;
-          font-size: 14px;
-          color: var(--aca-teal);
-          border: 1px solid var(--gray-200);
-        }
-
         .footer {
           padding: 16px 0;
           text-align: center;
@@ -424,7 +439,8 @@ export default function Home() {
           }
 
           .header {
-            padding: 16px 0 12px;
+            padding: 16px;
+            border-radius: 10px;
           }
 
           :global(.logo) {
@@ -432,11 +448,28 @@ export default function Home() {
           }
 
           .app-title {
-            font-size: 20px;
+            font-size: 18px;
+          }
+
+          .stats-bar {
+            gap: 16px;
+            padding: 12px 16px;
+          }
+
+          .stat-value {
+            font-size: 24px;
+          }
+
+          .stat-label {
+            font-size: 11px;
+          }
+
+          .stat-divider {
+            height: 32px;
           }
 
           .main-content {
-            gap: 16px;
+            gap: 12px;
             padding-bottom: 16px;
           }
 
@@ -467,19 +500,6 @@ export default function Home() {
 
           .action-buttons .btn {
             padding: 12px 24px;
-            font-size: 13px;
-          }
-
-          .test-ids {
-            padding: 10px 12px;
-          }
-
-          .test-ids-list {
-            gap: 6px;
-          }
-
-          .test-ids-list code {
-            padding: 3px 10px;
             font-size: 13px;
           }
 

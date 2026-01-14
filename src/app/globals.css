@@ -643,3 +643,174 @@ textarea.input {
 .text-teal {
   color: var(--aca-teal);
 }
+
+/* =====================================================
+   CRITICAL AUTH PAGE STYLES
+   These styles prevent FOUC (Flash of Unstyled Content)
+   by loading immediately instead of waiting for styled-jsx
+   ===================================================== */
+
+/* Auth Container - prevents white flash */
+.auth-container {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--aca-navy);
+}
+
+/* Brand Panel - Left Side */
+.brand-panel {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 48px;
+  overflow: hidden;
+  background: var(--aca-navy);
+  color: white;
+}
+
+/* Form Panel - Right Side */
+.form-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+  background: white;
+  position: relative;
+}
+
+/* Mobile auth layout */
+@media (max-width: 900px) {
+  .auth-container {
+    flex-direction: column;
+    background: var(--aca-navy);
+  }
+
+  .brand-panel {
+    flex: none;
+    padding: 32px 24px;
+    min-height: auto;
+  }
+
+  .form-panel {
+    flex: 1;
+    padding: 32px 24px 80px;
+    justify-content: flex-start;
+    padding-top: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-panel {
+    padding: 24px 20px;
+  }
+
+  .form-panel {
+    padding: 28px 20px 72px;
+  }
+}
+
+/* Critical form content styles */
+.form-container {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.form-header h2 {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--aca-navy);
+  margin: 0 0 8px 0;
+}
+
+.form-header p {
+  color: var(--gray-400);
+  margin: 0;
+  font-size: 15px;
+}
+
+.welcome-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  background: var(--aca-navy);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+/* Brand content in auth panel */
+.brand-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brand-title {
+  font-size: 42px;
+  font-weight: 600;
+  color: white;
+  line-height: 1.15;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.02em;
+}
+
+.brand-tagline {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 380px;
+}
+
+@media (max-width: 900px) {
+  .form-container {
+    max-width: 100%;
+  }
+
+  .form-header {
+    margin-bottom: 28px;
+  }
+
+  .form-header h2 {
+    font-size: 26px;
+  }
+
+  .welcome-badge {
+    font-size: 10px;
+    padding: 5px 12px;
+  }
+
+  .brand-title {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .brand-tagline {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-header h2 {
+    font-size: 24px;
+  }
+
+  .brand-title {
+    font-size: 24px;
+  }
+}
