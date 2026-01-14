@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Parent, Student, AppSettings } from '@/types/database'
@@ -39,50 +39,7 @@ function AddPaymentContent() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    const supabase = createClient()
-    let isMounted = true
-
-    async function fetchData() {
-      const [parentsRes, settingsRes] = await Promise.all([
-        supabase.from('parents').select('*, students(*)').order('name'),
-        supabase.from('app_settings').select('*').eq('id', 1).single()
-      ])
-
-      if (isMounted) {
-        if (parentsRes.data) {
-          setParents(parentsRes.data as ParentWithStudents[])
-        }
-        if (settingsRes.data) {
-          setSettings(settingsRes.data)
-        }
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (preselectedParentId && parents.length > 0) {
-      const parent = parents.find(p => p.id === preselectedParentId)
-      if (parent) {
-        setSelectedParent(parent)
-        setAmounts(parent.students.map(s => ({
-          student_id: s.id,
-          amount: '',
-          isLunchCard: false
-        })))
-        setMessage(null)
-      }
-    }
-  }, [preselectedParentId, parents])
-
-  function handleSelectParent(parent: ParentWithStudents) {
+  const handleSelectParent = useCallback((parent: ParentWithStudents) => {
     setSelectedParent(parent)
     setAmounts(parent.students.map(s => ({
       student_id: s.id,
@@ -90,7 +47,46 @@ function AddPaymentContent() {
       isLunchCard: false
     })))
     setMessage(null)
-  }
+  }, [])
+
+  const fetchData = useCallback(async () => {
+    const supabase = createClient()
+    const [parentsRes, settingsRes] = await Promise.all([
+      supabase.from('parents').select('*, students(*)').order('name'),
+      supabase.from('app_settings').select('*').eq('id', 1).single()
+    ])
+
+    if (parentsRes.data) {
+      setParents(parentsRes.data as ParentWithStudents[])
+      // Update selected parent with fresh data
+      setSelectedParent(prev => {
+        if (prev) {
+          const updatedParent = parentsRes.data.find((p: ParentWithStudents) => p.id === prev.id)
+          if (updatedParent) {
+            return updatedParent as ParentWithStudents
+          }
+        }
+        return prev
+      })
+    }
+    if (settingsRes.data) {
+      setSettings(settingsRes.data)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  useEffect(() => {
+    if (preselectedParentId && parents.length > 0 && !selectedParent) {
+      const parent = parents.find(p => p.id === preselectedParentId)
+      if (parent) {
+        handleSelectParent(parent)
+      }
+    }
+  }, [preselectedParentId, parents, selectedParent, handleSelectParent])
 
   function updateAmount(studentId: string, value: string, isLunchCard: boolean = false) {
     setAmounts(prev => prev.map(a =>

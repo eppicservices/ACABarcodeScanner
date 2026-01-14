@@ -15,10 +15,10 @@ export default function SignupPage() {
   const [checkingAdmins, setCheckingAdmins] = useState(true)
   const [hasAdmins, setHasAdmins] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     async function checkAdmins() {
+      const supabase = createClient()
       const { count } = await supabase
         .from('admin_users')
         .select('*', { count: 'exact', head: true })
@@ -27,7 +27,7 @@ export default function SignupPage() {
       setCheckingAdmins(false)
     }
     checkAdmins()
-  }, [supabase])
+  }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +45,7 @@ export default function SignupPage() {
 
     setLoading(true)
 
+    const supabase = createClient()
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,

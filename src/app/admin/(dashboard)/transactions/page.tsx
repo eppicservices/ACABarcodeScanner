@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { BalanceTransaction, Student } from '@/types/database'
@@ -18,13 +18,8 @@ export default function TransactionsPage() {
   const [filter, setFilter] = useState<'all' | 'payment' | 'lunch_card' | 'adjustment' | 'lunch_used'>('all')
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const supabase = createClient()
-
-  useEffect(() => {
-    fetchTransactions()
-  }, [])
-
-  async function fetchTransactions() {
+  const fetchTransactions = useCallback(async () => {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('balance_transactions')
       .select('*, student:students(*)')
@@ -35,7 +30,11 @@ export default function TransactionsPage() {
       setTransactions(data as TransactionWithStudent[])
     }
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
 
   const filteredTransactions = transactions
     .filter((tx) => filter === 'all' || tx.transaction_type === filter)

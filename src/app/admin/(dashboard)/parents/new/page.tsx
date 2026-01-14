@@ -15,13 +15,13 @@ export default function NewParentPage() {
   const [address, setAddress] = useState('')
 
   const router = useRouter()
-  const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setSaving(true)
 
+    const supabase = createClient()
     const { error } = await supabase.from('parents').insert({
       name,
       email,

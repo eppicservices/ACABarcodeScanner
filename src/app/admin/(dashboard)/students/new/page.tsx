@@ -19,22 +19,23 @@ export default function NewStudentPage() {
   const [balance, setBalance] = useState('0')
 
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     async function fetchParents() {
+      const supabase = createClient()
       const { data } = await supabase.from('parents').select('*').order('name')
       if (data) setParents(data)
       setLoading(false)
     }
     fetchParents()
-  }, [supabase])
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setSaving(true)
 
+    const supabase = createClient()
     const { error } = await supabase.from('students').insert({
       name,
       barcode,

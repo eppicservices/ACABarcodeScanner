@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
-import type { ParentAccessToken, ParentWithStudents, AppSettings } from '@/types/database'
+import type { AppSettings } from '@/types/database'
 
 // Generate a cryptographically secure token
 export function generateSecureToken(length: number = 64): string {
@@ -55,62 +54,4 @@ export function calculateLunches(
     : settings.highschool_lunch_price
 
   return Math.floor(amount / pricePerLunch)
-}
-
-// Validate token and get parent data
-export async function validateTokenAndGetParent(token: string): Promise<{
-  valid: boolean
-  error?: string
-  parent?: ParentWithStudents
-  tokenData?: ParentAccessToken
-  settings?: AppSettings
-}> {
-  const supabase = createClient()
-
-  // Look up the token
-  const { data: tokenData, error: tokenError } = await supabase
-    .from('parent_access_tokens')
-    .select('*')
-    .eq('token', token)
-    .single()
-
-  if (tokenError || !tokenData) {
-    return { valid: false, error: 'Invalid or expired link' }
-  }
-
-  // Check if expired
-  if (isTokenExpired(tokenData.expires_at)) {
-    return { valid: false, error: 'This link has expired. Please request a new one.' }
-  }
-
-  // Get parent with students
-  const { data: parent, error: parentError } = await supabase
-    .from('parents')
-    .select('*, students(*)')
-    .eq('id', tokenData.parent_id)
-    .single()
-
-  if (parentError || !parent) {
-    return { valid: false, error: 'Parent account not found' }
-  }
-
-  // Get settings for pricing
-  const { data: settings } = await supabase
-    .from('app_settings')
-    .select('*')
-    .eq('id', 1)
-    .single()
-
-  // Update last_used_at
-  await supabase
-    .from('parent_access_tokens')
-    .update({ last_used_at: new Date().toISOString() })
-    .eq('id', tokenData.id)
-
-  return {
-    valid: true,
-    parent: parent as ParentWithStudents,
-    tokenData: tokenData as ParentAccessToken,
-    settings: settings as AppSettings
-  }
 }

@@ -25,33 +25,3 @@ export async function createClient() {
     }
   )
 }
-
-export async function getUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-export async function getAdminUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) return null
-
-  const { data: adminUser } = await supabase
-    .from('admin_users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  return adminUser
-}
-
-export async function isFirstAdmin() {
-  const supabase = await createClient()
-  const { count } = await supabase
-    .from('admin_users')
-    .select('*', { count: 'exact', head: true })
-
-  return count === 0
-}

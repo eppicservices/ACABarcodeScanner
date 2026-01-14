@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -36,13 +36,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [paymentNotes, setPaymentNotes] = useState('')
 
   const router = useRouter()
-  const supabase = createClient()
 
-  useEffect(() => {
-    fetchData()
-  }, [id])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
+    const supabase = createClient()
     const [studentRes, parentsRes, transactionsRes, settingsData] = await Promise.all([
       supabase.from('students').select('*, parent:parents(*)').eq('id', id).single(),
       supabase.from('parents').select('*').order('name'),
@@ -72,7 +68,11 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     }
 
     setLoading(false)
-  }
+  }, [id])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -80,6 +80,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     setSuccess(null)
     setSaving(true)
 
+    const supabase = createClient()
     const { error } = await supabase
       .from('students')
       .update({
@@ -160,6 +161,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       return
     }
 
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const previousBalance = student.balance
     const newBalance = previousBalance + lunches
@@ -206,6 +208,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       return
     }
 
+    const supabase = createClient()
     const { error } = await supabase.from('students').delete().eq('id', id)
 
     if (error) {

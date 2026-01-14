@@ -5,7 +5,7 @@ import Image from 'next/image';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
 import StatsBar from '@/components/StatsBar';
-import { lookupStudentByBarcode, useLunch, StudentRecord } from '@/lib/supabase';
+import { lookupStudentByBarcode, consumeLunch, StudentRecord } from '@/lib/supabase';
 
 type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient';
 
@@ -56,7 +56,7 @@ export default function Home() {
     }
 
     // Try to use a lunch (decrement balance)
-    const result = await useLunch(student.id, student.school_level, student.balance);
+    const result = await consumeLunch(student.id, student.school_level, student.balance);
     const level = student.school_level === 'elementary' ? 'Elementary' : 'High School';
 
     if (result.success) {

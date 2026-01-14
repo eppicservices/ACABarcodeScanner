@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useCallback, use } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import type { ParentWithStudents, AppSettings, Student, StudentPaymentItem } from '@/types/database'
 import { getDaysUntilExpiry, calculateLunches } from '@/lib/parent-portal'
 
@@ -21,11 +22,7 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
   const [amounts, setAmounts] = useState<StudentAmount[]>([])
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    validateToken()
-  }, [token])
-
-  async function validateToken() {
+  const validateToken = useCallback(async () => {
     try {
       const res = await fetch(`/api/parent-portal/validate/${token}`)
       const data = await res.json()
@@ -52,7 +49,11 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
       setError('Failed to load. Please try again.')
       setLoading(false)
     }
-  }
+  }, [token])
+
+  useEffect(() => {
+    validateToken()
+  }, [validateToken])
 
   function updateAmount(studentId: string, value: string, isLunchCard: boolean = false) {
     setAmounts(prev => prev.map(a =>
@@ -193,9 +194,9 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
           </div>
           <h1>Link Unavailable</h1>
           <p>{error}</p>
-          <a href="/parent/request-link" className="btn btn-primary">
+          <Link href="/parent/request-link" className="btn btn-primary">
             Request New Link
-          </a>
+          </Link>
         </div>
         <style jsx>{styles}</style>
       </div>
@@ -376,9 +377,9 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
         <p className="link-expiry">
           This link expires in <strong>{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</strong>
         </p>
-        <a href="/parent/request-link" className="request-link">
+        <Link href="/parent/request-link" className="request-link">
           Request a new link
-        </a>
+        </Link>
       </footer>
 
       <style jsx>{styles}</style>

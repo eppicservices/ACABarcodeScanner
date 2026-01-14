@@ -143,16 +143,8 @@ export interface PendingPayment {
 }
 
 // Extended types with joins
-export interface StudentWithParent extends Student {
-  parent: Parent
-}
-
 export interface ParentWithStudents extends Parent {
   students: Student[]
-}
-
-export interface BalanceTransactionWithStudent extends BalanceTransaction {
-  student: Pick<Student, 'id' | 'name' | 'barcode'>
 }
 
 // Database schema type for Supabase client

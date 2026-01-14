@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       .eq('parent_id', parent_id)
 
     // Insert new token
-    const { data: tokenData, error: tokenError } = await supabase
+    const { error: tokenError } = await supabase
       .from('parent_access_tokens')
       .insert({
         parent_id,
@@ -59,8 +59,6 @@ export async function POST(request: NextRequest) {
         expires_at: expiresAt,
         created_by: user.id
       })
-      .select()
-      .single()
 
     if (tokenError) {
       return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 })

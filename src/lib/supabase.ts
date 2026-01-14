@@ -1,10 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database, AppSettings } from '@/types/database'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Lazy initialization to avoid build-time errors during static generation
+let supabaseInstance: SupabaseClient<Database> | null = null
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+function getSupabase(): SupabaseClient<Database> {
+  if (!supabaseInstance) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
+  }
+  return supabaseInstance
+}
+
+// For backwards compatibility, export a getter
+export const supabase = {
+  from: (...args: Parameters<SupabaseClient<Database>['from']>) => getSupabase().from(...args),
+  auth: {
+    getUser: () => getSupabase().auth.getUser(),
+    signInWithPassword: (...args: Parameters<SupabaseClient<Database>['auth']['signInWithPassword']>) =>
+      getSupabase().auth.signInWithPassword(...args),
+    signUp: (...args: Parameters<SupabaseClient<Database>['auth']['signUp']>) =>
+      getSupabase().auth.signUp(...args),
+    signOut: () => getSupabase().auth.signOut(),
+  },
+}
 
 export interface StudentRecord {
   id: string
@@ -23,7 +43,7 @@ export interface LunchSettings {
   highschool_negative_limit: number
 }
 
-export interface UseLunchResult {
+export interface ConsumeLunchResult {
   success: boolean
   newBalance?: number
   error?: 'not_found' | 'insufficient_balance' | 'already_used' | 'database_error'
@@ -87,7 +107,7 @@ export async function lookupStudentByBarcode(barcode: string): Promise<StudentRe
 }
 
 // Use a lunch for a student (decrement balance by 1)
-export async function useLunch(studentId: string, schoolLevel: 'elementary' | 'high_school', currentBalance: number): Promise<UseLunchResult> {
+export async function consumeLunch(studentId: string, schoolLevel: 'elementary' | 'high_school', currentBalance: number): Promise<ConsumeLunchResult> {
   const settings = await getSettings()
 
   if (!settings) {

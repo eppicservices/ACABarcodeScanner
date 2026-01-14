@@ -104,7 +104,3 @@ export const students: Record<string, Student> = {
     homeroom: 'Mr. Davis',
   },
 };
-
-export function lookupStudent(code: string): Student | null {
-  return students[code] || null;
-}

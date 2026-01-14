@@ -10,7 +10,7 @@ interface ParentWithStudents extends Parent {
   students: Student[]
 }
 
-type SortField = 'name' | 'balance' | '131children'
+type SortField = 'name' | 'balance' | 'children'
 type SortDirection = 'asc' | 'desc'
 
 export default function ParentsPage() {
@@ -21,24 +21,32 @@ export default function ParentsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [generatingLink, setGeneratingLink] = useState<string | null>(null)
   const [linkMessage, setLinkMessage] = useState<{ parentId: string; url: string } | null>(null)
-  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    fetchParents()
-  }, [])
+    const supabase = createClient()
+    let isMounted = true
 
-  async function fetchParents() {
-    const { data, error } = await supabase
-      .from('parents')
-      .select('*, students(*)')
-      .order('name')
+    async function fetchParents() {
+      const { data, error } = await supabase
+        .from('parents')
+        .select('*, students(*)')
+        .order('name')
 
-    if (!error && data) {
-      setParents(data as ParentWithStudents[])
+      if (isMounted) {
+        if (!error && data) {
+          setParents(data as ParentWithStudents[])
+        }
+        setLoading(false)
+      }
     }
-    setLoading(false)
-  }
+
+    fetchParents()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const getFamilyBalance = (parent: ParentWithStudents) =>
     parent.students.reduce((sum, s) => sum + s.balance, 0)
@@ -277,7 +285,7 @@ export default function ParentsPage() {
                       </span>
                       {parent.students.length > 0 && (
                         <div className="student-names">
-                          {parent.students.map((s, i) => (
+                          {parent.students.map((s) => (
                             <Link key={s.id} href={`/admin/students/${s.id}`} className="student-tag">
                               {s.name.split(' ')[0]}
                             </Link>

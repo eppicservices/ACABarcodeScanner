@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { AppSettings, AdminUser, PendingPayment, EmailProvider } from '@/types/database'
 import CsvImport from '@/components/admin/CsvImport'
@@ -164,13 +164,8 @@ export default function SettingsPage() {
   // Test email state
   const [testingEmail, setTestingEmail] = useState(false)
 
-  const supabase = createClient()
-
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
+    const supabase = createClient()
     const [settingsRes, adminsRes, paymentsRes] = await Promise.all([
       supabase.from('app_settings').select('*').eq('id', 1).single(),
       supabase.from('admin_users').select('*').order('created_at'),
@@ -226,7 +221,11 @@ export default function SettingsPage() {
     }
 
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   async function handleCompletePayment(paymentId: string) {
     if (!confirm('Mark this payment as completed? This will add lunches to the students\' accounts.')) return
@@ -237,6 +236,7 @@ export default function SettingsPage() {
     const payment = pendingPayments.find(p => p.id === paymentId)
     if (!payment) return
 
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     // Track new balances for receipt
@@ -322,6 +322,7 @@ export default function SettingsPage() {
   async function handleCancelPayment(paymentId: string) {
     if (!confirm('Cancel this pending payment?')) return
 
+    const supabase = createClient()
     await supabase
       .from('pending_payments')
       .update({ status: 'cancelled' })
@@ -335,6 +336,7 @@ export default function SettingsPage() {
     setMessage(null)
     setSaving(true)
 
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     const { error } = await supabase
@@ -404,6 +406,7 @@ export default function SettingsPage() {
   async function handleRemoveAdmin(adminId: string) {
     if (!confirm('Are you sure you want to remove this admin?')) return
 
+    const supabase = createClient()
     const { error } = await supabase
       .from('admin_users')
       .delete()
@@ -425,6 +428,7 @@ export default function SettingsPage() {
     await handleSave()
 
     try {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user?.email) {
         setMessage({ type: 'error', text: 'Could not get your email address' })
@@ -455,6 +459,7 @@ export default function SettingsPage() {
   async function exportData(type: 'students' | 'transactions' | 'parents') {
     setMessage(null)
 
+    const supabase = createClient()
     let query
     let filename
 
