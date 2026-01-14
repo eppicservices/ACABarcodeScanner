@@ -217,7 +217,8 @@ export default function AdminNav() {
           </button>
         </div>
 
-        <style jsx>{`
+        {/* Global styles for elements outside nav */}
+        <style jsx global>{`
           /* Mobile Header Bar */
           .mobile-header {
             display: none;
@@ -232,7 +233,7 @@ export default function AdminNav() {
           }
 
           .mobile-header-gold-bar {
-            height: 3px;
+            height: 4px;
             width: 100%;
             background: linear-gradient(90deg, #d4af37 0%, #ffe082 50%, #d4af37 100%);
           }
@@ -324,6 +325,24 @@ export default function AdminNav() {
             visibility: visible;
           }
 
+          /* Mobile styles for header/overlay */
+          @media (max-width: 767px) {
+            .mobile-header {
+              display: flex !important;
+              flex-direction: column;
+            }
+
+            .mobile-menu-toggle {
+              display: flex !important;
+            }
+
+            .nav-overlay {
+              display: block;
+            }
+          }
+        `}</style>
+
+        <style jsx>{`
           /* Mobile Close Button */
           .mobile-close-btn {
             display: none;
@@ -532,39 +551,8 @@ export default function AdminNav() {
             color: #fca5a5;
           }
 
-          /* Mobile Styles */
+          /* Mobile Styles for nav elements */
           @media (max-width: 767px) {
-            .mobile-header {
-              display: flex !important;
-              flex-direction: column;
-              height: auto;
-              min-height: 59px;
-              visibility: visible !important;
-              opacity: 1 !important;
-            }
-
-            .mobile-header-gold-bar {
-              display: block !important;
-              height: 4px !important;
-              min-height: 4px !important;
-              width: 100% !important;
-              background: linear-gradient(90deg, #d4af37 0%, #ffe082 50%, #d4af37 100%) !important;
-            }
-
-            .mobile-header-content {
-              display: flex !important;
-              height: 56px !important;
-            }
-
-            .mobile-menu-toggle {
-              display: flex !important;
-            }
-
-            .nav-overlay {
-              display: block;
-              top: 0;
-            }
-
             .mobile-close-btn {
               display: flex;
             }
