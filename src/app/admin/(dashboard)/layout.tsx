@@ -1,3 +1,5 @@
+'use client'
+
 import AdminNav from '@/components/admin/AdminNav'
 
 export default function DashboardLayout({
@@ -14,13 +16,15 @@ export default function DashboardLayout({
         </div>
       </main>
 
-      <style>{`
+      <style jsx global>{`
         .admin-layout {
           display: flex;
           min-height: 100vh;
           min-height: 100dvh;
           width: 100%;
+          max-width: 100%;
           overflow-x: hidden;
+          position: relative;
         }
 
         .admin-main {
@@ -62,10 +66,17 @@ export default function DashboardLayout({
         }
 
         @media (max-width: 767px) {
+          .admin-layout {
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+          }
+
           .admin-main {
             margin-left: 0;
             width: 100%;
             max-width: 100%;
+            overflow-x: hidden;
           }
 
           .admin-content {

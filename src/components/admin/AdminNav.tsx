@@ -138,7 +138,16 @@ export default function AdminNav() {
               priority
             />
           </Link>
-          <div className="mobile-header-spacer" />
+          <button
+            className={`mobile-close-toggle ${isOpen ? 'is-open' : ''}`}
+            onClick={() => setIsOpen(false)}
+            aria-label="Close menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -149,22 +158,11 @@ export default function AdminNav() {
       />
 
       <nav className={`admin-nav ${isOpen ? 'is-open' : ''}`}>
-        {/* Gold accent bar like ACA website */}
-        <div className="gold-bar" />
+        {/* Gold accent bar like ACA website - desktop only */}
+        <div className="gold-bar desktop-only" />
 
-        {/* Mobile close button inside nav */}
-        <button
-          className="mobile-close-btn"
-          onClick={() => setIsOpen(false)}
-          aria-label="Close menu"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-
-        <div className="nav-header">
+        {/* Desktop logo header */}
+        <div className="nav-header desktop-only">
           <Link href="/" className="logo-link" onClick={handleNavClick}>
             <Image
               src="https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png"
@@ -175,6 +173,11 @@ export default function AdminNav() {
               priority
             />
           </Link>
+        </div>
+
+        {/* Mobile nav header - flows from mobile header */}
+        <div className="mobile-nav-header">
+          <span className="mobile-nav-title">Admin Panel</span>
         </div>
 
         <div className="add-payment-section">
@@ -190,12 +193,13 @@ export default function AdminNav() {
         <div className="nav-section">
           <span className="nav-section-label">Menu</span>
           <div className="nav-links">
-            {navItems.map((item) => (
+            {navItems.map((item, index) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`nav-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
                 onClick={handleNavClick}
+                style={{ animationDelay: isOpen ? `${index * 50}ms` : '0ms' }}
               >
                 <span className="nav-icon">{getIcon(item.icon)}</span>
                 <span className="nav-label">{item.label}</span>
@@ -253,10 +257,6 @@ export default function AdminNav() {
             align-items: center;
           }
 
-          .mobile-header-spacer {
-            width: 44px;
-          }
-
           /* Mobile Menu Toggle Button */
           .mobile-menu-toggle {
             display: none;
@@ -264,7 +264,7 @@ export default function AdminNav() {
             height: 44px;
             min-width: 44px;
             min-height: 44px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             border: none;
             border-radius: 10px;
             cursor: pointer;
@@ -273,15 +273,21 @@ export default function AdminNav() {
             justify-content: center;
             gap: 5px;
             padding: 10px;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           }
 
           .mobile-menu-toggle:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.12);
           }
 
           .mobile-menu-toggle:active {
             transform: scale(0.95);
+          }
+
+          .mobile-menu-toggle.is-open {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
           }
 
           .hamburger-line {
@@ -294,17 +300,38 @@ export default function AdminNav() {
             transform-origin: center;
           }
 
-          .mobile-menu-toggle.is-open .hamburger-line:nth-child(1) {
-            transform: translateY(7px) rotate(45deg);
-          }
-
-          .mobile-menu-toggle.is-open .hamburger-line:nth-child(2) {
+          /* Mobile Close Button in Header */
+          .mobile-close-toggle {
+            display: none;
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            min-height: 44px;
+            background: rgba(212, 175, 55, 0.15);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            color: #d4af37;
             opacity: 0;
-            transform: scaleX(0);
+            pointer-events: none;
+            transform: scale(0.8) rotate(-90deg);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           }
 
-          .mobile-menu-toggle.is-open .hamburger-line:nth-child(3) {
-            transform: translateY(-7px) rotate(-45deg);
+          .mobile-close-toggle:hover {
+            background: rgba(212, 175, 55, 0.25);
+          }
+
+          .mobile-close-toggle:active {
+            transform: scale(0.9) rotate(0deg);
+          }
+
+          .mobile-close-toggle.is-open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1) rotate(0deg);
           }
 
           /* Overlay */
@@ -312,8 +339,9 @@ export default function AdminNav() {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 20, 40, 0.7);
+            background: rgba(0, 20, 40, 0.6);
             backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 99;
             opacity: 0;
             visibility: hidden;
@@ -336,6 +364,10 @@ export default function AdminNav() {
               display: flex !important;
             }
 
+            .mobile-close-toggle {
+              display: flex !important;
+            }
+
             .nav-overlay {
               display: block;
             }
@@ -343,32 +375,6 @@ export default function AdminNav() {
         `}</style>
 
         <style jsx>{`
-          /* Mobile Close Button */
-          .mobile-close-btn {
-            display: none;
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            width: 44px;
-            height: 44px;
-            min-width: 44px;
-            min-height: 44px;
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            align-items: center;
-            justify-content: center;
-            color: rgba(255, 255, 255, 0.7);
-            transition: all 0.2s ease;
-            z-index: 10;
-          }
-
-          .mobile-close-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: #fff;
-          }
-
           /* Main Navigation */
           .admin-nav {
             width: 260px;
@@ -390,6 +396,10 @@ export default function AdminNav() {
             flex-shrink: 0;
           }
 
+          .desktop-only {
+            display: block;
+          }
+
           .nav-header {
             padding: 28px 24px;
           }
@@ -406,6 +416,21 @@ export default function AdminNav() {
 
           :global(.logo-image) {
             opacity: 1;
+          }
+
+          /* Mobile nav header - seamless from mobile header */
+          .mobile-nav-header {
+            display: none;
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          }
+
+          .mobile-nav-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #d4af37;
           }
 
           .add-payment-section {
@@ -553,41 +578,43 @@ export default function AdminNav() {
 
           /* Mobile Styles for nav elements */
           @media (max-width: 767px) {
-            .mobile-close-btn {
-              display: flex;
+            .desktop-only {
+              display: none !important;
+            }
+
+            .mobile-nav-header {
+              display: block;
             }
 
             .admin-nav {
               position: fixed;
               left: 0;
-              top: 0;
+              top: 60px; /* Aligns directly below the mobile header */
               width: 280px;
               max-width: 85vw;
-              height: 100vh;
-              height: 100dvh;
+              height: calc(100vh - 60px);
+              height: calc(100dvh - 60px);
               transform: translateX(-100%);
-              transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+              transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                          box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
               box-shadow: none;
               visibility: hidden;
+              border-top-right-radius: 0;
+              overflow: hidden;
             }
 
             .admin-nav.is-open {
               transform: translateX(0);
-              box-shadow: 8px 0 40px rgba(0, 0, 0, 0.3);
+              box-shadow: 8px 0 40px rgba(0, 0, 0, 0.25);
               visibility: visible;
             }
 
-            .nav-header {
-              padding: 24px 20px;
-              padding-top: 20px;
-            }
-
             .add-payment-section {
-              padding: 12px 16px 16px;
+              padding: 16px 16px 16px;
             }
 
             .nav-section {
-              padding: 20px 0;
+              padding: 16px 0;
             }
 
             .nav-section-label {
@@ -595,15 +622,24 @@ export default function AdminNav() {
             }
 
             .nav-links {
-              padding: 0 14px;
+              padding: 0 12px;
             }
 
             .nav-link {
-              padding: 12px 14px;
+              padding: 14px 16px;
+              opacity: 0;
+              transform: translateX(-12px);
+            }
+
+            .admin-nav.is-open .nav-link {
+              opacity: 1;
+              transform: translateX(0);
+              transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s ease, color 0.15s ease;
             }
 
             .nav-footer {
-              padding: 14px 14px 24px;
+              padding: 12px 12px 24px;
+              padding-bottom: max(24px, env(safe-area-inset-bottom));
             }
           }
         `}</style>
