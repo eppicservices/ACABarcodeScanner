@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Student, Parent } from '@/types/database'
 
@@ -9,12 +10,18 @@ interface StudentWithParent extends Student {
   parent: Parent
 }
 
+type SortField = 'name' | 'balance' | 'level'
+type SortDirection = 'asc' | 'desc'
+
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentWithParent[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'elementary' | 'high_school'>('all')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     fetchStudents()
@@ -32,16 +39,41 @@ export default function StudentsPage() {
     setLoading(false)
   }
 
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch =
-      student.name.toLowerCase().includes(search.toLowerCase()) ||
-      student.barcode.toLowerCase().includes(search.toLowerCase()) ||
-      student.parent.name.toLowerCase().includes(search.toLowerCase())
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection(field === 'balance' ? 'desc' : 'asc') // Default to desc for balance (high first)
+    }
+  }
 
-    const matchesFilter = filter === 'all' || student.school_level === filter
+  const filteredStudents = students
+    .filter((student) => {
+      const matchesSearch =
+        student.name.toLowerCase().includes(search.toLowerCase()) ||
+        student.barcode.toLowerCase().includes(search.toLowerCase()) ||
+        student.parent.name.toLowerCase().includes(search.toLowerCase())
 
-    return matchesSearch && matchesFilter
-  })
+      const matchesFilter = filter === 'all' || student.school_level === filter
+
+      return matchesSearch && matchesFilter
+    })
+    .sort((a, b) => {
+      let comparison = 0
+      switch (sortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name)
+          break
+        case 'balance':
+          comparison = a.balance - b.balance
+          break
+        case 'level':
+          comparison = a.school_level.localeCompare(b.school_level)
+          break
+      }
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
   const getBalanceClass = (balance: number) => {
     if (balance <= 0) return 'balance-danger'
@@ -173,6 +205,25 @@ export default function StudentsPage() {
             High School
           </button>
         </div>
+        <div className="sort-dropdown">
+          <label className="sort-label">Sort:</label>
+          <select
+            className="sort-select"
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split('-') as [SortField, SortDirection]
+              setSortField(field)
+              setSortDirection(dir)
+            }}
+          >
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+            <option value="balance-desc">Balance (High-Low)</option>
+            <option value="balance-asc">Balance (Low-High)</option>
+            <option value="level-asc">Level (Elem First)</option>
+            <option value="level-desc">Level (HS First)</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -193,17 +244,36 @@ export default function StudentsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Student</th>
+                  <th className="sortable" onClick={() => handleSort('name')}>
+                    Student
+                    {sortField === 'name' && (
+                      <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </th>
                   <th>Barcode</th>
-                  <th>Level</th>
+                  <th className="sortable" onClick={() => handleSort('level')}>
+                    Level
+                    {sortField === 'level' && (
+                      <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </th>
                   <th>Parent</th>
-                  <th>Balance</th>
-                  <th></th>
+                  <th className="sortable" onClick={() => handleSort('balance')}>
+                    Balance
+                    {sortField === 'balance' && (
+                      <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredStudents.map((student, index) => (
-                  <tr key={student.id} style={{ animationDelay: `${index * 0.02}s` }}>
+                  <tr
+                    key={student.id}
+                    className="clickable-row"
+                    style={{ animationDelay: `${index * 0.02}s` }}
+                    onClick={() => router.push(`/admin/students/${student.id}`)}
+                  >
                     <td className="name-cell">
                       <div className="student-avatar">
                         {student.name.charAt(0).toUpperCase()}
@@ -224,19 +294,11 @@ export default function StudentsPage() {
                         {student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}
                       </span>
                     </td>
-                    <td className="actions-cell">
-                      <Link href={`/admin/students/${student.id}`} className="action-btn">
-                        <span>Edit</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </Link>
-                    </td>
                   </tr>
                 ))}
                 {filteredStudents.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="empty-state">
+                    <td colSpan={5} className="empty-state">
                       <div className="empty-icon">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                           <circle cx="11" cy="11" r="8" />
@@ -650,6 +712,47 @@ export default function StudentsPage() {
           box-shadow: var(--shadow-sm);
         }
 
+        .sort-dropdown {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: auto;
+        }
+
+        .sort-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--gray-400);
+          white-space: nowrap;
+        }
+
+        .sort-select {
+          padding: 8px 32px 8px 12px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: var(--white);
+          color: var(--gray-700);
+          font-size: 13px;
+          font-weight: 500;
+          font-family: var(--font-body);
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          transition: all var(--transition-fast);
+        }
+
+        .sort-select:hover {
+          border-color: var(--gray-300);
+        }
+
+        .sort-select:focus {
+          outline: none;
+          border-color: var(--aca-teal);
+          box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
         .loading-container {
           display: flex;
           flex-direction: column;
@@ -707,13 +810,38 @@ export default function StudentsPage() {
           background: var(--gray-50);
         }
 
+        .data-table th.sortable {
+          cursor: pointer;
+          user-select: none;
+          transition: all var(--transition-fast);
+        }
+
+        .data-table th.sortable:hover {
+          color: var(--aca-teal);
+          background: var(--gray-100);
+        }
+
+        .sort-icon {
+          margin-left: 6px;
+          color: var(--aca-teal);
+          font-weight: 700;
+        }
+
         .data-table tbody tr {
           animation: tableRowEnter 0.3s ease-out backwards;
           transition: background var(--transition-fast);
         }
 
+        .data-table tbody tr.clickable-row {
+          cursor: pointer;
+        }
+
         .data-table tbody tr:hover {
           background: var(--gray-50);
+        }
+
+        .data-table tbody tr.clickable-row:active {
+          background: var(--gray-100);
         }
 
         .data-table tbody tr:last-child td {
@@ -954,6 +1082,16 @@ export default function StudentsPage() {
             flex-shrink: 0;
             padding: 8px 14px;
             font-size: 12px;
+          }
+
+          .sort-dropdown {
+            width: 100%;
+            margin-left: 0;
+          }
+
+          .sort-select {
+            flex: 1;
+            width: 100%;
           }
 
           .table-container {

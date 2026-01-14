@@ -10,13 +10,14 @@ interface ParentWithStudents extends Parent {
   students: Student[]
 }
 
-export default function EditParentPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ParentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [parent, setParent] = useState<ParentWithStudents | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -68,10 +69,22 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
       setError(error.message)
     } else {
       setSuccess('Parent updated successfully')
+      setIsEditing(false)
       fetchParent()
     }
 
     setSaving(false)
+  }
+
+  function handleCancelEdit() {
+    if (parent) {
+      setName(parent.name)
+      setEmail(parent.email)
+      setPhone(parent.phone || '')
+      setAddress(parent.address || '')
+    }
+    setIsEditing(false)
+    setError(null)
   }
 
   async function handleDelete() {
@@ -234,100 +247,150 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
             </div>
           )}
 
-          <form onSubmit={handleSave} className="card form-card">
-            <div className="form-header">
-              <div className="form-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              </div>
-              <div>
-                <h2>Parent Information</h2>
-                <p className="form-desc">Update contact details for this parent</p>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="name">Full Name</label>
-              <input
-                id="name"
-                type="text"
-                className="input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="email">Email Address</label>
-              <input
-                id="email"
-                type="email"
-                className="input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <p className="field-hint">Used for low balance notifications</p>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="phone">Phone Number</label>
-                <input
-                  id="phone"
-                  type="tel"
-                  className="input"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="555-123-4567"
-                />
+          {isEditing ? (
+            <form onSubmit={handleSave} className="card form-card">
+              <div className="form-header">
+                <div className="form-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <div>
+                  <h2>Edit Parent Information</h2>
+                  <p className="form-desc">Update contact details for this parent</p>
+                </div>
               </div>
 
               <div className="form-group">
-                <label htmlFor="address">Address</label>
+                <label htmlFor="name">Full Name</label>
                 <input
-                  id="address"
+                  id="name"
                   type="text"
                   className="input"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="123 Main St, City, ST 12345"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
                 />
               </div>
-            </div>
 
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                      <polyline points="17 21 17 13 7 13 7 21" />
-                      <polyline points="7 3 7 8 15 8" />
+              <div className="form-group">
+                <label htmlFor="email">Email Address</label>
+                <input
+                  id="email"
+                  type="email"
+                  className="input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <p className="field-hint">Used for low balance notifications</p>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    id="phone"
+                    type="tel"
+                    className="input"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="555-123-4567"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="address">Address</label>
+                  <input
+                    id="address"
+                    type="text"
+                    className="input"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="123 Main St, City, ST 12345"
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-outline" onClick={handleCancelEdit}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <span className="btn-spinner" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="card detail-card">
+              <div className="detail-header">
+                <div className="detail-header-left">
+                  <div className="form-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
-                    Save Changes
-                  </>
-                )}
-              </button>
-              <button type="button" className="btn btn-danger" onClick={handleDelete}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                Delete Parent
-              </button>
+                  </div>
+                  <div>
+                    <h2>Parent Information</h2>
+                    <p className="form-desc">Contact details and family information</p>
+                  </div>
+                </div>
+                <button className="btn btn-outline" onClick={() => setIsEditing(true)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                  Edit
+                </button>
+              </div>
+
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <span className="detail-label">Full Name</span>
+                  <span className="detail-value">{parent.name}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Email Address</span>
+                  <span className="detail-value">
+                    <a href={`mailto:${parent.email}`} className="email-link-detail">
+                      {parent.email}
+                    </a>
+                  </span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Phone Number</span>
+                  <span className="detail-value">{parent.phone || <span className="not-set">Not set</span>}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Address</span>
+                  <span className="detail-value">{parent.address || <span className="not-set">Not set</span>}</span>
+                </div>
+              </div>
+
+              <div className="detail-actions">
+                <button type="button" className="btn btn-danger-outline" onClick={handleDelete}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  Delete Parent
+                </button>
+              </div>
             </div>
-          </form>
+          )}
         </div>
 
         <div className="sidebar">
@@ -543,10 +606,105 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
           color: var(--aca-teal);
         }
 
-        .form-header h2 {
+        .form-header h2,
+        .detail-header h2 {
           font-size: 17px;
           margin: 0;
           color: var(--gray-700);
+        }
+
+        .detail-card {
+          padding: 28px;
+        }
+
+        .detail-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 28px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .detail-header-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .detail-header .btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .detail-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 24px;
+        }
+
+        .detail-item {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .detail-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--gray-400);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .detail-value {
+          font-size: 15px;
+          font-weight: 500;
+          color: var(--gray-700);
+        }
+
+        .email-link-detail {
+          color: var(--aca-teal);
+          text-decoration: none;
+          transition: color var(--transition-fast);
+        }
+
+        .email-link-detail:hover {
+          color: var(--aca-teal-dark);
+          text-decoration: underline;
+        }
+
+        .not-set {
+          color: var(--gray-400);
+          font-style: italic;
+        }
+
+        .detail-actions {
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid var(--gray-100);
+        }
+
+        .btn-danger-outline {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 16px;
+          background: transparent;
+          color: var(--error);
+          border: 1px solid var(--error-border);
+          border-radius: var(--border-radius);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          font-family: var(--font-body);
+        }
+
+        .btn-danger-outline:hover {
+          background: var(--error-bg);
+          border-color: var(--error);
         }
 
         .form-desc {

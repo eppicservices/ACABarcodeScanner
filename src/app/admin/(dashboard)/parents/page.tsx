@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Parent, Student } from '@/types/database'
 
@@ -9,13 +10,19 @@ interface ParentWithStudents extends Parent {
   students: Student[]
 }
 
+type SortField = 'name' | 'balance' | 'children'
+type SortDirection = 'asc' | 'desc'
+
 export default function ParentsPage() {
   const [parents, setParents] = useState<ParentWithStudents[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [generatingLink, setGeneratingLink] = useState<string | null>(null)
   const [linkMessage, setLinkMessage] = useState<{ parentId: string; url: string } | null>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     fetchParents()
@@ -33,10 +40,29 @@ export default function ParentsPage() {
     setLoading(false)
   }
 
-  const filteredParents = parents.filter((parent) =>
-    parent.name.toLowerCase().includes(search.toLowerCase()) ||
-    parent.email.toLowerCase().includes(search.toLowerCase())
-  )
+  const getFamilyBalance = (parent: ParentWithStudents) =>
+    parent.students.reduce((sum, s) => sum + s.balance, 0)
+
+  const filteredParents = parents
+    .filter((parent) =>
+      parent.name.toLowerCase().includes(search.toLowerCase()) ||
+      parent.email.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      let comparison = 0
+      switch (sortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name)
+          break
+        case 'balance':
+          comparison = getFamilyBalance(a) - getFamilyBalance(b)
+          break
+        case 'children':
+          comparison = a.students.length - b.students.length
+          break
+      }
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
   const totalStudents = parents.reduce((sum, p) => sum + p.students.length, 0)
   const parentsWithMultipleKids = parents.filter(p => p.students.length > 1).length
@@ -169,6 +195,25 @@ export default function ParentsPage() {
             {filteredParents.length} result{filteredParents.length !== 1 ? 's' : ''}
           </span>
         )}
+        <div className="sort-dropdown">
+          <label className="sort-label">Sort:</label>
+          <select
+            className="sort-select"
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split('-') as [SortField, SortDirection]
+              setSortField(field)
+              setSortDirection(dir)
+            }}
+          >
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+            <option value="balance-desc">Balance (High-Low)</option>
+            <option value="balance-asc">Balance (Low-High)</option>
+            <option value="children-desc">Children (Most First)</option>
+            <option value="children-asc">Children (Least First)</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -193,11 +238,17 @@ export default function ParentsPage() {
               {filteredParents.map((parent, index) => (
                 <tr key={parent.id} style={{ animationDelay: `${index * 30}ms` }}>
                   <td className="name-cell">
-                    <div className="parent-info">
+                    <div
+                      className="parent-info clickable"
+                      onClick={() => router.push(`/admin/parents/${parent.id}`)}
+                    >
                       <div className="avatar">
                         {parent.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="parent-name">{parent.name}</span>
+                      <svg className="name-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
                     </div>
                   </td>
                   <td>
@@ -276,13 +327,6 @@ export default function ParentsPage() {
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                         Add Payment
-                      </Link>
-                      <Link href={`/admin/parents/${parent.id}`} className="action-btn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                        Edit
                       </Link>
                     </div>
                   </td>
@@ -761,6 +805,47 @@ export default function ParentsPage() {
           color: var(--gray-400);
         }
 
+        .sort-dropdown {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: auto;
+        }
+
+        .sort-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--gray-400);
+          white-space: nowrap;
+        }
+
+        .sort-select {
+          padding: 8px 32px 8px 12px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: var(--white);
+          color: var(--gray-700);
+          font-size: 13px;
+          font-weight: 500;
+          font-family: var(--font-body);
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          transition: all var(--transition-fast);
+        }
+
+        .sort-select:hover {
+          border-color: var(--gray-300);
+        }
+
+        .sort-select:focus {
+          outline: none;
+          border-color: var(--aca-teal);
+          box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
         .table-container {
           overflow-x: auto;
         }
@@ -813,6 +898,34 @@ export default function ParentsPage() {
           display: flex;
           align-items: center;
           gap: 12px;
+        }
+
+        .parent-info.clickable {
+          cursor: pointer;
+          padding: 8px 12px;
+          margin: -8px -12px;
+          border-radius: var(--border-radius);
+          transition: all var(--transition-fast);
+        }
+
+        .parent-info.clickable:hover {
+          background: var(--gray-50);
+        }
+
+        .parent-info.clickable:active {
+          background: var(--gray-100);
+        }
+
+        .name-chevron {
+          color: var(--gray-300);
+          opacity: 0;
+          transition: all var(--transition-fast);
+          margin-left: auto;
+        }
+
+        .parent-info.clickable:hover .name-chevron {
+          opacity: 1;
+          transform: translateX(2px);
         }
 
         .avatar {
@@ -1149,6 +1262,16 @@ export default function ParentsPage() {
 
           .search-box {
             max-width: 100%;
+          }
+
+          .sort-dropdown {
+            width: 100%;
+            margin-left: 0;
+          }
+
+          .sort-select {
+            flex: 1;
+            width: 100%;
           }
 
           .table-container {

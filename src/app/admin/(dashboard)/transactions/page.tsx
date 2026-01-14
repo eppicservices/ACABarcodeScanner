@@ -9,10 +9,15 @@ interface TransactionWithStudent extends BalanceTransaction {
   student: Student
 }
 
+type SortField = 'date' | 'amount' | 'student'
+type SortDirection = 'asc' | 'desc'
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionWithStudent[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'payment' | 'lunch_card' | 'adjustment' | 'lunch_used'>('all')
+  const [sortField, setSortField] = useState<SortField>('date')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const supabase = createClient()
 
   useEffect(() => {
@@ -32,9 +37,23 @@ export default function TransactionsPage() {
     setLoading(false)
   }
 
-  const filteredTransactions = transactions.filter(
-    (tx) => filter === 'all' || tx.transaction_type === filter
-  )
+  const filteredTransactions = transactions
+    .filter((tx) => filter === 'all' || tx.transaction_type === filter)
+    .sort((a, b) => {
+      let comparison = 0
+      switch (sortField) {
+        case 'date':
+          comparison = new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime()
+          break
+        case 'amount':
+          comparison = a.lunches_change - b.lunches_change
+          break
+        case 'student':
+          comparison = a.student.name.localeCompare(b.student.name)
+          break
+      }
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
   const totalLunchesAdded = transactions
     .filter((tx) => tx.lunches_change > 0)
@@ -140,6 +159,25 @@ export default function TransactionsPage() {
           >
             Adjustments
           </button>
+        </div>
+        <div className="sort-dropdown">
+          <label className="sort-label">Sort:</label>
+          <select
+            className="sort-select"
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split('-') as [SortField, SortDirection]
+              setSortField(field)
+              setSortDirection(dir)
+            }}
+          >
+            <option value="date-desc">Date (Newest)</option>
+            <option value="date-asc">Date (Oldest)</option>
+            <option value="amount-desc">Amount (High-Low)</option>
+            <option value="amount-asc">Amount (Low-High)</option>
+            <option value="student-asc">Student (A-Z)</option>
+            <option value="student-desc">Student (Z-A)</option>
+          </select>
         </div>
       </div>
 
@@ -600,6 +638,47 @@ export default function TransactionsPage() {
           box-shadow: var(--shadow-sm);
         }
 
+        .sort-dropdown {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: auto;
+        }
+
+        .sort-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--gray-400);
+          white-space: nowrap;
+        }
+
+        .sort-select {
+          padding: 8px 32px 8px 12px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: var(--white);
+          color: var(--gray-700);
+          font-size: 13px;
+          font-weight: 500;
+          font-family: var(--font-body);
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          transition: all var(--transition-fast);
+        }
+
+        .sort-select:hover {
+          border-color: var(--gray-300);
+        }
+
+        .sort-select:focus {
+          outline: none;
+          border-color: var(--aca-teal);
+          box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
         .loading-container {
           display: flex;
           flex-direction: column;
@@ -928,6 +1007,21 @@ export default function TransactionsPage() {
             flex-shrink: 0;
             padding: 8px 12px;
             font-size: 12px;
+          }
+
+          .filters {
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .sort-dropdown {
+            width: 100%;
+            margin-left: 0;
+          }
+
+          .sort-select {
+            flex: 1;
+            width: 100%;
           }
 
           .table-container {
