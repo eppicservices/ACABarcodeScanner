@@ -19,7 +19,38 @@ export default function ParentsPage() {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [sendingEmailFor, setSendingEmailFor] = useState<string | null>(null)
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const router = useRouter()
+
+  const sendBalanceEmail = async (parentId: string, parentEmail: string) => {
+    setSendingEmailFor(parentId)
+    setEmailSuccess(null)
+    setEmailError(null)
+
+    try {
+      const response = await fetch('/api/admin/send-balance-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parent_id: parentId })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email')
+      }
+
+      setEmailSuccess(parentId)
+      setTimeout(() => setEmailSuccess(null), 3000)
+    } catch (error) {
+      setEmailError(error instanceof Error ? error.message : 'Failed to send email')
+      setTimeout(() => setEmailError(null), 5000)
+    } finally {
+      setSendingEmailFor(null)
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -98,6 +129,18 @@ export default function ParentsPage() {
           Add Parent
         </Link>
       </div>
+
+      {/* Error Toast */}
+      {emailError && (
+        <div className="error-toast">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+          {emailError}
+        </div>
+      )}
 
       {/* Desktop Stats Grid */}
       <div className="stats-row desktop-stats">
@@ -289,16 +332,33 @@ export default function ParentsPage() {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <a
-                        href={`mailto:${parent.email}?subject=Lunch Balance Update&body=Hello ${parent.name},%0D%0A%0D%0AYour current family lunch balance is $${getFamilyBalance(parent).toFixed(2)}.%0D%0A%0D%0AThank you!`}
-                        className="action-btn email-btn"
+                      <button
+                        onClick={() => sendBalanceEmail(parent.id, parent.email)}
+                        disabled={sendingEmailFor === parent.id}
+                        className={`action-btn email-btn ${emailSuccess === parent.id ? 'success' : ''}`}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                          <polyline points="22,6 12,13 2,6" />
-                        </svg>
-                        Email Balance
-                      </a>
+                        {sendingEmailFor === parent.id ? (
+                          <>
+                            <span className="btn-spinner" />
+                            Sending...
+                          </>
+                        ) : emailSuccess === parent.id ? (
+                          <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Sent!
+                          </>
+                        ) : (
+                          <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                              <polyline points="22,6 12,13 2,6" />
+                            </svg>
+                            Email Balance
+                          </>
+                        )}
+                      </button>
                       <Link href={`/admin/add-payment?parent=${parent.id}`} className="action-btn payment-btn">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="12" y1="1" x2="12" y2="23" />
@@ -905,11 +965,59 @@ export default function ParentsPage() {
         .email-btn {
           background: var(--aca-teal-subtle);
           color: var(--aca-teal);
+          border: none;
+          cursor: pointer;
         }
 
-        .email-btn:hover {
+        .email-btn:hover:not(:disabled) {
           background: var(--aca-teal);
           color: var(--white);
+        }
+
+        .email-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        .email-btn.success {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .btn-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid currentColor;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          display: inline-block;
+        }
+
+        .error-toast {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 18px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: var(--border-radius-lg);
+          color: #dc2626;
+          font-size: 14px;
+          font-weight: 500;
+          margin-bottom: 16px;
+          animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .payment-btn {
