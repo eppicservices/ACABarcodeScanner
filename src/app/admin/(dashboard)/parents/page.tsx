@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Parent, Student } from '@/types/database'
+import type { Parent, Student, ActiveFilter } from '@/types/database'
 
 interface ParentWithStudents extends Parent {
   students: Student[]
@@ -17,12 +17,18 @@ export default function ParentsPage() {
   const [parents, setParents] = useState<ParentWithStudents[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ActiveFilter>('active')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [sendingEmailFor, setSendingEmailFor] = useState<string | null>(null)
   const [emailSuccess, setEmailSuccess] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [selectedParents, setSelectedParents] = useState<Set<string>>(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
+  const [showCascadeModal, setShowCascadeModal] = useState(false)
+  const [pendingDeactivation, setPendingDeactivation] = useState<Set<string>>(new Set())
   const router = useRouter()
+  const supabase = createClient()
 
   const sendBalanceEmail = async (parentId: string, parentEmail: string) => {
     setSendingEmailFor(parentId)
@@ -52,39 +58,105 @@ export default function ParentsPage() {
     }
   }
 
+  const fetchParents = async () => {
+    const { data, error } = await supabase
+      .from('parents')
+      .select('*, students(*)')
+      .order('name')
+
+    if (!error && data) {
+      setParents(data as ParentWithStudents[])
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
-    const supabase = createClient()
-    let isMounted = true
-
-    async function fetchParents() {
-      const { data, error } = await supabase
-        .from('parents')
-        .select('*, students(*)')
-        .order('name')
-
-      if (isMounted) {
-        if (!error && data) {
-          setParents(data as ParentWithStudents[])
-        }
-        setLoading(false)
-      }
-    }
-
     fetchParents()
-
-    return () => {
-      isMounted = false
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Bulk status update with cascade option for deactivation
+  const handleBulkStatusUpdate = async (setActive: boolean, cascadeToStudents: boolean = false) => {
+    if (selectedParents.size === 0) return
+
+    setBulkUpdating(true)
+    setShowCascadeModal(false)
+    try {
+      const parentIds = Array.from(selectedParents)
+
+      // Update parents
+      const { error: parentError } = await supabase
+        .from('parents')
+        .update({ is_active: setActive })
+        .in('id', parentIds)
+
+      if (parentError) throw parentError
+
+      // If deactivating and cascade is requested, also deactivate students
+      if (!setActive && cascadeToStudents) {
+        const { error: studentError } = await supabase
+          .from('students')
+          .update({ is_active: false })
+          .in('parent_id', parentIds)
+
+        if (studentError) throw studentError
+      }
+
+      await fetchParents()
+      setSelectedParents(new Set())
+      setPendingDeactivation(new Set())
+    } catch (error) {
+      console.error('Failed to update parent status:', error)
+      alert('Failed to update parent status')
+    } finally {
+      setBulkUpdating(false)
+    }
+  }
+
+  // Handle deactivation - show modal to ask about cascading
+  const initiateDeactivation = () => {
+    setPendingDeactivation(selectedParents)
+    setShowCascadeModal(true)
+  }
+
+  // Toggle single parent selection
+  const toggleParentSelection = (parentId: string) => {
+    setSelectedParents(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(parentId)) {
+        newSet.delete(parentId)
+      } else {
+        newSet.add(parentId)
+      }
+      return newSet
+    })
+  }
+
+  // Select/deselect all visible parents
+  const toggleSelectAll = () => {
+    if (selectedParents.size === filteredParents.length) {
+      setSelectedParents(new Set())
+    } else {
+      setSelectedParents(new Set(filteredParents.map(p => p.id)))
+    }
+  }
 
   const getFamilyBalance = (parent: ParentWithStudents) =>
     parent.students.reduce((sum, s) => sum + s.balance, 0)
 
   const filteredParents = parents
-    .filter((parent) =>
-      parent.name.toLowerCase().includes(search.toLowerCase()) ||
-      parent.email.toLowerCase().includes(search.toLowerCase())
-    )
+    .filter((parent) => {
+      const matchesSearch =
+        parent.name.toLowerCase().includes(search.toLowerCase()) ||
+        parent.email.toLowerCase().includes(search.toLowerCase())
+
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && parent.is_active) ||
+        (statusFilter === 'inactive' && !parent.is_active)
+
+      return matchesSearch && matchesStatus
+    })
     .sort((a, b) => {
       let comparison = 0
       switch (sortField) {
@@ -101,8 +173,10 @@ export default function ParentsPage() {
       return sortDirection === 'asc' ? comparison : -comparison
     })
 
-  const totalStudents = parents.reduce((sum, p) => sum + p.students.length, 0)
-  const parentsWithMultipleKids = parents.filter(p => p.students.length > 1).length
+  const activeParents = parents.filter(p => p.is_active)
+  const inactiveCount = parents.filter(p => !p.is_active).length
+  const totalStudents = activeParents.reduce((sum, p) => sum + p.students.filter(s => s.is_active).length, 0)
+  const parentsWithMultipleKids = activeParents.filter(p => p.students.filter(s => s.is_active).length > 1).length
 
   return (
     <div className="parents-page">
@@ -154,8 +228,8 @@ export default function ParentsPage() {
             </svg>
           </div>
           <div className="stat-content">
-            <span className="stat-value">{parents.length}</span>
-            <span className="stat-label">Total Parents</span>
+            <span className="stat-value">{activeParents.length}</span>
+            <span className="stat-label">Active Parents</span>
           </div>
         </div>
 
@@ -170,7 +244,7 @@ export default function ParentsPage() {
           </div>
           <div className="stat-content">
             <span className="stat-value">{totalStudents}</span>
-            <span className="stat-label">Total Students</span>
+            <span className="stat-label">Active Students</span>
           </div>
         </div>
 
@@ -186,14 +260,32 @@ export default function ParentsPage() {
             <span className="stat-label">Multiple Children</span>
           </div>
         </div>
+
+        {inactiveCount > 0 && (
+          <div className="stat-card inactive-card">
+            <div className="stat-icon inactive">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div className="stat-content">
+              <span className="stat-value">{inactiveCount}</span>
+              <span className="stat-label">Inactive</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile Stats Pills */}
       <div className="stats-pills mobile-stats">
-        <span className="stat-pill">{parents.length} Parents</span>
+        <span className="stat-pill">{activeParents.length} Active</span>
         <span className="stat-pill students">{totalStudents} Students</span>
         {parentsWithMultipleKids > 0 && (
           <span className="stat-pill families">{parentsWithMultipleKids} Multi</span>
+        )}
+        {inactiveCount > 0 && (
+          <span className="stat-pill inactive">{inactiveCount} Inactive</span>
         )}
       </div>
 
@@ -224,6 +316,17 @@ export default function ParentsPage() {
             {filteredParents.length} result{filteredParents.length !== 1 ? 's' : ''}
           </span>
         )}
+        <div className="status-filter">
+          <select
+            className="status-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as ActiveFilter)}
+          >
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+            <option value="all">All Parents</option>
+          </select>
+        </div>
         <div className="sort-dropdown">
           <label className="sort-label">Sort:</label>
           <select
@@ -244,6 +347,69 @@ export default function ParentsPage() {
           </select>
         </div>
       </div>
+
+      {/* Bulk Actions Bar */}
+      {selectedParents.size > 0 && (
+        <div className="bulk-actions card">
+          <div className="bulk-info">
+            <span className="bulk-count">{selectedParents.size} selected</span>
+            <button className="bulk-clear" onClick={() => setSelectedParents(new Set())}>
+              Clear selection
+            </button>
+          </div>
+          <div className="bulk-buttons">
+            <button
+              className="bulk-btn activate"
+              onClick={() => handleBulkStatusUpdate(true)}
+              disabled={bulkUpdating}
+            >
+              {bulkUpdating ? 'Updating...' : 'Set Active'}
+            </button>
+            <button
+              className="bulk-btn deactivate"
+              onClick={initiateDeactivation}
+              disabled={bulkUpdating}
+            >
+              {bulkUpdating ? 'Updating...' : 'Set Inactive'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cascade Deactivation Modal */}
+      {showCascadeModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Deactivate Parents</h3>
+            <p>
+              You are about to set {pendingDeactivation.size} parent{pendingDeactivation.size > 1 ? 's' : ''} as inactive.
+            </p>
+            <p className="modal-warning">
+              Would you also like to set their students as inactive?
+            </p>
+            <div className="modal-actions">
+              <button
+                className="modal-btn secondary"
+                onClick={() => setShowCascadeModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="modal-btn outline"
+                onClick={() => handleBulkStatusUpdate(false, false)}
+              >
+                Parents Only
+              </button>
+              <button
+                className="modal-btn primary"
+                onClick={() => handleBulkStatusUpdate(false, true)}
+              >
+                Parents & Students
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Action Bar */}
       <div className="mobile-action-bar mobile-only">
@@ -281,21 +447,37 @@ export default function ParentsPage() {
             <table className="data-table">
             <thead>
               <tr>
+                <th className="checkbox-col">
+                  <input
+                    type="checkbox"
+                    checked={filteredParents.length > 0 && selectedParents.size === filteredParents.length}
+                    onChange={toggleSelectAll}
+                    title="Select all"
+                  />
+                </th>
                 <th>Parent</th>
                 <th>Contact</th>
                 <th>Children</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredParents.map((parent, index) => (
-                <tr key={parent.id} style={{ animationDelay: `${index * 30}ms` }}>
+                <tr key={parent.id} className={!parent.is_active ? 'inactive-row' : ''} style={{ animationDelay: `${index * 30}ms` }}>
+                  <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedParents.has(parent.id)}
+                      onChange={() => toggleParentSelection(parent.id)}
+                    />
+                  </td>
                   <td className="name-cell">
                     <div
                       className="parent-info clickable"
                       onClick={() => router.push(`/admin/parents/${parent.id}`)}
                     >
-                      <div className="avatar">
+                      <div className={`avatar ${!parent.is_active ? 'inactive' : ''}`}>
                         {parent.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="parent-name">{parent.name}</span>
@@ -326,16 +508,22 @@ export default function ParentsPage() {
                   <td>
                     <div className="children-info">
                       <span className="student-count">
-                        {parent.students.length} {parent.students.length === 1 ? 'child' : 'children'}
+                        {parent.students.filter(s => s.is_active).length} {parent.students.filter(s => s.is_active).length === 1 ? 'child' : 'children'}
                       </span>
                     </div>
+                  </td>
+                  <td>
+                    <span className={`status-badge ${parent.is_active ? 'active' : 'inactive'}`}>
+                      {parent.is_active ? 'Active' : 'Inactive'}
+                    </span>
                   </td>
                   <td>
                     <div className="action-buttons">
                       <button
                         onClick={() => sendBalanceEmail(parent.id, parent.email)}
-                        disabled={sendingEmailFor === parent.id}
-                        className={`action-btn email-btn ${emailSuccess === parent.id ? 'success' : ''}`}
+                        disabled={sendingEmailFor === parent.id || !parent.is_active}
+                        className={`action-btn email-btn ${emailSuccess === parent.id ? 'success' : ''} ${!parent.is_active ? 'disabled-action' : ''}`}
+                        title={!parent.is_active ? 'Cannot email inactive parent' : ''}
                       >
                         {sendingEmailFor === parent.id ? (
                           <>
@@ -359,7 +547,7 @@ export default function ParentsPage() {
                           </>
                         )}
                       </button>
-                      <Link href={`/admin/add-payment?parent=${parent.id}`} className="action-btn payment-btn">
+                      <Link href={`/admin/add-payment?parent=${parent.id}`} className={`action-btn payment-btn ${!parent.is_active ? 'disabled-action' : ''}`}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="12" y1="1" x2="12" y2="23" />
                           <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -372,7 +560,7 @@ export default function ParentsPage() {
               ))}
               {filteredParents.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="empty-state">
+                  <td colSpan={6} className="empty-state">
                     <div className="empty-content">
                       <div className="empty-icon">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -410,6 +598,11 @@ export default function ParentsPage() {
               <span className="results-count">
                 {filteredParents.length} {filteredParents.length === 1 ? 'parent' : 'parents'}
               </span>
+              {filteredParents.length > 0 && (
+                <button className="mobile-select-all" onClick={toggleSelectAll}>
+                  {selectedParents.size === filteredParents.length ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
             {filteredParents.length === 0 ? (
               <div className="empty-state-mobile">
@@ -424,28 +617,38 @@ export default function ParentsPage() {
             ) : (
               <div className="list-items">
                 {filteredParents.map((parent, index) => (
-                  <Link
+                  <div
                     key={parent.id}
-                    href={`/admin/parents/${parent.id}`}
-                    className="list-item"
+                    className={`list-item ${!parent.is_active ? 'inactive-item' : ''}`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
-                    <div className="list-item-avatar">
-                      {parent.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="list-item-content">
-                      <div className="list-item-name">{parent.name}</div>
-                      <div className="list-item-meta">
-                        <span className="list-item-children-count">
-                          {parent.students.length} {parent.students.length === 1 ? 'child' : 'children'}
-                        </span>
-                        <span className="list-item-email">{parent.email}</span>
+                    <input
+                      type="checkbox"
+                      className="list-item-checkbox"
+                      checked={selectedParents.has(parent.id)}
+                      onChange={() => toggleParentSelection(parent.id)}
+                    />
+                    <Link href={`/admin/parents/${parent.id}`} className="list-item-link">
+                      <div className={`list-item-avatar ${!parent.is_active ? 'inactive' : ''}`}>
+                        {parent.name.charAt(0).toUpperCase()}
                       </div>
-                    </div>
-                    <svg className="list-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </Link>
+                      <div className="list-item-content">
+                        <div className="list-item-name">
+                          {parent.name}
+                          {!parent.is_active && <span className="inactive-badge-small">Inactive</span>}
+                        </div>
+                        <div className="list-item-meta">
+                          <span className="list-item-children-count">
+                            {parent.students.filter(s => s.is_active).length} {parent.students.filter(s => s.is_active).length === 1 ? 'child' : 'children'}
+                          </span>
+                          <span className="list-item-email">{parent.email}</span>
+                        </div>
+                      </div>
+                      <svg className="list-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </Link>
+                  </div>
                 ))}
               </div>
             )}
@@ -595,6 +798,63 @@ export default function ParentsPage() {
               font-size: 14px;
               font-weight: 500;
           }
+
+          /* Inactive styles */
+          .parents-page .mobile-list .list-item.inactive-item {
+              opacity: 0.7;
+              background: var(--gray-50);
+          }
+
+          .parents-page .mobile-list .list-item-avatar.inactive {
+              background: linear-gradient(145deg, var(--gray-400) 0%, var(--gray-500) 100%);
+              box-shadow: 0 2px 8px rgba(100, 116, 139, 0.25);
+          }
+
+          .parents-page .mobile-list .list-item-checkbox {
+              width: 20px;
+              height: 20px;
+              flex-shrink: 0;
+              accent-color: var(--aca-teal);
+          }
+
+          .parents-page .mobile-list .list-item-link {
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              gap: 14px;
+              flex: 1;
+              min-width: 0;
+              text-decoration: none;
+          }
+
+          .parents-page .mobile-list .list-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+          }
+
+          .parents-page .mobile-list .mobile-select-all {
+              background: none;
+              border: none;
+              color: var(--aca-teal);
+              font-size: 12px;
+              font-weight: 600;
+              cursor: pointer;
+              padding: 4px 8px;
+          }
+
+          .inactive-badge-small {
+              display: inline-block;
+              background: var(--gray-200);
+              color: var(--gray-600);
+              font-size: 9px;
+              padding: 2px 6px;
+              border-radius: 4px;
+              margin-left: 6px;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 0.02em;
+          }
       `}</style>
 
       <style jsx>{`
@@ -686,6 +946,21 @@ export default function ParentsPage() {
         .stat-icon.families {
           background: var(--aca-gold-subtle);
           color: var(--aca-gold-dark);
+        }
+
+        .stat-icon.inactive {
+          background: var(--gray-100);
+          color: var(--gray-500);
+        }
+
+        .inactive-card {
+          border-color: var(--gray-300);
+        }
+
+        .stat-pill.inactive {
+          background: var(--gray-100);
+          border-color: var(--gray-200);
+          color: var(--gray-600);
         }
 
         .stat-content {
@@ -796,6 +1071,258 @@ export default function ParentsPage() {
           outline: none;
           border-color: var(--aca-teal);
           box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
+        .status-filter {
+          display: flex;
+          align-items: center;
+        }
+
+        .status-select {
+          padding: 8px 32px 8px 12px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: var(--white);
+          color: var(--gray-700);
+          font-size: 13px;
+          font-weight: 500;
+          font-family: var(--font-body);
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          transition: all var(--transition-fast);
+        }
+
+        .status-select:hover {
+          border-color: var(--gray-300);
+        }
+
+        .status-select:focus {
+          outline: none;
+          border-color: var(--aca-teal);
+          box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
+        /* Bulk Actions Bar */
+        .bulk-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 20px;
+          background: linear-gradient(135deg, var(--aca-teal-subtle) 0%, var(--white) 100%);
+          border: 2px solid var(--aca-teal);
+          margin-bottom: 20px;
+        }
+
+        .bulk-info {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .bulk-count {
+          font-weight: 600;
+          color: var(--aca-teal-dark);
+          font-size: 14px;
+        }
+
+        .bulk-clear {
+          background: none;
+          border: none;
+          color: var(--gray-500);
+          font-size: 13px;
+          cursor: pointer;
+          text-decoration: underline;
+        }
+
+        .bulk-clear:hover {
+          color: var(--gray-700);
+        }
+
+        .bulk-buttons {
+          display: flex;
+          gap: 10px;
+        }
+
+        .bulk-btn {
+          padding: 8px 16px;
+          border-radius: var(--border-radius);
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          border: none;
+        }
+
+        .bulk-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .bulk-btn.activate {
+          background: var(--success);
+          color: var(--white);
+        }
+
+        .bulk-btn.activate:hover:not(:disabled) {
+          background: #16a34a;
+        }
+
+        .bulk-btn.deactivate {
+          background: var(--gray-500);
+          color: var(--white);
+        }
+
+        .bulk-btn.deactivate:hover:not(:disabled) {
+          background: var(--gray-600);
+        }
+
+        /* Modal */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          padding: 24px;
+          max-width: 420px;
+          width: 100%;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-content h3 {
+          margin: 0 0 12px 0;
+          font-size: 18px;
+          color: var(--gray-800);
+        }
+
+        .modal-content p {
+          margin: 0 0 8px 0;
+          color: var(--gray-600);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .modal-warning {
+          background: #fef3c7;
+          border: 1px solid #fcd34d;
+          color: #92400e;
+          padding: 12px;
+          border-radius: var(--border-radius);
+          margin: 16px 0;
+          font-weight: 500;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+          margin-top: 20px;
+        }
+
+        .modal-btn {
+          padding: 10px 18px;
+          border-radius: var(--border-radius);
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .modal-btn.secondary {
+          background: var(--gray-100);
+          color: var(--gray-600);
+          border: 1px solid var(--gray-200);
+        }
+
+        .modal-btn.secondary:hover {
+          background: var(--gray-200);
+        }
+
+        .modal-btn.outline {
+          background: var(--white);
+          color: var(--gray-700);
+          border: 2px solid var(--gray-300);
+        }
+
+        .modal-btn.outline:hover {
+          border-color: var(--gray-400);
+          background: var(--gray-50);
+        }
+
+        .modal-btn.primary {
+          background: var(--error);
+          color: var(--white);
+          border: none;
+        }
+
+        .modal-btn.primary:hover {
+          background: #dc2626;
+        }
+
+        /* Checkbox column */
+        .checkbox-col {
+          width: 40px;
+          text-align: center;
+        }
+
+        .checkbox-col input {
+          width: 18px;
+          height: 18px;
+          accent-color: var(--aca-teal);
+          cursor: pointer;
+        }
+
+        /* Status badge */
+        .status-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
+
+        .status-badge.active {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .status-badge.inactive {
+          background: var(--gray-100);
+          color: var(--gray-500);
+        }
+
+        /* Inactive row styles */
+        .inactive-row {
+          opacity: 0.65;
+          background: var(--gray-50);
+        }
+
+        .inactive-row:hover {
+          opacity: 0.8;
+        }
+
+        .avatar.inactive {
+          background: linear-gradient(135deg, var(--gray-400) 0%, var(--gray-500) 100%);
+        }
+
+        .disabled-action {
+          opacity: 0.5;
+          pointer-events: none;
         }
 
         .table-container {

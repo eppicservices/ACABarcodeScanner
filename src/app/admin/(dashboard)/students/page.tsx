@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Student, Parent } from '@/types/database'
+import type { Student, Parent, ActiveFilter } from '@/types/database'
 
 interface StudentWithParent extends Student {
   parent: Parent
@@ -18,33 +18,29 @@ export default function StudentsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'elementary' | 'high_school'>('all')
+  const [statusFilter, setStatusFilter] = useState<ActiveFilter>('active')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
+
+  const fetchStudents = async () => {
+    const { data, error } = await supabase
+      .from('students')
+      .select('*, parent:parents(*)')
+      .order('name')
+
+    if (!error && data) {
+      setStudents(data as StudentWithParent[])
+    }
+    setLoading(false)
+  }
 
   useEffect(() => {
-    const supabase = createClient()
-    let isMounted = true
-
-    async function fetchStudents() {
-      const { data, error } = await supabase
-        .from('students')
-        .select('*, parent:parents(*)')
-        .order('name')
-
-      if (isMounted) {
-        if (!error && data) {
-          setStudents(data as StudentWithParent[])
-        }
-        setLoading(false)
-      }
-    }
-
     fetchStudents()
-
-    return () => {
-      isMounted = false
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSort = (field: SortField) => {
@@ -53,6 +49,51 @@ export default function StudentsPage() {
     } else {
       setSortField(field)
       setSortDirection(field === 'balance' ? 'desc' : 'asc') // Default to desc for balance (high first)
+    }
+  }
+
+  // Bulk status update function
+  const handleBulkStatusUpdate = async (setActive: boolean) => {
+    if (selectedStudents.size === 0) return
+
+    setBulkUpdating(true)
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ is_active: setActive })
+        .in('id', Array.from(selectedStudents))
+
+      if (error) throw error
+
+      await fetchStudents()
+      setSelectedStudents(new Set())
+    } catch (error) {
+      console.error('Failed to update student status:', error)
+      alert('Failed to update student status')
+    } finally {
+      setBulkUpdating(false)
+    }
+  }
+
+  // Toggle single student selection
+  const toggleStudentSelection = (studentId: string) => {
+    setSelectedStudents(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(studentId)) {
+        newSet.delete(studentId)
+      } else {
+        newSet.add(studentId)
+      }
+      return newSet
+    })
+  }
+
+  // Select/deselect all visible students
+  const toggleSelectAll = () => {
+    if (selectedStudents.size === filteredStudents.length) {
+      setSelectedStudents(new Set())
+    } else {
+      setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
     }
   }
 
@@ -65,7 +106,12 @@ export default function StudentsPage() {
 
       const matchesFilter = filter === 'all' || student.school_level === filter
 
-      return matchesSearch && matchesFilter
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && student.is_active) ||
+        (statusFilter === 'inactive' && !student.is_active)
+
+      return matchesSearch && matchesFilter && matchesStatus
     })
     .sort((a, b) => {
       let comparison = 0
@@ -89,9 +135,11 @@ export default function StudentsPage() {
     return 'balance-good'
   }
 
-  const lowBalanceCount = students.filter(s => s.balance < 10).length
-  const elementaryCount = students.filter(s => s.school_level === 'elementary').length
-  const highSchoolCount = students.filter(s => s.school_level === 'high_school').length
+  const activeStudents = students.filter(s => s.is_active)
+  const inactiveCount = students.filter(s => !s.is_active).length
+  const lowBalanceCount = activeStudents.filter(s => s.balance < 10).length
+  const elementaryCount = activeStudents.filter(s => s.school_level === 'elementary').length
+  const highSchoolCount = activeStudents.filter(s => s.school_level === 'high_school').length
 
   return (
     <div className="students-page">
@@ -129,8 +177,8 @@ export default function StudentsPage() {
             </svg>
           </div>
           <div className="stat-content">
-            <span className="stat-value">{students.length}</span>
-            <span className="stat-label">Total Students</span>
+            <span className="stat-value">{activeStudents.length}</span>
+            <span className="stat-label">Active Students</span>
           </div>
         </div>
         <div className="stat-card">
@@ -170,15 +218,32 @@ export default function StudentsPage() {
             <span className="stat-label">Low Balance</span>
           </div>
         </div>
+        {inactiveCount > 0 && (
+          <div className="stat-card inactive-card">
+            <div className="stat-icon inactive">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </div>
+            <div className="stat-content">
+              <span className="stat-value">{inactiveCount}</span>
+              <span className="stat-label">Inactive</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile Stats Pills */}
       <div className="stats-pills mobile-stats">
-        <span className="stat-pill">{students.length} Students</span>
+        <span className="stat-pill">{activeStudents.length} Active</span>
         <span className="stat-pill elementary">{elementaryCount} Elem</span>
         <span className="stat-pill highschool">{highSchoolCount} HS</span>
         {lowBalanceCount > 0 && (
           <span className="stat-pill warning">{lowBalanceCount} Low</span>
+        )}
+        {inactiveCount > 0 && (
+          <span className="stat-pill inactive">{inactiveCount} Inactive</span>
         )}
       </div>
 
@@ -224,6 +289,17 @@ export default function StudentsPage() {
             High School
           </button>
         </div>
+        <div className="status-filter">
+          <select
+            className="status-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as ActiveFilter)}
+          >
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+            <option value="all">All Students</option>
+          </select>
+        </div>
         <div className="sort-dropdown">
           <label className="sort-label">Sort:</label>
           <select
@@ -244,6 +320,34 @@ export default function StudentsPage() {
           </select>
         </div>
       </div>
+
+      {/* Bulk Actions Bar */}
+      {selectedStudents.size > 0 && (
+        <div className="bulk-actions card">
+          <div className="bulk-info">
+            <span className="bulk-count">{selectedStudents.size} selected</span>
+            <button className="bulk-clear" onClick={() => setSelectedStudents(new Set())}>
+              Clear selection
+            </button>
+          </div>
+          <div className="bulk-buttons">
+            <button
+              className="bulk-btn activate"
+              onClick={() => handleBulkStatusUpdate(true)}
+              disabled={bulkUpdating}
+            >
+              {bulkUpdating ? 'Updating...' : 'Set Active'}
+            </button>
+            <button
+              className="bulk-btn deactivate"
+              onClick={() => handleBulkStatusUpdate(false)}
+              disabled={bulkUpdating}
+            >
+              {bulkUpdating ? 'Updating...' : 'Set Inactive'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Action Bar */}
       <div className="mobile-action-bar mobile-only">
@@ -287,6 +391,14 @@ export default function StudentsPage() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="checkbox-col">
+                    <input
+                      type="checkbox"
+                      checked={filteredStudents.length > 0 && selectedStudents.size === filteredStudents.length}
+                      onChange={toggleSelectAll}
+                      title="Select all"
+                    />
+                  </th>
                   <th className="sortable" onClick={() => handleSort('name')}>
                     Student
                     {sortField === 'name' && (
@@ -307,39 +419,51 @@ export default function StudentsPage() {
                       <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                     )}
                   </th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredStudents.map((student, index) => (
                   <tr
                     key={student.id}
-                    className="clickable-row"
+                    className={`clickable-row ${!student.is_active ? 'inactive-row' : ''}`}
                     style={{ animationDelay: `${index * 0.02}s` }}
-                    onClick={() => router.push(`/admin/students/${student.id}`)}
                   >
-                    <td className="name-cell">
-                      <div className="student-avatar">
+                    <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedStudents.has(student.id)}
+                        onChange={() => toggleStudentSelection(student.id)}
+                      />
+                    </td>
+                    <td className="name-cell" onClick={() => router.push(`/admin/students/${student.id}`)}>
+                      <div className={`student-avatar ${!student.is_active ? 'inactive' : ''}`}>
                         {student.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="student-name">{student.name}</span>
                     </td>
-                    <td>
+                    <td onClick={() => router.push(`/admin/students/${student.id}`)}>
                       <code className="barcode">{student.barcode}</code>
                     </td>
-                    <td>
+                    <td onClick={() => router.push(`/admin/students/${student.id}`)}>
                       <span className={`level-badge ${student.school_level}`}>
                         {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
                       </span>
                     </td>
-                    <td className="parent-cell">{student.parent.name}</td>
-                    <td>
+                    <td className="parent-cell" onClick={() => router.push(`/admin/students/${student.id}`)}>{student.parent.name}</td>
+                    <td onClick={() => router.push(`/admin/students/${student.id}`)}>
                       <span className={`balance ${getBalanceClass(student.balance)}`}>{student.balance}</span>
+                    </td>
+                    <td onClick={() => router.push(`/admin/students/${student.id}`)}>
+                      <span className={`status-badge ${student.is_active ? 'active' : 'inactive'}`}>
+                        {student.is_active ? 'Active' : 'Inactive'}
+                      </span>
                     </td>
                   </tr>
                 ))}
                 {filteredStudents.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="empty-state">
+                    <td colSpan={7} className="empty-state">
                       <div className="empty-icon">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                           <circle cx="11" cy="11" r="8" />
@@ -361,6 +485,11 @@ export default function StudentsPage() {
               <span className="results-count">
                 {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
               </span>
+              {filteredStudents.length > 0 && (
+                <button className="mobile-select-all" onClick={toggleSelectAll}>
+                  {selectedStudents.size === filteredStudents.length ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
             {filteredStudents.length === 0 ? (
               <div className="empty-state-mobile">
@@ -373,33 +502,43 @@ export default function StudentsPage() {
             ) : (
               <div className="list-items">
                 {filteredStudents.map((student, index) => (
-                  <Link
+                  <div
                     key={student.id}
-                    href={`/admin/students/${student.id}`}
-                    className="list-item"
+                    className={`list-item ${!student.is_active ? 'inactive-item' : ''}`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
-                    <div className="list-item-avatar">
-                      {student.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="list-item-content">
-                      <div className="list-item-name">{student.name}</div>
-                      <div className="list-item-meta">
-                        <span className={`list-item-level ${student.school_level}`}>
-                          {student.school_level === 'elementary' ? 'Elem' : 'HS'}
-                        </span>
-                        <span className="list-item-barcode">{student.barcode}</span>
+                    <input
+                      type="checkbox"
+                      className="list-item-checkbox"
+                      checked={selectedStudents.has(student.id)}
+                      onChange={() => toggleStudentSelection(student.id)}
+                    />
+                    <Link href={`/admin/students/${student.id}`} className="list-item-link">
+                      <div className={`list-item-avatar ${!student.is_active ? 'inactive' : ''}`}>
+                        {student.name.charAt(0).toUpperCase()}
                       </div>
-                    </div>
-                    <div className="list-item-balance-wrap">
-                      <span className={`list-item-balance ${getBalanceClass(student.balance)}`}>
-                        {student.balance}
-                      </span>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </div>
-                  </Link>
+                      <div className="list-item-content">
+                        <div className="list-item-name">
+                          {student.name}
+                          {!student.is_active && <span className="inactive-badge-small">Inactive</span>}
+                        </div>
+                        <div className="list-item-meta">
+                          <span className={`list-item-level ${student.school_level}`}>
+                            {student.school_level === 'elementary' ? 'Elem' : 'HS'}
+                          </span>
+                          <span className="list-item-barcode">{student.barcode}</span>
+                        </div>
+                      </div>
+                      <div className="list-item-balance-wrap">
+                        <span className={`list-item-balance ${getBalanceClass(student.balance)}`}>
+                          {student.balance}
+                        </span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </div>
+                    </Link>
+                  </div>
                 ))}
               </div>
             )}
@@ -583,6 +722,63 @@ export default function StudentsPage() {
           font-size: 14px;
           font-weight: 500;
         }
+
+        /* Inactive styles */
+        .mobile-list .list-item.inactive-item {
+          opacity: 0.7;
+          background: var(--gray-50);
+        }
+
+        .mobile-list .list-item-avatar.inactive {
+          background: linear-gradient(145deg, var(--gray-400) 0%, var(--gray-500) 100%);
+          box-shadow: 0 2px 8px rgba(100, 116, 139, 0.25);
+        }
+
+        .mobile-list .list-item-checkbox {
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
+          accent-color: var(--aca-teal);
+        }
+
+        .mobile-list .list-item-link {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 14px;
+          flex: 1;
+          min-width: 0;
+          text-decoration: none;
+        }
+
+        .mobile-list .list-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .mobile-list .mobile-select-all {
+          background: none;
+          border: none;
+          color: var(--aca-teal);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 4px 8px;
+        }
+
+        .inactive-badge-small {
+          display: inline-block;
+          background: var(--gray-200);
+          color: var(--gray-600);
+          font-size: 9px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          margin-left: 6px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
       `}</style>
 
       <style jsx>{`
@@ -687,6 +883,21 @@ export default function StudentsPage() {
 
         .warning-card {
           border-color: var(--error-border);
+        }
+
+        .inactive-card {
+          border-color: var(--gray-300);
+        }
+
+        .stat-icon.inactive {
+          background: var(--gray-100);
+          color: var(--gray-500);
+        }
+
+        .stat-pill.inactive {
+          background: var(--gray-100);
+          border-color: var(--gray-200);
+          color: var(--gray-600);
         }
 
         .stat-content {
@@ -828,6 +1039,159 @@ export default function StudentsPage() {
           outline: none;
           border-color: var(--aca-teal);
           box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
+        .status-filter {
+          display: flex;
+          align-items: center;
+        }
+
+        .status-select {
+          padding: 8px 32px 8px 12px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: var(--white);
+          color: var(--gray-700);
+          font-size: 13px;
+          font-weight: 500;
+          font-family: var(--font-body);
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          transition: all var(--transition-fast);
+        }
+
+        .status-select:hover {
+          border-color: var(--gray-300);
+        }
+
+        .status-select:focus {
+          outline: none;
+          border-color: var(--aca-teal);
+          box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+        }
+
+        /* Bulk Actions Bar */
+        .bulk-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 20px;
+          background: linear-gradient(135deg, var(--aca-teal-subtle) 0%, var(--white) 100%);
+          border: 2px solid var(--aca-teal);
+          margin-bottom: 20px;
+        }
+
+        .bulk-info {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .bulk-count {
+          font-weight: 600;
+          color: var(--aca-teal-dark);
+          font-size: 14px;
+        }
+
+        .bulk-clear {
+          background: none;
+          border: none;
+          color: var(--gray-500);
+          font-size: 13px;
+          cursor: pointer;
+          text-decoration: underline;
+        }
+
+        .bulk-clear:hover {
+          color: var(--gray-700);
+        }
+
+        .bulk-buttons {
+          display: flex;
+          gap: 10px;
+        }
+
+        .bulk-btn {
+          padding: 8px 16px;
+          border-radius: var(--border-radius);
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          border: none;
+        }
+
+        .bulk-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .bulk-btn.activate {
+          background: var(--success);
+          color: var(--white);
+        }
+
+        .bulk-btn.activate:hover:not(:disabled) {
+          background: #16a34a;
+        }
+
+        .bulk-btn.deactivate {
+          background: var(--gray-500);
+          color: var(--white);
+        }
+
+        .bulk-btn.deactivate:hover:not(:disabled) {
+          background: var(--gray-600);
+        }
+
+        /* Checkbox column */
+        .checkbox-col {
+          width: 40px;
+          text-align: center;
+        }
+
+        .checkbox-col input {
+          width: 18px;
+          height: 18px;
+          accent-color: var(--aca-teal);
+          cursor: pointer;
+        }
+
+        /* Status badge */
+        .status-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
+
+        .status-badge.active {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .status-badge.inactive {
+          background: var(--gray-100);
+          color: var(--gray-500);
+        }
+
+        /* Inactive row styles */
+        .inactive-row {
+          opacity: 0.65;
+          background: var(--gray-50);
+        }
+
+        .inactive-row:hover {
+          opacity: 0.8;
+        }
+
+        .student-avatar.inactive {
+          background: linear-gradient(135deg, var(--gray-400) 0%, var(--gray-500) 100%);
         }
 
         .loading-container {

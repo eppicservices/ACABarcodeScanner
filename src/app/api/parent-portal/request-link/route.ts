@@ -34,14 +34,23 @@ export async function POST(request: NextRequest) {
     // Find parent by email
     const { data: parent, error: parentError } = await supabase
       .from('parents')
-      .select('id, name, email')
+      .select('id, name, email, is_active')
       .eq('email', normalizedEmail)
       .single()
 
     // Always return success to prevent email enumeration
-    // Even if parent not found, show the same message
+    // Even if parent not found or inactive, show the same message
     if (parentError || !parent) {
       console.log(`Parent not found for email: ${normalizedEmail}`)
+      return NextResponse.json({
+        success: true,
+        message: 'If an account exists, a link has been sent.'
+      })
+    }
+
+    // If parent is inactive, don't generate token but return same message
+    if (!parent.is_active) {
+      console.log(`Inactive parent requested link: ${normalizedEmail}`)
       return NextResponse.json({
         success: true,
         message: 'If an account exists, a link has been sent.'

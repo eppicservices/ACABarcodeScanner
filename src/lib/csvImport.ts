@@ -8,6 +8,7 @@ export interface CsvRow {
   parent_name: string
   parent_email: string
   parent_phone: string
+  is_active: string
 }
 
 export interface ParsedRow extends CsvRow {
@@ -33,15 +34,16 @@ export const CSV_HEADERS = [
   'parent_name',
   'parent_email',
   'parent_phone',
+  'is_active',
 ]
 
 // Generate downloadable CSV template
 export function generateCsvTemplate(): string {
   const headers = CSV_HEADERS.join(',')
   const exampleRows = [
-    'John Smith,elementary,1001,0,Jane Smith,jane@email.com,555-123-4567',
-    'Sarah Johnson,high_school,2001,5,Mike Johnson,mike@email.com,555-987-6543',
-    'Tommy Brown,elementary,,0,,,',
+    'John Smith,elementary,1001,0,Jane Smith,jane@email.com,555-123-4567,true',
+    'Sarah Johnson,high_school,2001,5,Mike Johnson,mike@email.com,555-987-6543,true',
+    'Tommy Brown,elementary,,0,,,,true',
   ]
   return [headers, ...exampleRows].join('\n')
 }
@@ -81,6 +83,7 @@ export function parseCsv(csvContent: string): CsvRow[] {
       parent_name: row['parent_name'] || row['parent'] || '',
       parent_email: row['parent_email'] || row['email'] || '',
       parent_phone: row['parent_phone'] || row['phone'] || '',
+      is_active: row['is_active'] || row['active'] || 'true',
     }
   })
 }
@@ -262,6 +265,9 @@ export async function importRows(
       // Generate barcode if not provided
       const barcode = row.barcode.trim() || String(nextBarcode++)
 
+      // Determine is_active status (default to true)
+      const isActive = !['false', '0', 'no', 'inactive'].includes(row.is_active.toLowerCase().trim())
+
       // Create student
       const { error: studentError } = await supabase
         .from('students')
@@ -271,6 +277,7 @@ export async function importRows(
           school_level: normalizeSchoolLevel(row.school_level),
           balance: parseInt(row.balance) || 0,
           parent_id: parentId,
+          is_active: isActive,
         })
 
       if (studentError) {

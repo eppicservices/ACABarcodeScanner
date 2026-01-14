@@ -41,7 +41,9 @@ function AddPaymentContent() {
 
   const handleSelectParent = useCallback((parent: ParentWithStudents) => {
     setSelectedParent(parent)
-    setAmounts(parent.students.map(s => ({
+    // Only set amounts for active students
+    const activeStudents = parent.students.filter(s => s.is_active)
+    setAmounts(activeStudents.map(s => ({
       student_id: s.id,
       amount: '',
       isLunchCard: false
@@ -170,8 +172,8 @@ function AddPaymentContent() {
 
       setMessage({ type: 'success', text: 'Payment recorded successfully! Receipt email sent to parent.' })
 
-      // Reset form
-      setAmounts(selectedParent.students.map(s => ({
+      // Reset form (only active students)
+      setAmounts(selectedParent.students.filter(s => s.is_active).map(s => ({
         student_id: s.id,
         amount: '',
         isLunchCard: false
@@ -188,9 +190,12 @@ function AddPaymentContent() {
     setSubmitting(false)
   }
 
+  // Only show active parents with active students
   const filteredParents = parents.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.email.toLowerCase().includes(searchQuery.toLowerCase())
+    p.is_active &&
+    p.students.some(s => s.is_active) &&
+    (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.email.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
   const total = getTotal()
@@ -279,7 +284,7 @@ function AddPaymentContent() {
                 <div className="parent-info">
                   <span className="parent-name">{parent.name}</span>
                   <span className="parent-email">{parent.email}</span>
-                  <span className="student-count">{parent.students.length} student{parent.students.length !== 1 ? 's' : ''}</span>
+                  <span className="student-count">{parent.students.filter(s => s.is_active).length} student{parent.students.filter(s => s.is_active).length !== 1 ? 's' : ''}</span>
                 </div>
               </button>
             ))}
@@ -307,7 +312,7 @@ function AddPaymentContent() {
               </div>
 
               <div className="students-list">
-                {selectedParent.students.map(student => {
+                {selectedParent.students.filter(s => s.is_active).map(student => {
                   const studentAmount = getStudentAmount(student.id)
                   const amount = parseFloat(studentAmount.amount) || 0
                   const lunches = amount > 0 && settings

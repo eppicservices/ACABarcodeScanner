@@ -32,6 +32,7 @@ export interface StudentRecord {
   barcode: string
   balance: number // Number of lunches remaining
   school_level: 'elementary' | 'high_school'
+  is_active: boolean
 }
 
 export interface LunchSettings {
@@ -95,7 +96,7 @@ export async function getSettings(): Promise<LunchSettings | null> {
 export async function lookupStudentByBarcode(barcode: string): Promise<StudentRecord | null> {
   const { data, error } = await supabase
     .from('students')
-    .select('id, name, barcode, balance, school_level')
+    .select('id, name, barcode, balance, school_level, is_active')
     .eq('barcode', barcode)
     .single()
 

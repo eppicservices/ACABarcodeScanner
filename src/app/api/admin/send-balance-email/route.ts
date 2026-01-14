@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Get parent info with students
     const { data: parent, error: parentError } = await supabase
       .from('parents')
-      .select('id, name, email, students(*)')
+      .select('id, name, email, is_active, students(*)')
       .eq('id', parent_id)
       .single()
 
@@ -42,8 +42,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Parent not found' }, { status: 404 })
     }
 
-    if (!parent.students || parent.students.length === 0) {
-      return NextResponse.json({ error: 'Parent has no students' }, { status: 400 })
+    // Check if parent is active
+    if (!parent.is_active) {
+      return NextResponse.json({ error: 'Cannot send email to inactive parent' }, { status: 400 })
+    }
+
+    // Filter to only active students
+    const activeStudents = (parent.students || []).filter((s: Student) => s.is_active)
+
+    if (activeStudents.length === 0) {
+      return NextResponse.json({ error: 'Parent has no active students' }, { status: 400 })
     }
 
     // Get app settings
@@ -92,8 +100,8 @@ export async function POST(request: NextRequest) {
 
     const portalUrl = getPortalUrl(token)
 
-    // Build student balance data
-    const studentBalances: StudentBalance[] = (parent.students as Student[]).map(student => ({
+    // Build student balance data (only active students)
+    const studentBalances: StudentBalance[] = activeStudents.map((student: Student) => ({
       name: student.name,
       balance: student.balance,
       schoolLevel: student.school_level

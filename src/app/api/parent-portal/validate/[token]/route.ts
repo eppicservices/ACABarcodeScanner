@@ -46,6 +46,17 @@ export async function GET(
       }, { status: 404 })
     }
 
+    // Check if parent is active
+    if (!parent.is_active) {
+      return NextResponse.json({
+        valid: false,
+        error: 'This account has been deactivated. Please contact the school office.'
+      }, { status: 403 })
+    }
+
+    // Filter to only include active students
+    parent.students = parent.students.filter((s: { is_active: boolean }) => s.is_active)
+
     // Get settings for pricing
     const { data: settings } = await supabase
       .from('app_settings')
