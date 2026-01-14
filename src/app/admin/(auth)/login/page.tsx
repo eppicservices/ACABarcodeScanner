@@ -358,6 +358,8 @@ export default function LoginPage() {
 
         .back-home {
           display: inline-flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
           align-items: center;
           gap: 10px;
           color: rgba(255, 255, 255, 0.6);
@@ -369,6 +371,7 @@ export default function LoginPage() {
           transition: all 0.25s ease;
           background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.1);
+          white-space: nowrap;
         }
 
         .back-home:hover {
