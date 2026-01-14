@@ -2,7 +2,7 @@
 
 interface ScanResultProps {
   code: string;
-  status: 'success' | 'error' | 'duplicate' | 'insufficient';
+  status: 'success' | 'error' | 'duplicate' | 'insufficient' | 'inactive';
   studentName?: string;
   message?: string;
   onDismiss: () => void;
@@ -50,6 +50,16 @@ export default function ScanResult({ code, status, studentName, message, onDismi
       ),
       title: 'Insufficient Balance',
       bgClass: 'result-insufficient',
+    },
+    inactive: {
+      icon: (
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      ),
+      title: 'Inactive Student',
+      bgClass: 'result-inactive',
     },
   };
 
@@ -110,6 +120,15 @@ export default function ScanResult({ code, status, studentName, message, onDismi
 
         .result-insufficient .result-icon {
           color: var(--error);
+        }
+
+        .result-inactive {
+          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+          color: #475569;
+        }
+
+        .result-inactive .result-icon {
+          color: #64748b;
         }
 
         .result-icon {

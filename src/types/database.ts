@@ -1,4 +1,5 @@
 export type SchoolLevel = 'elementary' | 'high_school'
+export type ActiveFilter = 'all' | 'active' | 'inactive'
 export type AdminRole = 'admin' | 'super_admin'
 export type TransactionType = 'payment' | 'adjustment' | 'refund' | 'lunch_used' | 'lunch_card'
 export type EmailProvider = 'none' | 'gmail' | 'sendgrid' | 'smtp'
@@ -9,6 +10,7 @@ export interface Parent {
   email: string
   phone: string | null
   address: string | null
+  is_active: boolean
   created_at: string
 }
 
@@ -19,6 +21,7 @@ export interface Student {
   barcode: string
   balance: number // Number of lunches remaining (not dollars)
   school_level: SchoolLevel
+  is_active: boolean
   created_at: string
 }
 
@@ -158,12 +161,14 @@ export interface Database {
           email: string
           phone?: string | null
           address?: string | null
+          is_active?: boolean
         }
         Update: {
           name?: string
           email?: string
           phone?: string | null
           address?: string | null
+          is_active?: boolean
         }
       }
       students: {
@@ -174,6 +179,7 @@ export interface Database {
           parent_id: string
           school_level: SchoolLevel
           balance?: number
+          is_active?: boolean
         }
         Update: {
           name?: string
@@ -181,6 +187,7 @@ export interface Database {
           parent_id?: string
           school_level?: SchoolLevel
           balance?: number
+          is_active?: boolean
         }
       }
       admin_users: {

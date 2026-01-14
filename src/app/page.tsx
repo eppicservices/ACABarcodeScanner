@@ -6,7 +6,7 @@ import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
 import { lookupStudentByBarcode, consumeLunch, StudentRecord } from '@/lib/supabase';
 
-type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient';
+type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient' | 'inactive';
 
 interface ScanResultData {
   code: string;
@@ -48,6 +48,17 @@ export default function Home() {
         code: trimmedCode,
         status: 'error',
         message: 'No student found with this ID',
+      });
+      return;
+    }
+
+    // Check if student is inactive
+    if (!student.is_active) {
+      setScanResult({
+        code: trimmedCode,
+        status: 'inactive',
+        studentName: student.name,
+        message: 'Student account is inactive',
       });
       return;
     }
