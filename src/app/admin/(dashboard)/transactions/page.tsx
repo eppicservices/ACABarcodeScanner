@@ -146,8 +146,10 @@ export default function TransactionsPage() {
       {loading ? (
         <div className="loading">Loading transactions...</div>
       ) : (
-        <div className="table-container card">
-          <table className="data-table">
+        <>
+          {/* Desktop Table View */}
+          <div className="table-container card desktop-only">
+            <table className="data-table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -207,7 +209,62 @@ export default function TransactionsPage() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+
+          {/* Mobile List View */}
+          <div className="mobile-list mobile-only">
+            <div className="list-header">
+              <span className="results-count">
+                {filteredTransactions.length} transactions
+              </span>
+            </div>
+            {filteredTransactions.length === 0 ? (
+              <div className="empty-state-mobile">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
+                  <path d="M8 10h8" />
+                  <path d="M8 14h4" />
+                </svg>
+                <p>No transactions found</p>
+              </div>
+            ) : (
+              <div className="list-items">
+                {filteredTransactions.map((tx, index) => (
+                  <Link
+                    key={tx.id}
+                    href={`/admin/students/${tx.student_id}`}
+                    className="list-item"
+                    style={{ animationDelay: `${index * 0.02}s` }}
+                  >
+                    <div className={`list-item-indicator ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`} />
+                    <div className="list-item-content">
+                      <div className="list-item-top">
+                        <span className="list-item-name">{tx.student.name}</span>
+                        <span className={`list-item-amount ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`}>
+                          {tx.lunches_change >= 0 ? '+' : ''}{tx.lunches_change}
+                        </span>
+                      </div>
+                      <div className="list-item-bottom">
+                        <span className={`list-item-type ${tx.transaction_type}`}>
+                          {tx.transaction_type === 'lunch_used' ? 'Used' : tx.transaction_type === 'lunch_card' ? 'Lunch Card' : tx.transaction_type.charAt(0).toUpperCase() + tx.transaction_type.slice(1)}
+                        </span>
+                        <span className="list-item-date">
+                          {new Date(tx.created_at!).toLocaleDateString()} • {new Date(tx.created_at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      {tx.notes && (
+                        <div className="list-item-notes">{tx.notes}</div>
+                      )}
+                    </div>
+                    <svg className="list-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <style jsx>{`
@@ -589,8 +646,189 @@ export default function TransactionsPage() {
           color: var(--gray-400);
         }
 
+        /* Desktop/Mobile visibility */
+        .desktop-only {
+          display: block;
+        }
+
+        .mobile-only {
+          display: none;
+        }
+
+        /* Mobile List Styles */
+        .mobile-list {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-100);
+          overflow: hidden;
+        }
+
+        .list-header {
+          padding: 12px 16px;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .list-items {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .list-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px 16px;
+          text-decoration: none;
+          border-bottom: 1px solid var(--gray-100);
+          transition: background 0.15s ease;
+          animation: listItemEnter 0.3s ease-out backwards;
+        }
+
+        .list-item:last-child {
+          border-bottom: none;
+        }
+
+        .list-item:active {
+          background: var(--gray-50);
+        }
+
+        @keyframes listItemEnter {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .list-item-indicator {
+          width: 4px;
+          height: 44px;
+          border-radius: 2px;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
+        .list-item-indicator.positive {
+          background: linear-gradient(180deg, var(--success) 0%, var(--success-border) 100%);
+        }
+
+        .list-item-indicator.negative {
+          background: linear-gradient(180deg, var(--error) 0%, var(--error-border) 100%);
+        }
+
+        .list-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .list-item-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+
+        .list-item-name {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 15px;
+        }
+
+        .list-item-amount {
+          font-family: 'SF Mono', Monaco, monospace;
+          font-weight: 700;
+          font-size: 16px;
+        }
+
+        .list-item-amount.positive {
+          color: var(--success);
+        }
+
+        .list-item-amount.negative {
+          color: var(--error);
+        }
+
+        .list-item-bottom {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .list-item-type {
+          padding: 2px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .list-item-type.payment,
+        .list-item-type.lunch_card {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .list-item-type.lunch_used {
+          background: var(--error-bg);
+          color: var(--error);
+        }
+
+        .list-item-type.adjustment {
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
+        }
+
+        .list-item-date {
+          font-size: 12px;
+          color: var(--gray-400);
+        }
+
+        .list-item-notes {
+          font-size: 12px;
+          color: var(--gray-400);
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px dashed var(--gray-200);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .list-item-chevron {
+          color: var(--gray-300);
+          flex-shrink: 0;
+          margin-top: 14px;
+        }
+
+        .empty-state-mobile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          color: var(--gray-400);
+          gap: 12px;
+        }
+
+        .empty-state-mobile p {
+          margin: 0;
+          font-size: 14px;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
+          .desktop-only {
+            display: none !important;
+          }
+
+          .mobile-only {
+            display: block !important;
+          }
           .transactions-page {
             max-width: 100%;
             overflow-x: hidden;

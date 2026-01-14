@@ -181,74 +181,127 @@ export default function StudentsPage() {
           <span>Loading students...</span>
         </div>
       ) : (
-        <div className="table-container card">
-          <div className="table-header">
-            <span className="results-count">
-              {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
-              {search && ` matching "${search}"`}
-            </span>
+        <>
+          {/* Desktop Table View */}
+          <div className="table-container card desktop-only">
+            <div className="table-header">
+              <span className="results-count">
+                {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
+                {search && ` matching "${search}"`}
+              </span>
+            </div>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Barcode</th>
+                  <th>Level</th>
+                  <th>Parent</th>
+                  <th>Balance</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.map((student, index) => (
+                  <tr key={student.id} style={{ animationDelay: `${index * 0.02}s` }}>
+                    <td className="name-cell">
+                      <div className="student-avatar">
+                        {student.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="student-name">{student.name}</span>
+                    </td>
+                    <td>
+                      <code className="barcode">{student.barcode}</code>
+                    </td>
+                    <td>
+                      <span className={`level-badge ${student.school_level}`}>
+                        {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                      </span>
+                    </td>
+                    <td className="parent-cell">{student.parent.name}</td>
+                    <td>
+                      <span className={`balance ${getBalanceClass(student.balance)}`}>
+                        {student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}
+                      </span>
+                    </td>
+                    <td className="actions-cell">
+                      <Link href={`/admin/students/${student.id}`} className="action-btn">
+                        <span>Edit</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {filteredStudents.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="empty-state">
+                      <div className="empty-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                      </div>
+                      <p className="empty-title">No students found</p>
+                      <p className="empty-desc">Try adjusting your search or filter</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Barcode</th>
-                <th>Level</th>
-                <th>Parent</th>
-                <th>Balance</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStudents.map((student, index) => (
-                <tr key={student.id} style={{ animationDelay: `${index * 0.02}s` }}>
-                  <td className="name-cell">
-                    <div className="student-avatar">
+
+          {/* Mobile List View */}
+          <div className="mobile-list mobile-only">
+            <div className="list-header">
+              <span className="results-count">
+                {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
+              </span>
+            </div>
+            {filteredStudents.length === 0 ? (
+              <div className="empty-state-mobile">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <p>No students found</p>
+              </div>
+            ) : (
+              <div className="list-items">
+                {filteredStudents.map((student, index) => (
+                  <Link
+                    key={student.id}
+                    href={`/admin/students/${student.id}`}
+                    className="list-item"
+                    style={{ animationDelay: `${index * 0.03}s` }}
+                  >
+                    <div className="list-item-avatar">
                       {student.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="student-name">{student.name}</span>
-                  </td>
-                  <td>
-                    <code className="barcode">{student.barcode}</code>
-                  </td>
-                  <td>
-                    <span className={`level-badge ${student.school_level}`}>
-                      {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
-                    </span>
-                  </td>
-                  <td className="parent-cell">{student.parent.name}</td>
-                  <td>
-                    <span className={`balance ${getBalanceClass(student.balance)}`}>
-                      {student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}
-                    </span>
-                  </td>
-                  <td className="actions-cell">
-                    <Link href={`/admin/students/${student.id}`} className="action-btn">
-                      <span>Edit</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <div className="list-item-content">
+                      <div className="list-item-name">{student.name}</div>
+                      <div className="list-item-meta">
+                        <span className={`list-item-level ${student.school_level}`}>
+                          {student.school_level === 'elementary' ? 'Elem' : 'HS'}
+                        </span>
+                        <span className="list-item-barcode">{student.barcode}</span>
+                      </div>
+                    </div>
+                    <div className="list-item-balance-wrap">
+                      <span className={`list-item-balance ${getBalanceClass(student.balance)}`}>
+                        {student.balance}
+                      </span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {filteredStudents.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="empty-state">
-                    <div className="empty-icon">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      </svg>
                     </div>
-                    <p className="empty-title">No students found</p>
-                    <p className="empty-desc">Try adjusting your search or filter</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <style jsx>{`
@@ -658,8 +711,174 @@ export default function StudentsPage() {
           margin: 0;
         }
 
+        /* Desktop/Mobile visibility */
+        .desktop-only {
+          display: block;
+        }
+
+        .mobile-only {
+          display: none;
+        }
+
+        /* Mobile List Styles */
+        .mobile-list {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-100);
+          overflow: hidden;
+        }
+
+        .list-header {
+          padding: 12px 16px;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .list-items {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .list-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 14px 16px;
+          text-decoration: none;
+          border-bottom: 1px solid var(--gray-100);
+          transition: background 0.15s ease;
+          animation: listItemEnter 0.3s ease-out backwards;
+        }
+
+        .list-item:last-child {
+          border-bottom: none;
+        }
+
+        .list-item:active {
+          background: var(--gray-50);
+        }
+
+        @keyframes listItemEnter {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .list-item-avatar {
+          width: 44px;
+          height: 44px;
+          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white);
+          font-weight: 600;
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+
+        .list-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .list-item-name {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 15px;
+          margin-bottom: 4px;
+        }
+
+        .list-item-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          color: var(--gray-400);
+        }
+
+        .list-item-level {
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .list-item-level.elementary {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+
+        .list-item-level.high_school {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .list-item-barcode {
+          font-family: 'SF Mono', Monaco, monospace;
+          color: var(--gray-400);
+        }
+
+        .list-item-balance-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--gray-300);
+        }
+
+        .list-item-balance {
+          font-family: 'SF Mono', Monaco, monospace;
+          font-weight: 700;
+          font-size: 18px;
+          min-width: 28px;
+          text-align: right;
+        }
+
+        .list-item-balance.balance-good {
+          color: var(--success);
+        }
+
+        .list-item-balance.balance-warning {
+          color: var(--warning);
+        }
+
+        .list-item-balance.balance-danger {
+          color: var(--error);
+        }
+
+        .empty-state-mobile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          color: var(--gray-400);
+          gap: 12px;
+        }
+
+        .empty-state-mobile p {
+          margin: 0;
+          font-size: 14px;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
+          .desktop-only {
+            display: none !important;
+          }
+
+          .mobile-only {
+            display: block !important;
+          }
+
           .students-page {
             max-width: 100vw;
             width: 100%;

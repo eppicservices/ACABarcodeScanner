@@ -177,8 +177,10 @@ export default function ParentsPage() {
           <span>Loading parents...</span>
         </div>
       ) : (
-        <div className="table-container card">
-          <table className="data-table">
+        <>
+          {/* Desktop Table View */}
+          <div className="table-container card desktop-only">
+            <table className="data-table">
             <thead>
               <tr>
                 <th>Parent</th>
@@ -318,7 +320,96 @@ export default function ParentsPage() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+
+          {/* Mobile List View */}
+          <div className="mobile-list mobile-only">
+            <div className="list-header">
+              <span className="results-count">
+                {filteredParents.length} {filteredParents.length === 1 ? 'parent' : 'parents'}
+              </span>
+            </div>
+            {filteredParents.length === 0 ? (
+              <div className="empty-state-mobile">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                <p>{search ? `No parents match "${search}"` : 'No parents yet'}</p>
+              </div>
+            ) : (
+              <div className="list-items">
+                {filteredParents.map((parent, index) => (
+                  <div
+                    key={parent.id}
+                    className="list-item"
+                    style={{ animationDelay: `${index * 0.03}s` }}
+                  >
+                    <Link href={`/admin/parents/${parent.id}`} className="list-item-main">
+                      <div className="list-item-avatar">
+                        {parent.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="list-item-content">
+                        <div className="list-item-name">{parent.name}</div>
+                        <div className="list-item-meta">
+                          <span className="list-item-email">{parent.email}</span>
+                        </div>
+                        <div className="list-item-children">
+                          {parent.students.length === 0 ? (
+                            <span className="no-children">No children</span>
+                          ) : (
+                            parent.students.map((s) => (
+                              <span key={s.id} className="child-tag">{s.name.split(' ')[0]}</span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                      <svg className="list-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </Link>
+                    <div className="list-item-actions">
+                      {linkMessage?.parentId === parent.id ? (
+                        <button onClick={() => copyLink(linkMessage.url)} className="mobile-action-btn copy">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                          Copy
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleGenerateLink(parent.id)}
+                          className="mobile-action-btn link"
+                          disabled={generatingLink === parent.id}
+                        >
+                          {generatingLink === parent.id ? (
+                            <span className="btn-spinner-sm" />
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          )}
+                          Link
+                        </button>
+                      )}
+                      <Link href={`/admin/add-payment?parent=${parent.id}`} className="mobile-action-btn payment">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Pay
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <style jsx>{`
@@ -764,8 +855,226 @@ export default function ParentsPage() {
           to { transform: rotate(360deg); }
         }
 
+        /* Desktop/Mobile visibility */
+        .desktop-only {
+          display: block;
+        }
+
+        .mobile-only {
+          display: none;
+        }
+
+        /* Mobile List Styles */
+        .mobile-list {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          border: 1px solid var(--gray-100);
+          overflow: hidden;
+        }
+
+        .list-header {
+          padding: 12px 16px;
+          background: var(--gray-50);
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .results-count {
+          font-size: 13px;
+          color: var(--gray-500);
+          font-weight: 500;
+        }
+
+        .list-items {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .list-item {
+          display: flex;
+          flex-direction: column;
+          border-bottom: 1px solid var(--gray-100);
+          animation: listItemEnter 0.3s ease-out backwards;
+        }
+
+        .list-item:last-child {
+          border-bottom: none;
+        }
+
+        @keyframes listItemEnter {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .list-item-main {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 14px 16px;
+          text-decoration: none;
+          transition: background 0.15s ease;
+        }
+
+        .list-item-main:active {
+          background: var(--gray-50);
+        }
+
+        .list-item-avatar {
+          width: 44px;
+          height: 44px;
+          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white);
+          font-weight: 600;
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+
+        .list-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .list-item-name {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 15px;
+          margin-bottom: 2px;
+        }
+
+        .list-item-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+
+        .list-item-email {
+          font-size: 12px;
+          color: var(--gray-400);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .list-item-children {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+
+        .child-tag {
+          padding: 2px 8px;
+          background: var(--gray-100);
+          border-radius: 8px;
+          font-size: 11px;
+          color: var(--gray-600);
+          font-weight: 500;
+        }
+
+        .no-children {
+          font-size: 11px;
+          color: var(--gray-400);
+          font-style: italic;
+        }
+
+        .list-item-chevron {
+          color: var(--gray-300);
+          flex-shrink: 0;
+        }
+
+        .list-item-actions {
+          display: flex;
+          gap: 8px;
+          padding: 0 16px 14px;
+          margin-top: -4px;
+        }
+
+        .mobile-action-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: var(--border-radius);
+          font-size: 12px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: all var(--transition-fast);
+          border: none;
+          cursor: pointer;
+          font-family: var(--font-body);
+        }
+
+        .mobile-action-btn.link {
+          background: var(--aca-gold-subtle);
+          color: var(--aca-gold-dark);
+        }
+
+        .mobile-action-btn.link:active {
+          background: var(--aca-gold);
+          color: var(--aca-navy);
+        }
+
+        .mobile-action-btn.link:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+
+        .mobile-action-btn.copy {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .mobile-action-btn.payment {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .mobile-action-btn.payment:active {
+          background: #bbf7d0;
+        }
+
+        .btn-spinner-sm {
+          width: 14px;
+          height: 14px;
+          border: 2px solid var(--aca-gold);
+          border-top-color: var(--aca-navy);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .empty-state-mobile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          color: var(--gray-400);
+          gap: 12px;
+        }
+
+        .empty-state-mobile p {
+          margin: 0;
+          font-size: 14px;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
+          .desktop-only {
+            display: none !important;
+          }
+
+          .mobile-only {
+            display: block !important;
+          }
           .parents-page {
             max-width: 100%;
             overflow-x: hidden;
