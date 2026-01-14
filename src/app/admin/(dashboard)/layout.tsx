@@ -65,10 +65,13 @@ export default function DashboardLayout({
           .admin-main {
             margin-left: 0;
             width: 100%;
+            max-width: 100vw;
           }
 
           .admin-content {
             padding: 80px 16px 24px;
+            max-width: 100vw;
+            overflow-x: hidden;
           }
         }
       `}</style>

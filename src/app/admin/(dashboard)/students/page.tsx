@@ -254,6 +254,8 @@ export default function StudentsPage() {
       <style jsx>{`
         .students-page {
           max-width: 1200px;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .page-header {
@@ -659,8 +661,10 @@ export default function StudentsPage() {
         /* Mobile optimizations */
         @media (max-width: 768px) {
           .students-page {
-            max-width: 100%;
+            max-width: 100vw;
+            width: 100%;
             overflow-x: hidden;
+            box-sizing: border-box;
           }
 
           .page-header {
