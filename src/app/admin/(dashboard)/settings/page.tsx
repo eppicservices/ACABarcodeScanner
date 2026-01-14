@@ -164,6 +164,9 @@ export default function SettingsPage() {
   // Test email state
   const [testingEmail, setTestingEmail] = useState(false)
 
+  // Email template preview state
+  const [previewTemplate, setPreviewTemplate] = useState<'balance' | 'receipt' | null>(null)
+
   const fetchData = useCallback(async () => {
     const supabase = createClient()
     const [settingsRes, adminsRes, paymentsRes] = await Promise.all([
@@ -514,6 +517,180 @@ export default function SettingsPage() {
 
   const updateField = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  // Generate balance email preview HTML
+  const getBalanceEmailPreview = () => {
+    const schoolName = formData.school_name || 'Your School'
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f8fafc;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #002c5f 0%, #004494 100%); padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 700;">${schoolName}</h1>
+      <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0 0; font-size: 15px;">Lunch Account Balance Update</p>
+    </div>
+    <div style="background: white; padding: 32px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+      <p style="color: #1e293b; font-size: 17px; margin: 0 0 24px 0; line-height: 1.5;">
+        Dear <strong>John Smith</strong>,
+      </p>
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 28px 0;">
+        Here is the current lunch account balance for your children:
+      </p>
+      <div style="background: #fef3c7; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center;">
+        <div style="width: 40px; height: 40px; background: #f59e0b; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+          <span style="color: white; font-size: 20px; font-weight: bold;">&#9888;</span>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #f59e0b; font-size: 15px;">Low Balance</div>
+          <div style="color: #64748b; font-size: 13px;">Family Total: 7 lunches</div>
+        </div>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 28px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <thead>
+          <tr style="background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);">
+            <th style="padding: 14px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0;">Student</th>
+            <th style="padding: 14px 16px; text-align: right; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0;">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+              <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">Emma Smith</div>
+              <div style="font-size: 12px; color: #64748b;">Elementary</div>
+            </td>
+            <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; text-align: right;">
+              <div style="display: inline-block; background: #fef3c7; color: #f59e0b; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 16px;">
+                4 lunches
+              </div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">~$16.00 value</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+              <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">Jake Smith</div>
+              <div style="font-size: 12px; color: #64748b;">High School</div>
+            </td>
+            <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; text-align: right;">
+              <div style="display: inline-block; background: #fef3c7; color: #f59e0b; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 16px;">
+                3 lunches
+              </div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">~$18.00 value</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="text-align: center; margin-bottom: 28px;">
+        <a href="#" style="display: inline-block; background: linear-gradient(135deg, #00b1c1 0%, #008891 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 177, 193, 0.4);">
+          Add Funds to Account
+        </a>
+      </div>
+      <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0; text-align: center;">
+        Click the button above to access your parent portal and add funds to your child's lunch account.
+        <br><br>
+        <span style="font-size: 12px; color: #94a3b8;">This link will expire in 7 days for security purposes.</span>
+      </p>
+    </div>
+    <div style="text-align: center; padding: 24px;">
+      <p style="color: #94a3b8; font-size: 12px; margin: 0;">${schoolName} | Lunch Program</p>
+      <p style="color: #cbd5e1; font-size: 11px; margin: 8px 0 0 0;">Questions? Contact the school office for assistance.</p>
+    </div>
+  </div>
+</body>
+</html>`
+  }
+
+  // Generate receipt email preview HTML
+  const getReceiptEmailPreview = () => {
+    const schoolName = formData.school_name || 'Your School'
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f8fafc;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #002c5f 0%, #004494 100%); padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 700;">${schoolName}</h1>
+      <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0 0; font-size: 15px;">Payment Receipt</p>
+    </div>
+    <div style="background: white; padding: 32px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+      <div style="text-align: center; margin-bottom: 28px;">
+        <div style="width: 64px; height: 64px; background: #dcfce7; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+          <span style="color: #22c55e; font-size: 32px;">&#10003;</span>
+        </div>
+        <h2 style="color: #1e293b; margin: 0 0 4px 0; font-size: 20px;">Payment Confirmed</h2>
+        <p style="color: #64748b; margin: 0; font-size: 14px;">${today}</p>
+      </div>
+      <p style="color: #1e293b; font-size: 15px; margin: 0 0 24px 0;">
+        Dear <strong>John Smith</strong>,
+      </p>
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+        Thank you for your payment! Here's your receipt:
+      </p>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <thead>
+          <tr style="background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);">
+            <th style="padding: 14px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Student</th>
+            <th style="padding: 14px 16px; text-align: right; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Amount</th>
+            <th style="padding: 14px 16px; text-align: right; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Lunches</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #1e293b;">Emma Smith</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #475569;">$40.00</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: right;">
+              <span style="background: #dcfce7; color: #22c55e; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px;">+10</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #1e293b;">Jake Smith</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #475569;">$50.00</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: right;">
+              <span style="background: #fef3c7; color: #f59e0b; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px;">Lunch Card</span>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="background: #f8fafc;">
+            <td style="padding: 16px; font-weight: 700; color: #1e293b;">Total</td>
+            <td style="padding: 16px; text-align: right; font-weight: 700; color: #00b1c1; font-size: 18px;">$90.00</td>
+            <td style="padding: 16px;"></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="background: #f8fafc; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: #64748b; font-size: 13px;">Payment Method</span>
+          <span style="color: #1e293b; font-size: 13px; font-weight: 600;">Online Payment</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #64748b; font-size: 13px;">Transaction Date</span>
+          <span style="color: #1e293b; font-size: 13px; font-weight: 600;">${today}</span>
+        </div>
+      </div>
+      <div style="background: #dcfce7; border-radius: 10px; padding: 16px; text-align: center;">
+        <p style="margin: 0; color: #16a34a; font-size: 14px; font-weight: 500;">
+          New Balance: Emma (14 lunches) | Jake (13 lunches)
+        </p>
+      </div>
+    </div>
+    <div style="text-align: center; padding: 24px;">
+      <p style="color: #94a3b8; font-size: 12px; margin: 0;">${schoolName} | Lunch Program</p>
+      <p style="color: #cbd5e1; font-size: 11px; margin: 8px 0 0 0;">Questions? Contact the school office for assistance.</p>
+    </div>
+  </div>
+</body>
+</html>`
   }
 
   if (loading) {
@@ -978,6 +1155,50 @@ export default function SettingsPage() {
                   <span className="hint">Sends a test email to your admin email address</span>
                 </div>
               )}
+
+              <h3>Email Templates</h3>
+              <p className="section-desc">Preview the email templates that are sent to parents.</p>
+
+              <div className="template-cards">
+                <div className="template-card">
+                  <div className="template-icon balance">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                  </div>
+                  <div className="template-info">
+                    <h4>Balance Notification</h4>
+                    <p>Sent when using "Email Balance" button on the Parents page. Includes individual student balances and a link to add funds.</p>
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setPreviewTemplate('balance')}
+                  >
+                    Preview
+                  </button>
+                </div>
+
+                <div className="template-card">
+                  <div className="template-icon receipt">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
+                      <path d="M8 10h8" />
+                      <path d="M8 14h4" />
+                    </svg>
+                  </div>
+                  <div className="template-info">
+                    <h4>Payment Receipt</h4>
+                    <p>Sent automatically after a payment is processed. Includes itemized details and new balances.</p>
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setPreviewTemplate('receipt')}
+                  >
+                    Preview
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1270,6 +1491,40 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Email Template Preview Modal */}
+      {previewTemplate && (
+        <div className="modal-overlay" onClick={() => setPreviewTemplate(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                {previewTemplate === 'balance' ? 'Balance Notification Email' : 'Payment Receipt Email'}
+              </h3>
+              <button className="modal-close" onClick={() => setPreviewTemplate(null)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="email-preview-info">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16v-4" />
+                  <path d="M12 8h.01" />
+                </svg>
+                <span>This is a preview with sample data. Actual emails will contain real student information.</span>
+              </div>
+              <iframe
+                srcDoc={previewTemplate === 'balance' ? getBalanceEmailPreview() : getReceiptEmailPreview()}
+                className="email-preview-frame"
+                title="Email Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {settings?.updated_at && (
         <p className="last-updated">
@@ -1849,6 +2104,172 @@ export default function SettingsPage() {
           gap: 8px;
         }
 
+        /* Email Template Cards */
+        .template-cards {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .template-card {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 20px;
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
+          transition: all 0.15s ease;
+        }
+
+        .template-card:hover {
+          background: var(--gray-100);
+        }
+
+        .template-icon {
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .template-icon.balance {
+          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+          color: #1e40af;
+        }
+
+        .template-icon.receipt {
+          background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+          color: #16a34a;
+        }
+
+        .template-info {
+          flex: 1;
+        }
+
+        .template-info h4 {
+          margin: 0 0 4px 0;
+          font-size: 15px;
+          color: var(--gray-700);
+        }
+
+        .template-info p {
+          margin: 0;
+          font-size: 13px;
+          color: var(--gray-500);
+          line-height: 1.5;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+          animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .modal-content {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          max-width: 700px;
+          width: 100%;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--gray-200);
+        }
+
+        .modal-header h3 {
+          margin: 0;
+          font-size: 18px;
+          color: var(--aca-navy);
+        }
+
+        .modal-close {
+          width: 36px;
+          height: 36px;
+          border: none;
+          background: var(--gray-100);
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--gray-500);
+          transition: all 0.15s ease;
+        }
+
+        .modal-close:hover {
+          background: var(--gray-200);
+          color: var(--gray-700);
+        }
+
+        .modal-body {
+          padding: 24px;
+          overflow-y: auto;
+          flex: 1;
+        }
+
+        .email-preview-info {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 16px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: var(--border-radius);
+          margin-bottom: 20px;
+          font-size: 13px;
+          color: #1e40af;
+        }
+
+        .email-preview-info svg {
+          flex-shrink: 0;
+        }
+
+        .email-preview-frame {
+          width: 100%;
+          height: 600px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: #f8fafc;
+        }
+
         @media (max-width: 768px) {
           .settings-layout {
             flex-direction: column;
@@ -2003,6 +2424,42 @@ export default function SettingsPage() {
 
           .payment-actions .btn {
             width: 100%;
+          }
+
+          /* Template cards mobile */
+          .template-card {
+            flex-direction: column;
+            text-align: center;
+            gap: 12px;
+          }
+
+          .template-card .btn {
+            width: 100%;
+          }
+
+          /* Modal mobile */
+          .modal-overlay {
+            padding: 10px;
+          }
+
+          .modal-content {
+            max-height: 95vh;
+          }
+
+          .modal-header {
+            padding: 16px;
+          }
+
+          .modal-header h3 {
+            font-size: 16px;
+          }
+
+          .modal-body {
+            padding: 16px;
+          }
+
+          .email-preview-frame {
+            height: 500px;
           }
         }
 
