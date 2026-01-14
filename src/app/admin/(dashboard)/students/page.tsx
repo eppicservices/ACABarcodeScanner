@@ -1114,9 +1114,7 @@ export default function StudentsPage() {
           }
 
           .page-header .btn {
-            width: 100%;
-            justify-content: center;
-            padding: 14px 24px;
+            display: none !important;
           }
 
           h1 {
