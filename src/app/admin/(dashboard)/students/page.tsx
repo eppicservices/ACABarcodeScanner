@@ -119,7 +119,8 @@ export default function StudentsPage() {
         </Link>
       </div>
 
-      <div className="stats-row">
+      {/* Desktop Stats Grid */}
+      <div className="stats-row desktop-stats">
         <div className="stat-card">
           <div className="stat-icon total">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -169,6 +170,16 @@ export default function StudentsPage() {
             <span className="stat-label">Low Balance</span>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Stats Pills */}
+      <div className="stats-pills mobile-stats">
+        <span className="stat-pill">{students.length} Students</span>
+        <span className="stat-pill elementary">{elementaryCount} Elem</span>
+        <span className="stat-pill highschool">{highSchoolCount} HS</span>
+        {lowBalanceCount > 0 && (
+          <span className="stat-pill warning">{lowBalanceCount} Low</span>
+        )}
       </div>
 
       <div className="filters card">
@@ -298,7 +309,7 @@ export default function StudentsPage() {
                     </td>
                     <td className="parent-cell">{student.parent.name}</td>
                     <td>
-                      <span className={`balance ${getBalanceClass(student.balance)}`}></span>
+                      <span className={`balance ${getBalanceClass(student.balance)}`}>{student.balance}</span>
                     </td>
                   </tr>
                 ))}
@@ -376,15 +387,23 @@ export default function StudentsPage() {
         /* Mobile List Styles - Global to work with Link components */
         .mobile-list {
           background: var(--white);
-          border-radius: var(--border-radius-lg);
+          border-radius: 14px;
           border: 1px solid var(--gray-100);
           overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0, 44, 95, 0.04);
         }
 
         .mobile-list .list-header {
           padding: 12px 16px;
           background: var(--gray-50);
           border-bottom: 1px solid var(--gray-100);
+        }
+
+        .mobile-list .results-count {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--gray-500);
+          letter-spacing: 0.02em;
         }
 
         .mobile-list .list-items {
@@ -396,11 +415,23 @@ export default function StudentsPage() {
           display: flex !important;
           flex-direction: row !important;
           align-items: center !important;
-          gap: 12px;
+          gap: 14px;
           padding: 14px 16px;
           text-decoration: none;
           border-bottom: 1px solid var(--gray-100);
-          transition: background 0.15s ease;
+          transition: all 0.15s ease;
+          animation: listItemFadeIn 0.3s ease-out backwards;
+        }
+
+        @keyframes listItemFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .mobile-list .list-item:last-child {
@@ -409,21 +440,24 @@ export default function StudentsPage() {
 
         .mobile-list .list-item:active {
           background: var(--gray-50);
+          transform: scale(0.99);
         }
 
         .mobile-list .list-item-avatar {
-          width: 44px;
-          height: 44px;
-          min-width: 44px;
-          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
-          border-radius: 12px;
+          width: 46px;
+          height: 46px;
+          min-width: 46px;
+          background: linear-gradient(145deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
+          border-radius: 13px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: var(--white);
-          font-weight: 600;
-          font-size: 16px;
+          font-weight: 700;
+          font-size: 17px;
           flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(0, 177, 193, 0.25);
+          letter-spacing: -0.02em;
         }
 
         .mobile-list .list-item-content {
@@ -435,55 +469,59 @@ export default function StudentsPage() {
           font-weight: 600;
           color: var(--gray-700);
           font-size: 15px;
-          margin-bottom: 4px;
+          margin-bottom: 5px;
+          letter-spacing: -0.01em;
         }
 
         .mobile-list .list-item-meta {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           font-size: 12px;
           color: var(--gray-400);
         }
 
         .mobile-list .list-item-level {
-          padding: 2px 8px;
-          border-radius: 10px;
-          font-weight: 600;
-          font-size: 10px;
+          padding: 3px 9px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 9px;
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.04em;
         }
 
         .mobile-list .list-item-level.elementary {
-          background: #dbeafe;
+          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
           color: #1e40af;
         }
 
         .mobile-list .list-item-level.high_school {
-          background: var(--aca-gold-subtle);
+          background: linear-gradient(135deg, var(--aca-gold-subtle) 0%, #fef3c7 100%);
           color: var(--aca-gold-dark);
         }
 
         .mobile-list .list-item-barcode {
           font-family: 'SF Mono', Monaco, monospace;
           color: var(--gray-400);
+          font-size: 11px;
+          letter-spacing: 0.03em;
         }
 
         .mobile-list .list-item-balance-wrap {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           color: var(--gray-300);
           flex-shrink: 0;
         }
 
         .mobile-list .list-item-balance {
           font-family: 'SF Mono', Monaco, monospace;
-          font-weight: 700;
-          font-size: 18px;
-          min-width: 28px;
+          font-weight: 800;
+          font-size: 20px;
+          min-width: 32px;
           text-align: right;
+          letter-spacing: -0.02em;
         }
 
         .mobile-list .list-item-balance.balance-good {
@@ -491,11 +529,15 @@ export default function StudentsPage() {
         }
 
         .mobile-list .list-item-balance.balance-warning {
-          color: var(--warning);
+          color: var(--error);
         }
 
         .mobile-list .list-item-balance.balance-danger {
           color: var(--error);
+        }
+
+        .mobile-list .list-item-balance-wrap svg {
+          opacity: 0.4;
         }
 
         .mobile-list .empty-state-mobile {
@@ -503,14 +545,19 @@ export default function StudentsPage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 48px 20px;
+          padding: 56px 24px;
           color: var(--gray-400);
-          gap: 12px;
+          gap: 14px;
+        }
+
+        .mobile-list .empty-state-mobile svg {
+          opacity: 0.5;
         }
 
         .mobile-list .empty-state-mobile p {
           margin: 0;
           font-size: 14px;
+          font-weight: 500;
         }
       `}</style>
 
@@ -610,12 +657,12 @@ export default function StudentsPage() {
         }
 
         .stat-icon.warning {
-          background: var(--warning-bg);
-          color: var(--warning);
+          background: var(--error-bg);
+          color: var(--error);
         }
 
         .warning-card {
-          border-color: var(--warning-border);
+          border-color: var(--error-border);
         }
 
         .stat-content {
@@ -917,25 +964,20 @@ export default function StudentsPage() {
         .balance {
           font-weight: 700;
           font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-          font-size: 14px;
-          padding: 4px 10px;
-          border-radius: var(--border-radius-sm);
+          font-size: 15px;
           white-space: nowrap;
         }
 
         .balance-good {
           color: var(--success);
-          background: var(--success-bg);
         }
 
         .balance-warning {
-          color: var(--warning);
-          background: var(--warning-bg);
+          color: var(--error);
         }
 
         .balance-danger {
           color: var(--error);
-          background: var(--error-bg);
         }
 
         .actions-cell {
@@ -999,6 +1041,15 @@ export default function StudentsPage() {
           display: none;
         }
 
+        /* Mobile stats pills - hidden on desktop */
+        .mobile-stats {
+          display: none;
+        }
+
+        .desktop-stats {
+          display: grid;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 768px) {
           .desktop-only {
@@ -1016,96 +1067,200 @@ export default function StudentsPage() {
             box-sizing: border-box;
           }
 
-          .stats-row {
-            width: 100%;
-            max-width: 100%;
-          }
-
-          .filters {
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-          }
-
-          .mobile-list {
-            width: 100%;
-            max-width: 100%;
-          }
-
           .page-header {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
             gap: 16px;
+            margin-bottom: 20px;
+          }
+
+          .header-content {
+            gap: 12px;
+          }
+
+          .header-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
           }
 
           .page-header .btn {
             width: 100%;
             justify-content: center;
+            padding: 14px 24px;
           }
 
           h1 {
-            font-size: 22px;
+            font-size: 20px;
+            letter-spacing: -0.01em;
           }
 
-          .stats-row {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-          }
-
-          .stat-card {
-            padding: 14px 16px;
-          }
-
-          .stat-icon {
-            width: 36px;
-            height: 36px;
-          }
-
-          .stat-value {
-            font-size: 18px;
-          }
-
-          .stat-label {
-            font-size: 11px;
-          }
-
-          .filters {
-            flex-direction: column;
-            padding: 12px;
-            gap: 12px;
-          }
-
-          .filter-buttons {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-
-          .filter-buttons::-webkit-scrollbar {
+          .subtitle {
+            font-size: 13px;
             display: none;
           }
 
-          .filter-btn {
-            flex-shrink: 0;
-            padding: 8px 14px;
-            font-size: 12px;
+          /* Hide desktop stats, show mobile pills */
+          .desktop-stats {
+            display: none !important;
           }
 
+          .mobile-stats {
+            display: flex !important;
+          }
+
+          /* Mini Pills Stats */
+          .stats-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-600);
+            white-space: nowrap;
+          }
+
+          .stat-pill.elementary {
+            background: #dbeafe;
+            border-color: #bfdbfe;
+            color: #1e40af;
+          }
+
+          .stat-pill.highschool {
+            background: var(--aca-gold-subtle);
+            border-color: #fde68a;
+            color: var(--aca-gold-dark);
+          }
+
+          .stat-pill.warning {
+            background: var(--error-bg);
+            border-color: var(--error-border);
+            color: var(--error);
+          }
+
+          /* Refined filters card */
+          .filters {
+            flex-direction: column;
+            padding: 14px;
+            gap: 14px;
+            margin-bottom: 16px;
+            border-radius: 14px;
+            background: var(--white);
+            border: 1px solid var(--gray-100);
+            box-shadow: 0 2px 8px rgba(0, 44, 95, 0.04);
+          }
+
+          .search-box {
+            width: 100%;
+          }
+
+          .search-input {
+            font-size: 15px;
+            padding: 12px 40px 12px 44px;
+            border-radius: 10px;
+            background: var(--gray-50);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+          }
+
+          .search-input:focus {
+            background: var(--white);
+            border-color: var(--aca-teal);
+            box-shadow: 0 0 0 3px var(--aca-teal-subtle);
+          }
+
+          .search-input::placeholder {
+            color: var(--gray-400);
+            font-size: 14px;
+          }
+
+          /* Pill-style filter buttons */
+          .filter-buttons {
+            width: 100%;
+            display: flex;
+            gap: 8px;
+            padding: 0;
+            background: transparent;
+            justify-content: flex-start;
+          }
+
+          .filter-btn {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 10px;
+            background: var(--gray-50);
+            color: var(--gray-500);
+            border: 1px solid transparent;
+            text-align: center;
+            transition: all 0.2s ease;
+          }
+
+          .filter-btn:hover {
+            background: var(--gray-100);
+          }
+
+          .filter-btn.active {
+            background: var(--aca-teal-subtle);
+            color: var(--aca-teal-dark);
+            border-color: var(--aca-teal);
+            box-shadow: none;
+          }
+
+          /* Compact sort dropdown */
           .sort-dropdown {
             width: 100%;
             margin-left: 0;
+            padding-top: 2px;
+            border-top: 1px solid var(--gray-100);
+            padding-top: 14px;
+          }
+
+          .sort-label {
+            font-size: 12px;
+            color: var(--gray-400);
           }
 
           .sort-select {
             flex: 1;
             width: 100%;
+            padding: 10px 36px 10px 14px;
+            font-size: 13px;
+            border-radius: 10px;
+            background-color: var(--gray-50);
+            border: 1px solid transparent;
+          }
+
+          .sort-select:focus {
+            background-color: var(--white);
+            border-color: var(--aca-teal);
+          }
+
+          /* Mobile list refinements */
+          .mobile-list {
+            width: 100%;
+            max-width: 100%;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 44, 95, 0.04);
           }
 
           .table-container {
             margin: 0;
-            border-radius: var(--border-radius-lg);
+            border-radius: 14px;
             overflow: hidden;
           }
 
@@ -1161,8 +1316,7 @@ export default function StudentsPage() {
           }
 
           .balance {
-            font-size: 12px;
-            padding: 3px 8px;
+            font-size: 13px;
           }
 
           .action-btn {
@@ -1172,41 +1326,71 @@ export default function StudentsPage() {
         }
 
         @media (max-width: 480px) {
-          .stats-row {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .stat-card {
-            padding: 12px 14px;
-            gap: 10px;
-          }
-
-          .stat-icon {
-            width: 32px;
-            height: 32px;
-          }
-
-          .stat-icon svg {
-            width: 16px;
-            height: 16px;
-          }
-
-          .stat-value {
-            font-size: 16px;
+          .page-header {
+            gap: 14px;
           }
 
           .header-icon {
-            width: 40px;
-            height: 40px;
+            width: 38px;
+            height: 38px;
           }
 
           .header-icon svg {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
+          }
+
+          h1 {
+            font-size: 18px;
+          }
+
+          .stats-pills {
+            gap: 6px;
+          }
+
+          .stat-pill {
+            padding: 5px 10px;
+            font-size: 12px;
+          }
+
+          .filters {
+            padding: 12px;
+            gap: 12px;
           }
 
           .search-input {
             font-size: 14px;
+            padding: 11px 38px 11px 42px;
+          }
+
+          .filter-btn {
+            padding: 9px 10px;
+            font-size: 11px;
+          }
+
+          .sort-dropdown {
+            padding-top: 12px;
+          }
+
+          .sort-select {
+            padding: 9px 32px 9px 12px;
+            font-size: 12px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .stats-pills {
+            gap: 5px;
+          }
+
+          .stat-pill {
+            padding: 4px 8px;
+            font-size: 11px;
+          }
+
+          .filter-btn {
+            padding: 8px 8px;
+            font-size: 10px;
           }
         }
       `}</style>

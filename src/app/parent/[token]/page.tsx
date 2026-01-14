@@ -561,7 +561,7 @@ const styles = `
   }
 
   .balance-value.low {
-    color: #f59e0b;
+    color: #ef4444;
   }
 
   .balance-value.negative {
@@ -580,7 +580,7 @@ const styles = `
   }
 
   .status-dot.low {
-    background: #f59e0b;
+    background: #ef4444;
   }
 
   .status-dot.negative {

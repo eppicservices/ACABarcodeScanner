@@ -104,12 +104,12 @@ export default function ScanResult({ code, status, studentName, message, onDismi
         }
 
         .result-insufficient {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-          color: #92400e;
+          background: linear-gradient(135deg, var(--error-bg) 0%, #fecaca 100%);
+          color: #991b1b;
         }
 
         .result-insufficient .result-icon {
-          color: #d97706;
+          color: var(--error);
         }
 
         .result-icon {

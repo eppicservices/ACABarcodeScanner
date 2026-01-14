@@ -898,7 +898,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         }
 
         .balance-display.low {
-          color: var(--warning);
+          color: var(--error);
         }
 
         .balance-display.negative {
