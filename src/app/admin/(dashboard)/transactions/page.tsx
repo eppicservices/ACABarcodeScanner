@@ -831,7 +831,25 @@ export default function TransactionsPage() {
           }
           .transactions-page {
             max-width: 100%;
+            width: 100%;
             overflow-x: hidden;
+            box-sizing: border-box;
+          }
+
+          .stats-row {
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .filters {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+          }
+
+          .mobile-list {
+            width: 100%;
+            max-width: 100%;
           }
 
           h1 {
