@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendBalanceEmail, type BalanceEmailData, type StudentBalance } from '@/lib/email'
 import { generateSecureToken, getTokenExpiryDate, getPortalUrl } from '@/lib/parent-portal'
-import { checkSchoolCalendarStatus } from '@/lib/school-calendar'
+import { checkSchoolCalendarStatus, checkEmailScheduleStatus } from '@/lib/school-calendar'
 import type { AppSettings, Student } from '@/types/database'
 
 export async function POST(request: NextRequest) {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { parent_id } = await request.json()
+    const { parent_id, force } = await request.json()
 
     if (!parent_id) {
       return NextResponse.json({ error: 'parent_id is required' }, { status: 400 })
@@ -76,11 +76,23 @@ export async function POST(request: NextRequest) {
 
     // Check school calendar - should we send emails today?
     const calendarStatus = await checkSchoolCalendarStatus(new Date())
-    if (!calendarStatus.canSendEmail) {
+    if (!calendarStatus.canSendEmail && !force) {
       return NextResponse.json({
         success: false,
         error: `Emails paused: ${calendarStatus.reason}`,
-        calendarStatus
+        calendarStatus,
+        hint: 'Use force: true to override'
+      }, { status: 400 })
+    }
+
+    // Check email schedule - is this an allowed time?
+    const scheduleStatus = await checkEmailScheduleStatus(new Date())
+    if (!scheduleStatus.canSendNow && !force) {
+      return NextResponse.json({
+        success: false,
+        error: `Outside email window: ${scheduleStatus.reason}`,
+        scheduleStatus,
+        hint: 'Use force: true to override'
       }, { status: 400 })
     }
 
