@@ -23,6 +23,7 @@ export default function StudentsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
+  const [schemaError, setSchemaError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -63,7 +64,14 @@ export default function StudentsPage() {
         .update({ is_active: setActive })
         .in('id', Array.from(selectedStudents))
 
-      if (error) throw error
+      if (error) {
+        // Check for schema cache error
+        if (error.message.includes('schema cache') || error.message.includes('is_active')) {
+          setSchemaError("Could not find the 'is_active' column of 'students' in the schema cache")
+          throw error
+        }
+        throw error
+      }
 
       await fetchStudents()
       setSelectedStudents(new Set())
@@ -320,6 +328,34 @@ export default function StudentsPage() {
           </select>
         </div>
       </div>
+
+      {/* Schema Error Alert */}
+      {schemaError && (
+        <div className="schema-error-alert card">
+          <div className="schema-error-content">
+            <div className="schema-error-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div className="schema-error-text">
+              <strong>Database Schema Issue</strong>
+              <p>{schemaError}</p>
+              <p className="schema-error-hint">
+                The database migration may not have been applied. Please contact your administrator or reload the schema cache from the Supabase dashboard (Settings → API → Reload Schema Cache).
+              </p>
+            </div>
+            <button className="schema-error-dismiss" onClick={() => setSchemaError(null)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Actions Bar */}
       {selectedStudents.size > 0 && (
@@ -1192,6 +1228,62 @@ export default function StudentsPage() {
 
         .student-avatar.inactive {
           background: linear-gradient(135deg, var(--gray-400) 0%, var(--gray-500) 100%);
+        }
+
+        /* Schema Error Alert */
+        .schema-error-alert {
+          background: var(--error-bg);
+          border: 1px solid var(--error-border);
+          margin-bottom: 20px;
+          padding: 16px 20px;
+        }
+
+        .schema-error-content {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+        }
+
+        .schema-error-icon {
+          color: var(--error);
+          flex-shrink: 0;
+        }
+
+        .schema-error-text {
+          flex: 1;
+        }
+
+        .schema-error-text strong {
+          display: block;
+          color: var(--error);
+          font-size: 14px;
+          margin-bottom: 4px;
+        }
+
+        .schema-error-text p {
+          color: var(--gray-600);
+          font-size: 13px;
+          margin: 0 0 8px 0;
+        }
+
+        .schema-error-hint {
+          color: var(--gray-500);
+          font-size: 12px;
+        }
+
+        .schema-error-dismiss {
+          background: none;
+          border: none;
+          padding: 4px;
+          cursor: pointer;
+          color: var(--gray-400);
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+
+        .schema-error-dismiss:hover {
+          background: var(--error-border);
+          color: var(--error);
         }
 
         .loading-container {

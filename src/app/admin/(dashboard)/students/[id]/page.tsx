@@ -20,6 +20,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [schemaError, setSchemaError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -51,6 +52,11 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       getSettings(),
     ])
 
+    // Check for schema cache error
+    if (studentRes.error && (studentRes.error.message.includes('schema cache') || studentRes.error.message.includes('is_active'))) {
+      setSchemaError(studentRes.error.message)
+    }
+
     if (studentRes.data) {
       const s = studentRes.data as StudentWithParent
       setStudent(s)
@@ -58,7 +64,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       setBarcode(s.barcode)
       setSchoolLevel(s.school_level)
       setParentId(s.parent_id)
-      setIsActive(s.is_active)
+      // Handle case where is_active might not exist in schema cache
+      setIsActive(s.is_active ?? true)
     }
 
     if (parentsRes.data) {
@@ -89,6 +96,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setSchemaError(null)
     setSuccess(null)
     setSaving(true)
 
@@ -105,7 +113,12 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       .eq('id', id)
 
     if (error) {
-      setError(error.message)
+      // Check for schema cache error
+      if (error.message.includes('schema cache') || error.message.includes('is_active')) {
+        setSchemaError(error.message)
+      } else {
+        setError(error.message)
+      }
     } else {
       setSuccess('Student updated successfully')
       setIsEditing(false)
@@ -300,6 +313,32 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
       <div className="content-grid">
         <div className="main-content">
+          {schemaError && (
+            <div className="schema-error-alert">
+              <div className="schema-error-content">
+                <div className="schema-error-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <div className="schema-error-text">
+                  <strong>Database Schema Issue</strong>
+                  <p>{schemaError}</p>
+                  <p className="schema-error-hint">
+                    The database migration may not have been applied. Please contact your administrator or reload the schema cache from the Supabase dashboard (Settings → API → Reload Schema Cache).
+                  </p>
+                </div>
+                <button className="schema-error-dismiss" onClick={() => setSchemaError(null)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
           {error && <div className="alert alert-error">{error}</div>}
           {success && <div className="alert alert-success">{success}</div>}
 
@@ -811,6 +850,63 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           color: var(--success);
           border: 1px solid var(--success-border);
           animation: successPop 0.35s ease-out;
+        }
+
+        /* Schema Error Alert */
+        .schema-error-alert {
+          background: var(--error-bg);
+          border: 1px solid var(--error-border);
+          border-radius: var(--border-radius);
+          margin-bottom: 20px;
+          padding: 16px 20px;
+        }
+
+        .schema-error-content {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+        }
+
+        .schema-error-icon {
+          color: var(--error);
+          flex-shrink: 0;
+        }
+
+        .schema-error-text {
+          flex: 1;
+        }
+
+        .schema-error-text strong {
+          display: block;
+          color: var(--error);
+          font-size: 14px;
+          margin-bottom: 4px;
+        }
+
+        .schema-error-text p {
+          color: var(--gray-600);
+          font-size: 13px;
+          margin: 0 0 8px 0;
+        }
+
+        .schema-error-hint {
+          color: var(--gray-500) !important;
+          font-size: 12px !important;
+        }
+
+        .schema-error-dismiss {
+          background: none;
+          border: none;
+          padding: 4px;
+          cursor: pointer;
+          color: var(--gray-400);
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+
+        .schema-error-dismiss:hover {
+          background: var(--error-border);
+          color: var(--error);
         }
 
         .form-card h2,
