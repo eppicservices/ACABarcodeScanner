@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { DailyMeal, AppSettings } from '@/types/database'
 
@@ -20,6 +20,10 @@ export default function MealStatsPage() {
   const [syncing, setSyncing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [lastSynced, setLastSynced] = useState<Date | null>(null)
+
+  // Track if we've already auto-synced this session
+  const hasAutoSynced = useRef(false)
 
   // Calendar form state
   const [calendarUrl, setCalendarUrl] = useState('')
@@ -97,6 +101,41 @@ export default function MealStatsPage() {
     fetchData()
   }, [fetchData])
 
+  // Auto-sync calendar on page load if enabled
+  useEffect(() => {
+    async function autoSync() {
+      if (hasAutoSynced.current) return
+      if (!settings?.calendar_enabled || !settings?.calendar_url) return
+
+      hasAutoSynced.current = true
+      setSyncing(true)
+
+      try {
+        const response = await fetch('/api/admin/sync-calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ calendar_url: settings.calendar_url })
+        })
+
+        const result = await response.json()
+
+        if (response.ok && result.imported > 0) {
+          setLastSynced(new Date())
+          fetchData() // Refresh data after sync
+        }
+      } catch {
+        // Silent fail for auto-sync - don't interrupt user
+        console.error('Auto-sync failed')
+      }
+
+      setSyncing(false)
+    }
+
+    if (settings && !loading) {
+      autoSync()
+    }
+  }, [settings, loading, fetchData])
+
   async function handleSaveCalendarSettings() {
     setSaving(true)
     setMessage(null)
@@ -147,6 +186,7 @@ export default function MealStatsPage() {
       }
 
       setMessage({ type: 'success', text: `Synced ${result.imported} meals from calendar` })
+      setLastSynced(new Date())
       fetchData()
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to sync calendar' })
@@ -305,6 +345,18 @@ export default function MealStatsPage() {
             {syncing ? 'Syncing...' : 'Sync Now'}
           </button>
         </div>
+
+        {lastSynced && (
+          <p className="last-synced">
+            Last synced: {lastSynced.toLocaleTimeString()}
+          </p>
+        )}
+
+        {calendarEnabled && calendarUrl && (
+          <p className="auto-sync-note">
+            Auto-sync is enabled. Calendar will sync when this page loads.
+          </p>
+        )}
       </div>
 
       {/* Stats Table */}
@@ -557,6 +609,26 @@ export default function MealStatsPage() {
 
         .btn-secondary:hover:not(:disabled) {
           background: #e2e8f0;
+        }
+
+        .last-synced {
+          margin-top: 12px;
+          font-size: 13px;
+          color: #64748b;
+        }
+
+        .auto-sync-note {
+          margin-top: 8px;
+          font-size: 13px;
+          color: #0ea5e9;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .auto-sync-note::before {
+          content: '✓';
+          font-weight: bold;
         }
 
         .empty-state {
