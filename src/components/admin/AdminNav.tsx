@@ -10,6 +10,7 @@ const navItems = [
   { href: '/admin/students', label: 'Students', icon: 'users' },
   { href: '/admin/parents', label: 'Parents', icon: 'family' },
   { href: '/admin/transactions', label: 'Transactions', icon: 'receipt' },
+  { href: '/admin/meal-stats', label: 'Meal Stats', icon: 'calendar' },
   { href: '/admin/settings', label: 'Settings', icon: 'settings' },
   { href: '/', label: 'Open Scanner', icon: 'scanner' },
 ]
@@ -107,6 +108,20 @@ export default function AdminNav() {
             <path d="M21 17v2a2 2 0 01-2 2h-2" />
             <path d="M7 21H5a2 2 0 01-2-2v-2" />
             <line x1="7" y1="12" x2="17" y2="12" />
+          </svg>
+        )
+      case 'calendar':
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <path d="M8 14h.01" />
+            <path d="M12 14h.01" />
+            <path d="M16 14h.01" />
+            <path d="M8 18h.01" />
+            <path d="M12 18h.01" />
           </svg>
         )
       default:

@@ -3,6 +3,7 @@ export type ActiveFilter = 'all' | 'active' | 'inactive'
 export type AdminRole = 'admin' | 'super_admin'
 export type TransactionType = 'payment' | 'adjustment' | 'refund' | 'lunch_used' | 'lunch_card'
 export type EmailProvider = 'none' | 'gmail' | 'sendgrid' | 'smtp'
+export type MealSource = 'calendar' | 'manual'
 
 export interface Parent {
   id: string
@@ -85,6 +86,9 @@ export interface AppSettings {
   // Metadata
   updated_at: string
   updated_by: string | null
+  // Calendar settings
+  calendar_url: string | null
+  calendar_enabled: boolean
 }
 
 export interface BalanceTransaction {
@@ -111,6 +115,17 @@ export interface NotificationLog {
   notification_type: string
   balance_at_notification: number
   sent_at: string
+}
+
+export interface DailyMeal {
+  id: string
+  meal_date: string
+  meal_name: string
+  source: MealSource
+  calendar_event_id: string | null
+  created_at: string
+  updated_at: string
+  updated_by: string | null
 }
 
 export interface ParentAccessToken {
@@ -249,6 +264,24 @@ export interface Database {
           smtp_password?: string | null
           smtp_secure?: boolean
           updated_at?: string
+          updated_by?: string | null
+          calendar_url?: string | null
+          calendar_enabled?: boolean
+        }
+      }
+      daily_meals: {
+        Row: DailyMeal
+        Insert: {
+          meal_date: string
+          meal_name: string
+          source?: MealSource
+          calendar_event_id?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          meal_name?: string
+          source?: MealSource
+          calendar_event_id?: string | null
           updated_by?: string | null
         }
       }
