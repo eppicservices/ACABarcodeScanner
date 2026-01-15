@@ -479,6 +479,7 @@ function generateBalanceHtml(data: BalanceEmailData, schoolName: string, setting
  */
 function generateBalanceText(data: BalanceEmailData, schoolName: string, settings: AppSettings): string {
   const totalBalance = data.students.reduce((sum, s) => sum + s.balance, 0)
+  const tokenExpiryDays = settings.parent_token_expiry_days || 7
 
   const studentsText = data.students.map(student => {
     const lunchPrice = student.schoolLevel === 'elementary'
@@ -506,7 +507,7 @@ FAMILY TOTAL: ${totalBalance} lunches
 To add funds to your account, visit:
 ${data.portalUrl}
 
-This link will expire in 7 days for security purposes.
+This link will expire in ${tokenExpiryDays} days for security purposes.
 
 If you have any questions, please contact the school office.
 
