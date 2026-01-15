@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { AppSettings, AdminUser, PendingPayment, EmailProvider } from '@/types/database'
+import type { AppSettings, AdminUser, PendingPayment, EmailProvider, DayOfWeek, AutoSendSchedule } from '@/types/database'
 import CsvImport from '@/components/admin/CsvImport'
 import SchoolCalendarSettings from '@/components/admin/SchoolCalendarSettings'
 
@@ -169,6 +169,15 @@ export default function SettingsPage() {
     zero_balance_alerts: true,
     weekly_summary_enabled: false,
     notification_frequency: 'immediate' as 'immediate' | 'daily',
+    // Email scheduling
+    email_allowed_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as DayOfWeek[],
+    email_window_start: '08:00',
+    email_window_end: '18:00',
+    email_timezone: 'America/New_York',
+    min_days_between_emails: '3',
+    auto_send_enabled: false,
+    auto_send_schedule: 'weekdays' as AutoSendSchedule,
+    auto_send_time: '09:00',
     // Scanner
     scanner_sound_enabled: true,
     scanner_auto_deduct: true,
@@ -241,6 +250,15 @@ export default function SettingsPage() {
         zero_balance_alerts: s.zero_balance_alerts ?? true,
         weekly_summary_enabled: s.weekly_summary_enabled ?? false,
         notification_frequency: s.notification_frequency || 'immediate',
+        // Email scheduling
+        email_allowed_days: s.email_allowed_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        email_window_start: s.email_window_start || '08:00',
+        email_window_end: s.email_window_end || '18:00',
+        email_timezone: s.email_timezone || 'America/New_York',
+        min_days_between_emails: s.min_days_between_emails?.toString() || '3',
+        auto_send_enabled: s.auto_send_enabled ?? false,
+        auto_send_schedule: s.auto_send_schedule || 'weekdays',
+        auto_send_time: s.auto_send_time || '09:00',
         scanner_sound_enabled: s.scanner_sound_enabled ?? true,
         scanner_auto_deduct: s.scanner_auto_deduct ?? true,
         show_student_photo: s.show_student_photo ?? false,
@@ -422,6 +440,15 @@ export default function SettingsPage() {
         zero_balance_alerts: formData.zero_balance_alerts,
         weekly_summary_enabled: formData.weekly_summary_enabled,
         notification_frequency: formData.notification_frequency,
+        // Email scheduling
+        email_allowed_days: formData.email_allowed_days,
+        email_window_start: formData.email_window_start,
+        email_window_end: formData.email_window_end,
+        email_timezone: formData.email_timezone,
+        min_days_between_emails: parseInt(formData.min_days_between_emails),
+        auto_send_enabled: formData.auto_send_enabled,
+        auto_send_schedule: formData.auto_send_schedule,
+        auto_send_time: formData.auto_send_time,
         scanner_sound_enabled: formData.scanner_sound_enabled,
         scanner_auto_deduct: formData.scanner_auto_deduct,
         show_student_photo: formData.show_student_photo,
@@ -594,7 +621,7 @@ export default function SettingsPage() {
     setMessage({ type: 'success', text: `${type} exported successfully` })
   }
 
-  const updateField = (field: string, value: string | boolean) => {
+  const updateField = (field: string, value: string | boolean | DayOfWeek[]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -1052,6 +1079,152 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
+
+                <h3>Email Scheduling</h3>
+                <p className="section-desc">Control when low balance emails can be sent.</p>
+
+                <div className="form-group">
+                  <label>Allowed Days</label>
+                  <div className="day-checkboxes">
+                    {(['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as DayOfWeek[]).map(day => (
+                      <label key={day} className="day-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={formData.email_allowed_days.includes(day)}
+                          onChange={e => {
+                            const newDays = e.target.checked
+                              ? [...formData.email_allowed_days, day]
+                              : formData.email_allowed_days.filter(d => d !== day)
+                            updateField('email_allowed_days', newDays)
+                          }}
+                          disabled={!formData.notifications_enabled}
+                        />
+                        <span>{day.charAt(0).toUpperCase() + day.slice(1, 3)}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <span className="hint">Days when emails can be sent</span>
+                </div>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Send Window Start</label>
+                    <input
+                      type="time"
+                      className="input"
+                      value={formData.email_window_start}
+                      onChange={e => updateField('email_window_start', e.target.value)}
+                      disabled={!formData.notifications_enabled}
+                    />
+                    <span className="hint">Earliest time to send emails</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Send Window End</label>
+                    <input
+                      type="time"
+                      className="input"
+                      value={formData.email_window_end}
+                      onChange={e => updateField('email_window_end', e.target.value)}
+                      disabled={!formData.notifications_enabled}
+                    />
+                    <span className="hint">Latest time to send emails</span>
+                  </div>
+                </div>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Timezone</label>
+                    <select
+                      className="input"
+                      value={formData.email_timezone}
+                      onChange={e => updateField('email_timezone', e.target.value)}
+                      disabled={!formData.notifications_enabled}
+                    >
+                      <option value="America/New_York">Eastern Time (ET)</option>
+                      <option value="America/Chicago">Central Time (CT)</option>
+                      <option value="America/Denver">Mountain Time (MT)</option>
+                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                      <option value="America/Anchorage">Alaska Time (AKT)</option>
+                      <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Min Days Between Emails</label>
+                    <div className="input-with-suffix">
+                      <input
+                        type="number"
+                        className="input"
+                        value={formData.min_days_between_emails}
+                        onChange={e => updateField('min_days_between_emails', e.target.value)}
+                        min="0"
+                        max="30"
+                        disabled={!formData.notifications_enabled}
+                      />
+                      <span className="suffix">days</span>
+                    </div>
+                    <span className="hint">Prevent emailing same parent too often</span>
+                  </div>
+                </div>
+
+                <h3>Automatic Sending</h3>
+                <p className="section-desc">Automatically send low balance emails on a schedule.</p>
+
+                <div className="toggle-card">
+                  <div className="toggle-info">
+                    <strong>Enable Auto-Send</strong>
+                    <span>Automatically send low balance emails</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`toggle ${formData.auto_send_enabled ? 'on' : ''}`}
+                    onClick={() => updateField('auto_send_enabled', !formData.auto_send_enabled)}
+                    disabled={!formData.notifications_enabled}
+                  >
+                    <span className="toggle-handle" />
+                  </button>
+                </div>
+
+                {formData.auto_send_enabled && (
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Schedule</label>
+                      <select
+                        className="input"
+                        value={formData.auto_send_schedule}
+                        onChange={e => updateField('auto_send_schedule', e.target.value)}
+                        disabled={!formData.notifications_enabled}
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekdays">Weekdays Only</option>
+                        <option value="weekly">Weekly (Mondays)</option>
+                      </select>
+                      <span className="hint">How often to send batch emails</span>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Send Time</label>
+                      <input
+                        type="time"
+                        className="input"
+                        value={formData.auto_send_time}
+                        onChange={e => updateField('auto_send_time', e.target.value)}
+                        disabled={!formData.notifications_enabled}
+                      />
+                      <span className="hint">Time to send batch emails</span>
+                    </div>
+                  </div>
+                )}
+
+                {formData.auto_send_enabled && (
+                  <div className="info-box">
+                    <strong>Cron Setup Required</strong>
+                    <p>To enable automatic sending, configure a cron job to call:</p>
+                    <code>POST /api/cron/send-low-balance-emails</code>
+                    <p className="hint">Include header: <code>Authorization: Bearer YOUR_CRON_SECRET</code></p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2119,6 +2292,72 @@ export default function SettingsPage() {
         .notification-options.disabled {
           opacity: 0.5;
           pointer-events: none;
+        }
+
+        .day-checkboxes {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 4px;
+        }
+
+        .day-checkbox {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          background: var(--gray-50);
+          border-radius: var(--border-radius);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 13px;
+          user-select: none;
+        }
+
+        .day-checkbox:hover {
+          background: var(--gray-100);
+        }
+
+        .day-checkbox input {
+          margin: 0;
+          cursor: pointer;
+        }
+
+        .day-checkbox input:checked + span {
+          color: var(--aca-blue);
+          font-weight: 500;
+        }
+
+        .info-box {
+          background: var(--aca-blue-light, #e8f4fd);
+          border: 1px solid var(--aca-blue);
+          border-radius: var(--border-radius);
+          padding: 16px;
+          margin-top: 16px;
+        }
+
+        .info-box strong {
+          display: block;
+          color: var(--aca-blue);
+          margin-bottom: 8px;
+          font-size: 14px;
+        }
+
+        .info-box p {
+          margin: 0 0 8px 0;
+          font-size: 13px;
+          color: var(--gray-600);
+        }
+
+        .info-box code {
+          display: inline-block;
+          background: var(--white);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-family: 'SF Mono', Consolas, monospace;
+          font-size: 12px;
+          color: var(--gray-700);
+          border: 1px solid var(--gray-200);
         }
 
         .invite-form {

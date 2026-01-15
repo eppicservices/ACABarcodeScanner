@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { EmailBlackoutPeriod } from '@/types/database'
+import type { EmailBlackoutPeriod, DayOfWeek, AutoSendSchedule } from '@/types/database'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,6 +15,26 @@ export interface SchoolCalendarStatus {
   isBlackoutPeriod: boolean
   currentBlackout?: EmailBlackoutPeriod
   nextSchoolDay?: string
+}
+
+export interface EmailScheduleStatus {
+  canSendNow: boolean
+  reason: string
+  isAllowedDay: boolean
+  isWithinTimeWindow: boolean
+  currentTimeInTimezone: string
+  nextAllowedTime?: string
+}
+
+export interface EmailScheduleSettings {
+  email_allowed_days: DayOfWeek[]
+  email_window_start: string
+  email_window_end: string
+  email_timezone: string
+  min_days_between_emails: number
+  auto_send_enabled: boolean
+  auto_send_schedule: AutoSendSchedule
+  auto_send_time: string
 }
 
 interface SchoolCalendarSettings {
@@ -210,4 +230,234 @@ export async function checkSchoolCalendarStatus(
 export async function canSendEmailToday(): Promise<boolean> {
   const status = await checkSchoolCalendarStatus(new Date())
   return status.canSendEmail
+}
+
+/**
+ * Convert a day number (0-6) to DayOfWeek
+ */
+function dayNumberToName(dayNum: number): DayOfWeek {
+  const days: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  return days[dayNum]
+}
+
+/**
+ * Get the current time in a specific timezone
+ */
+function getTimeInTimezone(date: Date, timezone: string): { hours: number; minutes: number; dayOfWeek: DayOfWeek; formatted: string } {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      weekday: 'long'
+    })
+    const parts = formatter.formatToParts(date)
+    const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+    const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0')
+    const weekday = (parts.find(p => p.type === 'weekday')?.value || 'monday').toLowerCase() as DayOfWeek
+    const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    return { hours, minutes, dayOfWeek: weekday, formatted }
+  } catch {
+    // Fallback to server time if timezone is invalid
+    return {
+      hours: date.getHours(),
+      minutes: date.getMinutes(),
+      dayOfWeek: dayNumberToName(date.getDay()),
+      formatted: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+    }
+  }
+}
+
+/**
+ * Parse a time string (HH:MM) into hours and minutes
+ */
+function parseTime(timeStr: string): { hours: number; minutes: number } {
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  return { hours: hours || 0, minutes: minutes || 0 }
+}
+
+/**
+ * Check if current time is within the allowed window
+ */
+function isWithinTimeWindow(
+  currentHours: number,
+  currentMinutes: number,
+  windowStart: string,
+  windowEnd: string
+): boolean {
+  const start = parseTime(windowStart)
+  const end = parseTime(windowEnd)
+
+  const currentTotalMinutes = currentHours * 60 + currentMinutes
+  const startTotalMinutes = start.hours * 60 + start.minutes
+  const endTotalMinutes = end.hours * 60 + end.minutes
+
+  return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes <= endTotalMinutes
+}
+
+/**
+ * Check if emails can be sent based on schedule settings
+ */
+export async function checkEmailScheduleStatus(
+  date: Date = new Date()
+): Promise<EmailScheduleStatus> {
+  const supabase = getServiceClient()
+
+  // Fetch schedule settings
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('email_allowed_days, email_window_start, email_window_end, email_timezone, min_days_between_emails, auto_send_enabled, auto_send_schedule, auto_send_time')
+    .eq('id', 1)
+    .single()
+
+  if (error || !data) {
+    // If we can't fetch settings, use defaults (allow)
+    return {
+      canSendNow: true,
+      reason: 'Could not fetch email schedule settings, using defaults',
+      isAllowedDay: true,
+      isWithinTimeWindow: true,
+      currentTimeInTimezone: date.toLocaleTimeString()
+    }
+  }
+
+  const settings: EmailScheduleSettings = {
+    email_allowed_days: data.email_allowed_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    email_window_start: data.email_window_start || '08:00',
+    email_window_end: data.email_window_end || '18:00',
+    email_timezone: data.email_timezone || 'America/New_York',
+    min_days_between_emails: data.min_days_between_emails ?? 3,
+    auto_send_enabled: data.auto_send_enabled ?? false,
+    auto_send_schedule: data.auto_send_schedule || 'weekdays',
+    auto_send_time: data.auto_send_time || '09:00'
+  }
+
+  // Get current time in the configured timezone
+  const currentTime = getTimeInTimezone(date, settings.email_timezone)
+
+  // Check if today is an allowed day
+  const isAllowedDay = settings.email_allowed_days.includes(currentTime.dayOfWeek)
+
+  // Check if current time is within window
+  const isInWindow = isWithinTimeWindow(
+    currentTime.hours,
+    currentTime.minutes,
+    settings.email_window_start,
+    settings.email_window_end
+  )
+
+  const canSendNow = isAllowedDay && isInWindow
+
+  // Build reason message
+  let reason: string
+  if (!isAllowedDay) {
+    reason = `Emails not allowed on ${currentTime.dayOfWeek.charAt(0).toUpperCase() + currentTime.dayOfWeek.slice(1)}`
+  } else if (!isInWindow) {
+    reason = `Outside email window (${settings.email_window_start} - ${settings.email_window_end})`
+  } else {
+    reason = 'Within scheduled email window'
+  }
+
+  return {
+    canSendNow,
+    reason,
+    isAllowedDay,
+    isWithinTimeWindow: isInWindow,
+    currentTimeInTimezone: currentTime.formatted
+  }
+}
+
+/**
+ * Check if it's time to run the auto-send based on schedule
+ */
+export function shouldAutoSendNow(
+  settings: EmailScheduleSettings,
+  currentTime: { hours: number; minutes: number; dayOfWeek: DayOfWeek }
+): boolean {
+  if (!settings.auto_send_enabled) return false
+
+  const sendTime = parseTime(settings.auto_send_time)
+
+  // Check if current time matches send time (within 5 minute window)
+  const currentMinutes = currentTime.hours * 60 + currentTime.minutes
+  const sendMinutes = sendTime.hours * 60 + sendTime.minutes
+  const isAtSendTime = Math.abs(currentMinutes - sendMinutes) <= 5
+
+  if (!isAtSendTime) return false
+
+  // Check schedule type
+  switch (settings.auto_send_schedule) {
+    case 'daily':
+      return true
+    case 'weekdays':
+      return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(currentTime.dayOfWeek)
+    case 'weekly':
+      return currentTime.dayOfWeek === 'monday'
+    default:
+      return false
+  }
+}
+
+/**
+ * Check if we can send email to a specific parent based on frequency limits
+ */
+export async function canSendToParent(
+  parentId: string,
+  minDaysBetweenEmails: number
+): Promise<{ canSend: boolean; reason: string; lastSentAt?: string }> {
+  const supabase = getServiceClient()
+
+  // Get the most recent notification for this parent
+  const { data: lastNotification, error } = await supabase
+    .from('notification_log')
+    .select('sent_at')
+    .eq('parent_id', parentId)
+    .eq('notification_type', 'low_balance')
+    .order('sent_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !lastNotification) {
+    // No previous notification, can send
+    return { canSend: true, reason: 'No previous emails sent to this parent' }
+  }
+
+  const lastSentDate = new Date(lastNotification.sent_at)
+  const now = new Date()
+  const daysSinceLastEmail = Math.floor((now.getTime() - lastSentDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (daysSinceLastEmail < minDaysBetweenEmails) {
+    return {
+      canSend: false,
+      reason: `Last email sent ${daysSinceLastEmail} day(s) ago. Minimum interval is ${minDaysBetweenEmails} days.`,
+      lastSentAt: lastNotification.sent_at
+    }
+  }
+
+  return {
+    canSend: true,
+    reason: `Last email was ${daysSinceLastEmail} days ago`,
+    lastSentAt: lastNotification.sent_at
+  }
+}
+
+/**
+ * Combined check: calendar + schedule status
+ */
+export async function canSendEmailNow(date: Date = new Date()): Promise<{
+  canSend: boolean
+  calendarStatus: SchoolCalendarStatus
+  scheduleStatus: EmailScheduleStatus
+}> {
+  const [calendarStatus, scheduleStatus] = await Promise.all([
+    checkSchoolCalendarStatus(date),
+    checkEmailScheduleStatus(date)
+  ])
+
+  return {
+    canSend: calendarStatus.canSendEmail && scheduleStatus.canSendNow,
+    calendarStatus,
+    scheduleStatus
+  }
 }

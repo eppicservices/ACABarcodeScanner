@@ -3,6 +3,8 @@ export type ActiveFilter = 'all' | 'active' | 'inactive'
 export type AdminRole = 'admin' | 'super_admin'
 export type TransactionType = 'payment' | 'adjustment' | 'refund' | 'lunch_used' | 'lunch_card'
 export type EmailProvider = 'none' | 'gmail' | 'sendgrid' | 'smtp'
+export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
+export type AutoSendSchedule = 'daily' | 'weekly' | 'weekdays'
 export type MealSource = 'calendar' | 'manual'
 
 export interface Parent {
@@ -63,6 +65,15 @@ export interface AppSettings {
   zero_balance_alerts: boolean
   weekly_summary_enabled: boolean
   notification_frequency: 'immediate' | 'daily'
+  // Email scheduling settings
+  email_allowed_days: DayOfWeek[]
+  email_window_start: string  // HH:MM format, e.g., "08:00"
+  email_window_end: string    // HH:MM format, e.g., "18:00"
+  email_timezone: string      // IANA timezone, e.g., "America/New_York"
+  min_days_between_emails: number  // Minimum days between emails to same parent
+  auto_send_enabled: boolean
+  auto_send_schedule: AutoSendSchedule
+  auto_send_time: string      // HH:MM format for when to send batch emails
   // Scanner settings
   scanner_sound_enabled: boolean
   scanner_auto_deduct: boolean
@@ -277,6 +288,15 @@ export interface Database {
           zero_balance_alerts?: boolean
           weekly_summary_enabled?: boolean
           notification_frequency?: 'immediate' | 'daily'
+          // Email scheduling settings
+          email_allowed_days?: DayOfWeek[]
+          email_window_start?: string
+          email_window_end?: string
+          email_timezone?: string
+          min_days_between_emails?: number
+          auto_send_enabled?: boolean
+          auto_send_schedule?: AutoSendSchedule
+          auto_send_time?: string
           scanner_sound_enabled?: boolean
           scanner_auto_deduct?: boolean
           show_student_photo?: boolean
