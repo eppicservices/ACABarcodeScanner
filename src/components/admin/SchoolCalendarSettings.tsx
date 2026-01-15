@@ -424,20 +424,20 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
         }
         .status-reason {
           margin: 0;
-          color: var(--text-secondary);
+          color: var(--gray-500);
           font-size: 0.875rem;
         }
         .status-next {
           margin: 0.5rem 0 0 0;
           font-size: 0.875rem;
-          color: var(--text-secondary);
+          color: var(--gray-500);
         }
         .toggle-group {
           display: flex;
           align-items: flex-start;
           gap: 1rem;
           padding: 1rem;
-          background: var(--bg-secondary);
+          background: var(--gray-50);
           border-radius: 8px;
         }
         .toggle {
@@ -459,7 +459,7 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
           left: 0;
           right: 0;
           bottom: 0;
-          background-color: var(--border-color);
+          background-color: var(--gray-200);
           transition: 0.3s;
           border-radius: 26px;
         }
@@ -475,7 +475,7 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
           border-radius: 50%;
         }
         .toggle input:checked + .toggle-slider {
-          background-color: var(--primary);
+          background-color: var(--aca-navy);
         }
         .toggle input:checked + .toggle-slider:before {
           transform: translateX(22px);
@@ -503,14 +503,14 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
         }
         .semester-card {
           padding: 1rem;
-          background: var(--bg-secondary);
+          background: var(--gray-50);
           border-radius: 8px;
-          border: 1px solid var(--border-color);
+          border: 1px solid var(--gray-200);
         }
         .semester-card h4 {
           margin: 0 0 1rem 0;
           font-size: 0.875rem;
-          color: var(--text-secondary);
+          color: var(--gray-500);
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -520,7 +520,7 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
           gap: 1rem;
         }
         .blackout-form {
-          background: var(--bg-secondary);
+          background: var(--gray-50);
           padding: 1rem;
           border-radius: 8px;
           margin: 1rem 0;
@@ -553,9 +553,9 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
           justify-content: space-between;
           align-items: center;
           padding: 0.75rem 1rem;
-          background: var(--bg-secondary);
+          background: var(--gray-50);
           border-radius: 8px;
-          border: 1px solid var(--border-color);
+          border: 1px solid var(--gray-200);
         }
         .blackout-info {
           display: flex;
@@ -564,14 +564,14 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
         }
         .blackout-dates {
           font-size: 0.875rem;
-          color: var(--text-secondary);
+          color: var(--gray-500);
         }
         .blackout-desc {
           font-size: 0.75rem;
-          color: var(--text-tertiary);
+          color: var(--gray-400);
         }
         .delete-btn {
-          color: var(--text-secondary);
+          color: var(--gray-500);
           padding: 0.5rem;
         }
         .delete-btn:hover {
@@ -581,7 +581,7 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
         .empty-state {
           padding: 2rem;
           text-align: center;
-          background: var(--bg-secondary);
+          background: var(--gray-50);
           border-radius: 8px;
           margin-top: 1rem;
         }
@@ -591,12 +591,12 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
         .form-actions {
           margin-top: 1.5rem;
           padding-top: 1.5rem;
-          border-top: 1px solid var(--border-color);
+          border-top: 1px solid var(--gray-200);
         }
         .loading-state {
           padding: 2rem;
           text-align: center;
-          color: var(--text-secondary);
+          color: var(--gray-500);
         }
       `}</style>
     </div>
