@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Pagination from '@/components/Pagination'
 import type { Parent, Student, ActiveFilter } from '@/types/database'
 
 interface ParentWithStudents extends Parent {
@@ -12,6 +13,8 @@ interface ParentWithStudents extends Parent {
 
 type SortField = 'name' | 'balance' | 'children'
 type SortDirection = 'asc' | 'desc'
+
+const ITEMS_PER_PAGE = 25
 
 export default function ParentsPage() {
   const [parents, setParents] = useState<ParentWithStudents[]>([])
@@ -27,10 +30,42 @@ export default function ParentsPage() {
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [showCascadeModal, setShowCascadeModal] = useState(false)
   const [pendingDeactivation, setPendingDeactivation] = useState<Set<string>>(new Set())
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const router = useRouter()
-  const supabase = createClient()
 
-  const sendBalanceEmail = async (parentId: string, parentEmail: string) => {
+  // Stats state (calculated from all data, not just current page)
+  const [stats, setStats] = useState({
+    activeCount: 0,
+    inactiveCount: 0,
+    totalStudents: 0,
+    parentsWithMultipleKids: 0,
+  })
+
+  // Fetch stats separately (always from all data)
+  const fetchStats = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('parents')
+      .select('is_active, students(is_active)')
+
+    if (data) {
+      const activeParents = data.filter(p => p.is_active)
+      const totalStudents = activeParents.reduce((sum, p) =>
+        sum + (p.students as Student[]).filter(s => s.is_active).length, 0)
+      const parentsWithMultipleKids = activeParents.filter(p =>
+        (p.students as Student[]).filter(s => s.is_active).length > 1).length
+
+      setStats({
+        activeCount: activeParents.length,
+        inactiveCount: data.filter(p => !p.is_active).length,
+        totalStudents,
+        parentsWithMultipleKids,
+      })
+    }
+  }, [])
+
+  const sendBalanceEmail = async (parentId: string) => {
     setSendingEmailFor(parentId)
     setEmailSuccess(null)
     setEmailError(null)
@@ -58,22 +93,95 @@ export default function ParentsPage() {
     }
   }
 
-  const fetchParents = async () => {
-    const { data, error } = await supabase
+  const fetchParents = useCallback(async () => {
+    setLoading(true)
+    const supabase = createClient()
+
+    // Build data query
+    let dataQuery = supabase
       .from('parents')
       .select('*, students(*)')
-      .order('name')
 
-    if (!error && data) {
-      setParents(data as ParentWithStudents[])
+    // Apply status filter
+    if (statusFilter === 'active') {
+      dataQuery = dataQuery.eq('is_active', true)
+    } else if (statusFilter === 'inactive') {
+      dataQuery = dataQuery.eq('is_active', false)
+    }
+
+    // Apply sorting (name only - balance and children need client-side)
+    if (sortField === 'name') {
+      dataQuery = dataQuery.order('name', { ascending: sortDirection === 'asc' })
+    } else {
+      dataQuery = dataQuery.order('name')
+    }
+
+    const { data: allData, error } = await dataQuery
+
+    if (!error && allData) {
+      let filteredData = allData as ParentWithStudents[]
+
+      // Apply search filter client-side (needed for email search)
+      if (search) {
+        const searchLower = search.toLowerCase()
+        filteredData = filteredData.filter((parent) =>
+          parent.name.toLowerCase().includes(searchLower) ||
+          parent.email.toLowerCase().includes(searchLower)
+        )
+      }
+
+      // Apply sorting for balance and children (client-side)
+      if (sortField !== 'name') {
+        filteredData.sort((a, b) => {
+          let comparison = 0
+          switch (sortField) {
+            case 'balance':
+              comparison = getFamilyBalance(a) - getFamilyBalance(b)
+              break
+            case 'children':
+              comparison = a.students.length - b.students.length
+              break
+          }
+          return sortDirection === 'asc' ? comparison : -comparison
+        })
+      }
+
+      // Update total count after search filtering
+      setTotalCount(filteredData.length)
+
+      // Apply pagination
+      const from = (currentPage - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE
+      const paginatedData = filteredData.slice(from, to)
+
+      setParents(paginatedData)
     }
     setLoading(false)
-  }
+  }, [statusFilter, sortField, sortDirection, search, currentPage])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
 
   useEffect(() => {
     fetchParents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fetchParents])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, sortField, sortDirection, search])
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    setSelectedParents(new Set()) // Clear selection when changing pages
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const getFamilyBalance = (parent: ParentWithStudents) =>
+    parent.students.reduce((sum, s) => sum + s.balance, 0)
 
   // Bulk status update with cascade option for deactivation
   const handleBulkStatusUpdate = async (setActive: boolean, cascadeToStudents: boolean = false) => {
@@ -82,6 +190,7 @@ export default function ParentsPage() {
     setBulkUpdating(true)
     setShowCascadeModal(false)
     try {
+      const supabase = createClient()
       const parentIds = Array.from(selectedParents)
 
       // Update parents
@@ -103,6 +212,7 @@ export default function ParentsPage() {
       }
 
       await fetchParents()
+      await fetchStats()
       setSelectedParents(new Set())
       setPendingDeactivation(new Set())
     } catch (error) {
@@ -132,51 +242,16 @@ export default function ParentsPage() {
     })
   }
 
-  // Select/deselect all visible parents
+  // Select/deselect all visible parents (current page only)
   const toggleSelectAll = () => {
-    if (selectedParents.size === filteredParents.length) {
+    if (selectedParents.size === parents.length) {
       setSelectedParents(new Set())
     } else {
-      setSelectedParents(new Set(filteredParents.map(p => p.id)))
+      setSelectedParents(new Set(parents.map(p => p.id)))
     }
   }
 
-  const getFamilyBalance = (parent: ParentWithStudents) =>
-    parent.students.reduce((sum, s) => sum + s.balance, 0)
-
-  const filteredParents = parents
-    .filter((parent) => {
-      const matchesSearch =
-        parent.name.toLowerCase().includes(search.toLowerCase()) ||
-        parent.email.toLowerCase().includes(search.toLowerCase())
-
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && parent.is_active) ||
-        (statusFilter === 'inactive' && !parent.is_active)
-
-      return matchesSearch && matchesStatus
-    })
-    .sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name)
-          break
-        case 'balance':
-          comparison = getFamilyBalance(a) - getFamilyBalance(b)
-          break
-        case 'children':
-          comparison = a.students.length - b.students.length
-          break
-      }
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
-
-  const activeParents = parents.filter(p => p.is_active)
-  const inactiveCount = parents.filter(p => !p.is_active).length
-  const totalStudents = activeParents.reduce((sum, p) => sum + p.students.filter(s => s.is_active).length, 0)
-  const parentsWithMultipleKids = activeParents.filter(p => p.students.filter(s => s.is_active).length > 1).length
+  const { activeCount, inactiveCount, totalStudents, parentsWithMultipleKids } = stats
 
   return (
     <div className="parents-page">
@@ -228,7 +303,7 @@ export default function ParentsPage() {
             </svg>
           </div>
           <div className="stat-content">
-            <span className="stat-value">{activeParents.length}</span>
+            <span className="stat-value">{activeCount}</span>
             <span className="stat-label">Active Parents</span>
           </div>
         </div>
@@ -279,7 +354,7 @@ export default function ParentsPage() {
 
       {/* Mobile Stats Pills */}
       <div className="stats-pills mobile-stats">
-        <span className="stat-pill">{activeParents.length} Active</span>
+        <span className="stat-pill">{activeCount} Active</span>
         <span className="stat-pill students">{totalStudents} Students</span>
         {parentsWithMultipleKids > 0 && (
           <span className="stat-pill families">{parentsWithMultipleKids} Multi</span>
@@ -313,7 +388,7 @@ export default function ParentsPage() {
         </div>
         {search && (
           <span className="search-results">
-            {filteredParents.length} result{filteredParents.length !== 1 ? 's' : ''}
+            {totalCount} result{totalCount !== 1 ? 's' : ''}
           </span>
         )}
         <div className="status-filter">
@@ -450,7 +525,7 @@ export default function ParentsPage() {
                 <th className="checkbox-col">
                   <input
                     type="checkbox"
-                    checked={filteredParents.length > 0 && selectedParents.size === filteredParents.length}
+                    checked={parents.length > 0 && selectedParents.size === parents.length}
                     onChange={toggleSelectAll}
                     title="Select all"
                   />
@@ -463,7 +538,7 @@ export default function ParentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredParents.map((parent, index) => (
+              {parents.map((parent, index) => (
                 <tr key={parent.id} className={!parent.is_active ? 'inactive-row' : ''} style={{ animationDelay: `${index * 30}ms` }}>
                   <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -558,7 +633,7 @@ export default function ParentsPage() {
                   </td>
                 </tr>
               ))}
-              {filteredParents.length === 0 && !loading && (
+              {parents.length === 0 && !loading && (
                 <tr>
                   <td colSpan={6} className="empty-state">
                     <div className="empty-content">
@@ -596,15 +671,15 @@ export default function ParentsPage() {
           <div className="mobile-list mobile-only">
             <div className="list-header">
               <span className="results-count">
-                {filteredParents.length} {filteredParents.length === 1 ? 'parent' : 'parents'}
+                {totalCount} {totalCount === 1 ? 'parent' : 'parents'}
               </span>
-              {filteredParents.length > 0 && (
+              {parents.length > 0 && (
                 <button className="mobile-select-all" onClick={toggleSelectAll}>
-                  {selectedParents.size === filteredParents.length ? 'Deselect All' : 'Select All'}
+                  {selectedParents.size === parents.length ? 'Deselect All' : 'Select All'}
                 </button>
               )}
             </div>
-            {filteredParents.length === 0 ? (
+            {parents.length === 0 ? (
               <div className="empty-state-mobile">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -616,7 +691,7 @@ export default function ParentsPage() {
               </div>
             ) : (
               <div className="list-items">
-                {filteredParents.map((parent, index) => (
+                {parents.map((parent, index) => (
                   <div
                     key={parent.id}
                     className={`list-item ${!parent.is_active ? 'inactive-item' : ''}`}
@@ -653,6 +728,16 @@ export default function ParentsPage() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalCount}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={handlePageChange}
+            isLoading={loading}
+          />
         </>
       )}
 

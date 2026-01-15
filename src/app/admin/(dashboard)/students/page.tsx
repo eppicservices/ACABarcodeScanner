@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Pagination from '@/components/Pagination'
 import type { Student, Parent, ActiveFilter } from '@/types/database'
 
 interface StudentWithParent extends Student {
@@ -12,36 +13,134 @@ interface StudentWithParent extends Student {
 
 type SortField = 'name' | 'balance' | 'level'
 type SortDirection = 'asc' | 'desc'
+type SchoolLevelFilter = 'all' | 'elementary' | 'high_school'
+
+const ITEMS_PER_PAGE = 25
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentWithParent[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'elementary' | 'high_school'>('all')
+  const [filter, setFilter] = useState<SchoolLevelFilter>('all')
   const [statusFilter, setStatusFilter] = useState<ActiveFilter>('active')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const router = useRouter()
-  const supabase = createClient()
 
-  const fetchStudents = async () => {
-    const { data, error } = await supabase
+  // Stats state (calculated from all data, not just current page)
+  const [stats, setStats] = useState({
+    activeCount: 0,
+    inactiveCount: 0,
+    lowBalanceCount: 0,
+    elementaryCount: 0,
+    highSchoolCount: 0,
+  })
+
+  // Fetch stats separately (always from all data)
+  const fetchStats = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('students')
+      .select('is_active, balance, school_level')
+
+    if (data) {
+      const activeStudents = data.filter(s => s.is_active)
+      setStats({
+        activeCount: activeStudents.length,
+        inactiveCount: data.filter(s => !s.is_active).length,
+        lowBalanceCount: activeStudents.filter(s => s.balance < 10).length,
+        elementaryCount: activeStudents.filter(s => s.school_level === 'elementary').length,
+        highSchoolCount: activeStudents.filter(s => s.school_level === 'high_school').length,
+      })
+    }
+  }, [])
+
+  const fetchStudents = useCallback(async () => {
+    setLoading(true)
+    const supabase = createClient()
+
+    // Build data query
+    let dataQuery = supabase
       .from('students')
       .select('*, parent:parents(*)')
-      .order('name')
 
-    if (!error && data) {
-      setStudents(data as StudentWithParent[])
+    // Apply school level filter
+    if (filter !== 'all') {
+      dataQuery = dataQuery.eq('school_level', filter)
+    }
+
+    // Apply status filter
+    if (statusFilter === 'active') {
+      dataQuery = dataQuery.eq('is_active', true)
+    } else if (statusFilter === 'inactive') {
+      dataQuery = dataQuery.eq('is_active', false)
+    }
+
+    // Apply sorting
+    switch (sortField) {
+      case 'name':
+        dataQuery = dataQuery.order('name', { ascending: sortDirection === 'asc' })
+        break
+      case 'balance':
+        dataQuery = dataQuery.order('balance', { ascending: sortDirection === 'asc' })
+        break
+      case 'level':
+        dataQuery = dataQuery.order('school_level', { ascending: sortDirection === 'asc' })
+        break
+    }
+
+    // Fetch all data first to apply search filter (since search involves parent name)
+    const { data: allData, error } = await dataQuery
+
+    if (!error && allData) {
+      // Apply search filter client-side (needed for parent name search)
+      let filteredData = allData as StudentWithParent[]
+      if (search) {
+        const searchLower = search.toLowerCase()
+        filteredData = filteredData.filter((student) =>
+          student.name.toLowerCase().includes(searchLower) ||
+          student.barcode.toLowerCase().includes(searchLower) ||
+          student.parent.name.toLowerCase().includes(searchLower)
+        )
+      }
+
+      // Update total count after search filtering
+      setTotalCount(filteredData.length)
+
+      // Apply pagination
+      const from = (currentPage - 1) * ITEMS_PER_PAGE
+      const to = from + ITEMS_PER_PAGE
+      const paginatedData = filteredData.slice(from, to)
+
+      setStudents(paginatedData)
     }
     setLoading(false)
-  }
+  }, [filter, statusFilter, sortField, sortDirection, search, currentPage])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
 
   useEffect(() => {
     fetchStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fetchStudents])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filter, statusFilter, sortField, sortDirection, search])
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    setSelectedStudents(new Set()) // Clear selection when changing pages
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -58,6 +157,7 @@ export default function StudentsPage() {
 
     setBulkUpdating(true)
     try {
+      const supabase = createClient()
       const { error } = await supabase
         .from('students')
         .update({ is_active: setActive })
@@ -66,6 +166,7 @@ export default function StudentsPage() {
       if (error) throw error
 
       await fetchStudents()
+      await fetchStats()
       setSelectedStudents(new Set())
     } catch (error) {
       console.error('Failed to update student status:', error)
@@ -88,46 +189,14 @@ export default function StudentsPage() {
     })
   }
 
-  // Select/deselect all visible students
+  // Select/deselect all visible students (current page only)
   const toggleSelectAll = () => {
-    if (selectedStudents.size === filteredStudents.length) {
+    if (selectedStudents.size === students.length) {
       setSelectedStudents(new Set())
     } else {
-      setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
+      setSelectedStudents(new Set(students.map(s => s.id)))
     }
   }
-
-  const filteredStudents = students
-    .filter((student) => {
-      const matchesSearch =
-        student.name.toLowerCase().includes(search.toLowerCase()) ||
-        student.barcode.toLowerCase().includes(search.toLowerCase()) ||
-        student.parent.name.toLowerCase().includes(search.toLowerCase())
-
-      const matchesFilter = filter === 'all' || student.school_level === filter
-
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && student.is_active) ||
-        (statusFilter === 'inactive' && !student.is_active)
-
-      return matchesSearch && matchesFilter && matchesStatus
-    })
-    .sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name)
-          break
-        case 'balance':
-          comparison = a.balance - b.balance
-          break
-        case 'level':
-          comparison = a.school_level.localeCompare(b.school_level)
-          break
-      }
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
 
   const getBalanceClass = (balance: number) => {
     if (balance <= 0) return 'balance-danger'
@@ -135,11 +204,7 @@ export default function StudentsPage() {
     return 'balance-good'
   }
 
-  const activeStudents = students.filter(s => s.is_active)
-  const inactiveCount = students.filter(s => !s.is_active).length
-  const lowBalanceCount = activeStudents.filter(s => s.balance < 10).length
-  const elementaryCount = activeStudents.filter(s => s.school_level === 'elementary').length
-  const highSchoolCount = activeStudents.filter(s => s.school_level === 'high_school').length
+  const { activeCount, inactiveCount, lowBalanceCount, elementaryCount, highSchoolCount } = stats
 
   return (
     <div className="students-page">
@@ -177,7 +242,7 @@ export default function StudentsPage() {
             </svg>
           </div>
           <div className="stat-content">
-            <span className="stat-value">{activeStudents.length}</span>
+            <span className="stat-value">{activeCount}</span>
             <span className="stat-label">Active Students</span>
           </div>
         </div>
@@ -236,7 +301,7 @@ export default function StudentsPage() {
 
       {/* Mobile Stats Pills */}
       <div className="stats-pills mobile-stats">
-        <span className="stat-pill">{activeStudents.length} Active</span>
+        <span className="stat-pill">{activeCount} Active</span>
         <span className="stat-pill elementary">{elementaryCount} Elem</span>
         <span className="stat-pill highschool">{highSchoolCount} HS</span>
         {lowBalanceCount > 0 && (
@@ -384,7 +449,7 @@ export default function StudentsPage() {
           <div className="table-container card desktop-only">
             <div className="table-header">
               <span className="results-count">
-                {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
+                {totalCount} {totalCount === 1 ? 'student' : 'students'}
                 {search && ` matching "${search}"`}
               </span>
             </div>
@@ -394,7 +459,7 @@ export default function StudentsPage() {
                   <th className="checkbox-col">
                     <input
                       type="checkbox"
-                      checked={filteredStudents.length > 0 && selectedStudents.size === filteredStudents.length}
+                      checked={students.length > 0 && selectedStudents.size === students.length}
                       onChange={toggleSelectAll}
                       title="Select all"
                     />
@@ -423,7 +488,7 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.map((student, index) => (
+                {students.map((student, index) => (
                   <tr
                     key={student.id}
                     className={`clickable-row ${!student.is_active ? 'inactive-row' : ''}`}
@@ -461,7 +526,7 @@ export default function StudentsPage() {
                     </td>
                   </tr>
                 ))}
-                {filteredStudents.length === 0 && (
+                {students.length === 0 && (
                   <tr>
                     <td colSpan={7} className="empty-state">
                       <div className="empty-icon">
@@ -483,15 +548,15 @@ export default function StudentsPage() {
           <div className="mobile-list mobile-only">
             <div className="list-header">
               <span className="results-count">
-                {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
+                {totalCount} {totalCount === 1 ? 'student' : 'students'}
               </span>
-              {filteredStudents.length > 0 && (
+              {students.length > 0 && (
                 <button className="mobile-select-all" onClick={toggleSelectAll}>
-                  {selectedStudents.size === filteredStudents.length ? 'Deselect All' : 'Select All'}
+                  {selectedStudents.size === students.length ? 'Deselect All' : 'Select All'}
                 </button>
               )}
             </div>
-            {filteredStudents.length === 0 ? (
+            {students.length === 0 ? (
               <div className="empty-state-mobile">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="11" cy="11" r="8" />
@@ -501,7 +566,7 @@ export default function StudentsPage() {
               </div>
             ) : (
               <div className="list-items">
-                {filteredStudents.map((student, index) => (
+                {students.map((student, index) => (
                   <div
                     key={student.id}
                     className={`list-item ${!student.is_active ? 'inactive-item' : ''}`}
@@ -543,6 +608,16 @@ export default function StudentsPage() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalCount}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={handlePageChange}
+            isLoading={loading}
+          />
         </>
       )}
 

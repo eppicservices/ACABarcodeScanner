@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import Pagination from '@/components/Pagination'
 import type { BalanceTransaction, Student } from '@/types/database'
 
 interface TransactionWithStudent extends BalanceTransaction {
@@ -11,60 +12,133 @@ interface TransactionWithStudent extends BalanceTransaction {
 
 type SortField = 'date' | 'amount' | 'student'
 type SortDirection = 'asc' | 'desc'
+type FilterType = 'all' | 'payment' | 'lunch_card' | 'adjustment' | 'lunch_used'
+
+const ITEMS_PER_PAGE = 25
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionWithStudent[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'payment' | 'lunch_card' | 'adjustment' | 'lunch_used'>('all')
+  const [filter, setFilter] = useState<FilterType>('all')
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const fetchTransactions = useCallback(async () => {
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
+  // Stats state (calculated from all data, not just current page)
+  const [stats, setStats] = useState({
+    totalLunchesAdded: 0,
+    totalLunchesUsed: 0,
+    paymentCount: 0,
+    adjustmentCount: 0,
+    usedCount: 0,
+  })
+
+  // Fetch stats separately (always from all data)
+  const fetchStats = useCallback(async () => {
     const supabase = createClient()
-    const { data, error } = await supabase
+    const { data } = await supabase
+      .from('balance_transactions')
+      .select('transaction_type, lunches_change')
+
+    if (data) {
+      const totalLunchesAdded = data
+        .filter((tx) => tx.lunches_change > 0)
+        .reduce((sum, tx) => sum + tx.lunches_change, 0)
+      const totalLunchesUsed = data
+        .filter((tx) => tx.transaction_type === 'lunch_used')
+        .reduce((sum, tx) => sum + Math.abs(tx.lunches_change), 0)
+      const paymentCount = data.filter((tx) => tx.transaction_type === 'payment' || tx.transaction_type === 'lunch_card').length
+      const adjustmentCount = data.filter((tx) => tx.transaction_type === 'adjustment').length
+      const usedCount = data.filter((tx) => tx.transaction_type === 'lunch_used').length
+
+      setStats({ totalLunchesAdded, totalLunchesUsed, paymentCount, adjustmentCount, usedCount })
+    }
+  }, [])
+
+  const fetchTransactions = useCallback(async () => {
+    setLoading(true)
+    const supabase = createClient()
+
+    // Build query for count
+    let countQuery = supabase
+      .from('balance_transactions')
+      .select('*', { count: 'exact', head: true })
+
+    // Apply filter to count query
+    if (filter !== 'all') {
+      countQuery = countQuery.eq('transaction_type', filter)
+    }
+
+    const { count } = await countQuery
+    setTotalCount(count || 0)
+
+    // Build query for data
+    let dataQuery = supabase
       .from('balance_transactions')
       .select('*, student:students(*)')
-      .order('created_at', { ascending: false })
-      .limit(100)
+
+    // Apply filter
+    if (filter !== 'all') {
+      dataQuery = dataQuery.eq('transaction_type', filter)
+    }
+
+    // Apply sorting
+    switch (sortField) {
+      case 'date':
+        dataQuery = dataQuery.order('created_at', { ascending: sortDirection === 'asc' })
+        break
+      case 'amount':
+        dataQuery = dataQuery.order('lunches_change', { ascending: sortDirection === 'asc' })
+        break
+      case 'student':
+        dataQuery = dataQuery.order('student_id', { ascending: sortDirection === 'asc' })
+        break
+    }
+
+    // Apply pagination
+    const from = (currentPage - 1) * ITEMS_PER_PAGE
+    const to = from + ITEMS_PER_PAGE - 1
+    dataQuery = dataQuery.range(from, to)
+
+    const { data, error } = await dataQuery
 
     if (!error && data) {
-      setTransactions(data as TransactionWithStudent[])
+      // If sorting by student name, we need to sort client-side after fetching
+      if (sortField === 'student') {
+        const sorted = [...data].sort((a, b) => {
+          const comparison = a.student.name.localeCompare(b.student.name)
+          return sortDirection === 'asc' ? comparison : -comparison
+        })
+        setTransactions(sorted as TransactionWithStudent[])
+      } else {
+        setTransactions(data as TransactionWithStudent[])
+      }
     }
     setLoading(false)
-  }, [])
+  }, [filter, sortField, sortDirection, currentPage])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
 
   useEffect(() => {
     fetchTransactions()
   }, [fetchTransactions])
 
-  const filteredTransactions = transactions
-    .filter((tx) => filter === 'all' || tx.transaction_type === filter)
-    .sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case 'date':
-          comparison = new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime()
-          break
-        case 'amount':
-          comparison = a.lunches_change - b.lunches_change
-          break
-        case 'student':
-          comparison = a.student.name.localeCompare(b.student.name)
-          break
-      }
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
+  // Reset to page 1 when filter or sort changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filter, sortField, sortDirection])
 
-  const totalLunchesAdded = transactions
-    .filter((tx) => tx.lunches_change > 0)
-    .reduce((sum, tx) => sum + tx.lunches_change, 0)
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
-  const totalLunchesUsed = transactions
-    .filter((tx) => tx.transaction_type === 'lunch_used')
-    .reduce((sum, tx) => sum + Math.abs(tx.lunches_change), 0)
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
-  const paymentCount = transactions.filter((tx) => tx.transaction_type === 'payment' || tx.transaction_type === 'lunch_card').length
-  const adjustmentCount = transactions.filter((tx) => tx.transaction_type === 'adjustment').length
-  const usedCount = transactions.filter((tx) => tx.transaction_type === 'lunch_used').length
+  const { totalLunchesAdded, totalLunchesUsed, paymentCount, adjustmentCount, usedCount } = stats
 
   return (
     <div className="transactions-page">
@@ -198,7 +272,7 @@ export default function TransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.map((tx) => (
+              {transactions.map((tx) => (
                 <tr key={tx.id}>
                   <td className="date-cell">
                     <span className="date">
@@ -237,7 +311,7 @@ export default function TransactionsPage() {
                   </td>
                 </tr>
               ))}
-              {filteredTransactions.length === 0 && (
+              {transactions.length === 0 && (
                 <tr>
                   <td colSpan={6} className="empty-state">
                     No transactions found
@@ -252,10 +326,10 @@ export default function TransactionsPage() {
           <div className="mobile-list mobile-only">
             <div className="list-header">
               <span className="results-count">
-                {filteredTransactions.length} transactions
+                {totalCount} transactions
               </span>
             </div>
-            {filteredTransactions.length === 0 ? (
+            {transactions.length === 0 ? (
               <div className="empty-state-mobile">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z" />
@@ -266,7 +340,7 @@ export default function TransactionsPage() {
               </div>
             ) : (
               <div className="list-items">
-                {filteredTransactions.map((tx, index) => (
+                {transactions.map((tx, index) => (
                   <Link
                     key={tx.id}
                     href={`/admin/students/${tx.student_id}`}
@@ -301,6 +375,16 @@ export default function TransactionsPage() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalCount}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={handlePageChange}
+            isLoading={loading}
+          />
         </>
       )}
 
