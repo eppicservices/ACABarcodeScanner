@@ -51,14 +51,20 @@ export interface ConsumeLunchResult {
   message?: string
 }
 
-// Get app settings (cached for 5 minutes)
+// Get app settings (cached based on settings_cache_minutes)
 let settingsCache: { data: AppSettings | null; timestamp: number } = { data: null, timestamp: 0 }
-const SETTINGS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const DEFAULT_CACHE_MINUTES = 5 // Default before settings are loaded
+
+function getSettingsCacheTTL(): number {
+  // Use the configured cache duration if available, otherwise use default
+  const minutes = settingsCache.data?.settings_cache_minutes ?? DEFAULT_CACHE_MINUTES
+  return minutes * 60 * 1000
+}
 
 export async function getSettings(): Promise<LunchSettings | null> {
   const now = Date.now()
 
-  if (settingsCache.data && (now - settingsCache.timestamp) < SETTINGS_CACHE_TTL) {
+  if (settingsCache.data && (now - settingsCache.timestamp) < getSettingsCacheTTL()) {
     return {
       elementary_lunch_price: settingsCache.data.elementary_lunch_price,
       highschool_lunch_price: settingsCache.data.highschool_lunch_price,
@@ -91,6 +97,30 @@ export async function getSettings(): Promise<LunchSettings | null> {
     elementary_negative_limit: settings.elementary_negative_limit ?? -5,
     highschool_negative_limit: settings.highschool_negative_limit ?? 0,
   }
+}
+
+// Get full app settings (for pages that need all settings)
+export async function getFullSettings(): Promise<AppSettings | null> {
+  const now = Date.now()
+
+  if (settingsCache.data && (now - settingsCache.timestamp) < getSettingsCacheTTL()) {
+    return settingsCache.data
+  }
+
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('*')
+    .eq('id', 1)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  const settings = data as unknown as AppSettings
+  settingsCache = { data: settings, timestamp: now }
+
+  return settings
 }
 
 export async function lookupStudentByBarcode(barcode: string): Promise<StudentRecord | null> {

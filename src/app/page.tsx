@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
-import { lookupStudentByBarcode, consumeLunch, StudentRecord } from '@/lib/supabase';
+import { lookupStudentByBarcode, consumeLunch, StudentRecord, getFullSettings } from '@/lib/supabase';
+import type { AppSettings } from '@/types/database';
 
 type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient' | 'inactive';
 
@@ -15,6 +16,8 @@ interface ScanResultData {
   message?: string;
 }
 
+const DEFAULT_LOGO_URL = 'https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png';
+
 export default function Home() {
   const [scanResult, setScanResult] = useState<ScanResultData | null>(null);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
@@ -23,8 +26,14 @@ export default function Home() {
   const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
   const [scanBuffer, setScanBuffer] = useState('');
   const [isReady, setIsReady] = useState(true);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch settings on mount
+  useEffect(() => {
+    getFullSettings().then(setSettings);
+  }, []);
 
   const processCode = useCallback(async (code: string) => {
     const trimmedCode = code.trim();
@@ -118,13 +127,14 @@ export default function Home() {
         e.preventDefault();
         setScanBuffer((prev) => prev + e.key);
 
-        // Clear buffer after 100ms of no input (scanner types fast)
+        // Clear buffer after configured timeout (scanner types fast)
+        const bufferTimeout = settings?.scanner_buffer_timeout ?? 100;
         if (bufferTimeoutRef.current) {
           clearTimeout(bufferTimeoutRef.current);
         }
         bufferTimeoutRef.current = setTimeout(() => {
           setScanBuffer('');
-        }, 100);
+        }, bufferTimeout);
       }
     };
 
@@ -135,19 +145,20 @@ export default function Home() {
         clearTimeout(bufferTimeoutRef.current);
       }
     };
-  }, [scanBuffer, isManualEntryOpen, processCode]);
+  }, [scanBuffer, isManualEntryOpen, processCode, settings?.scanner_buffer_timeout]);
 
-  // Auto-dismiss result after 3 seconds
+  // Auto-dismiss result after configured duration
   useEffect(() => {
     if (scanResult) {
       setIsReady(false);
+      const displayDuration = settings?.scan_display_duration ?? 3000;
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
       }
       resultTimeoutRef.current = setTimeout(() => {
         setScanResult(null);
         setIsReady(true);
-      }, 3000);
+      }, displayDuration);
     }
 
     return () => {
@@ -155,7 +166,7 @@ export default function Home() {
         clearTimeout(resultTimeoutRef.current);
       }
     };
-  }, [scanResult]);
+  }, [scanResult, settings?.scan_display_duration]);
 
   const handleDismissResult = () => {
     setScanResult(null);
@@ -173,8 +184,8 @@ export default function Home() {
       <header className="header">
         <div className="logo-container">
           <Image
-            src="https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png"
-            alt="Aldersgate Christian Academy"
+            src={settings?.school_logo_url || DEFAULT_LOGO_URL}
+            alt={settings?.school_name || 'School Logo'}
             width={220}
             height={55}
             className="logo"
@@ -236,24 +247,26 @@ export default function Home() {
           )}
         </div>
 
-        {/* Action Button */}
-        <div className="action-buttons">
-          <button
-            className="btn btn-outline btn-lg"
-            onClick={() => setIsManualEntryOpen(true)}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12" />
-            </svg>
-            Manual Entry
-          </button>
-        </div>
+        {/* Action Button - only show if manual entry is enabled */}
+        {(settings?.manual_entry_enabled !== false) && (
+          <div className="action-buttons">
+            <button
+              className="btn btn-outline btn-lg"
+              onClick={() => setIsManualEntryOpen(true)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12" />
+              </svg>
+              Manual Entry
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="footer">
-        <p>Aldersgate Christian Academy</p>
+        <p>{settings?.school_name || 'School Lunch Program'}</p>
       </footer>
 
       {/* Manual Entry Modal */}

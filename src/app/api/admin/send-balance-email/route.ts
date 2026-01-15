@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Generate a portal token for this parent
     const token = generateSecureToken()
-    const expiresAt = getTokenExpiryDate()
+    const expiresAt = getTokenExpiryDate(settings.parent_token_expiry_days ?? 7)
 
     // Delete any existing tokens for this parent
     await supabase

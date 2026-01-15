@@ -81,7 +81,7 @@ export function getEmailTransporter(settings: AppSettings): Transporter | null {
 /**
  * Generates the HTML receipt email
  */
-function generateReceiptHtml(data: ReceiptData, schoolName: string): string {
+function generateReceiptHtml(data: ReceiptData, schoolName: string, colors: { primary: string; secondary: string; accent: string }): string {
   const formattedDate = data.date.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -111,7 +111,7 @@ function generateReceiptHtml(data: ReceiptData, schoolName: string): string {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f8fafc;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <!-- Header -->
-    <div style="background: #002c5f; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+    <div style="background: ${colors.primary}; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 20px;">${schoolName}</h1>
       <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0 0; font-size: 14px;">Lunch Payment Receipt</p>
     </div>
@@ -152,9 +152,9 @@ function generateReceiptHtml(data: ReceiptData, schoolName: string): string {
           ${itemsHtml}
         </tbody>
         <tfoot>
-          <tr style="background: #002c5f;">
+          <tr style="background: ${colors.primary};">
             <td style="padding: 14px; color: white; font-weight: 600;">Total</td>
-            <td style="padding: 14px; color: #ffc82e; font-weight: 700; text-align: right; font-size: 18px;">$${data.total.toFixed(2)}</td>
+            <td style="padding: 14px; color: ${colors.secondary}; font-weight: 700; text-align: right; font-size: 18px;">$${data.total.toFixed(2)}</td>
             <td colspan="2"></td>
           </tr>
         </tfoot>
@@ -233,6 +233,11 @@ export async function sendReceiptEmail(
   const fromName = settings.email_from_name || settings.school_name || 'ACA Lunch Program'
   const fromAddress = settings.email_from_address || settings.gmail_user || settings.smtp_user || 'noreply@school.com'
   const schoolName = settings.school_name || 'Aldersgate Christian Academy'
+  const colors = {
+    primary: settings.primary_color || '#002c5f',
+    secondary: settings.secondary_color || '#ffc82e',
+    accent: settings.accent_color || '#00b1c1'
+  }
 
   const formattedDate = data.date.toLocaleDateString('en-US', {
     month: 'short',
@@ -246,7 +251,7 @@ export async function sendReceiptEmail(
       to: data.parentEmail,
       subject: `${schoolName} Lunch Payment Receipt - ${formattedDate}`,
       text: generateReceiptText(data, schoolName),
-      html: generateReceiptHtml(data, schoolName)
+      html: generateReceiptHtml(data, schoolName, colors)
     })
 
     return { success: true }
@@ -275,6 +280,7 @@ export async function sendTestEmail(
   const fromName = settings.email_from_name || settings.school_name || 'ACA Lunch Program'
   const fromAddress = settings.email_from_address || settings.gmail_user || settings.smtp_user || 'noreply@school.com'
   const schoolName = settings.school_name || 'Aldersgate Christian Academy'
+  const primaryColor = settings.primary_color || '#002c5f'
 
   try {
     await transporter.sendMail({
@@ -287,7 +293,7 @@ export async function sendTestEmail(
 <html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f8fafc;">
   <div style="max-width: 500px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-    <div style="background: #002c5f; padding: 24px; text-align: center;">
+    <div style="background: ${primaryColor}; padding: 24px; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 18px;">${schoolName}</h1>
     </div>
     <div style="padding: 32px; text-align: center;">
@@ -385,6 +391,10 @@ function generateBalanceHtml(data: BalanceEmailData, schoolName: string, setting
     `
   }).join('')
 
+  const primaryColor = settings.primary_color || '#002c5f'
+  const accentColor = settings.accent_color || '#00b1c1'
+  const tokenExpiryDays = settings.parent_token_expiry_days || 7
+
   return `
 <!DOCTYPE html>
 <html>
@@ -395,7 +405,7 @@ function generateBalanceHtml(data: BalanceEmailData, schoolName: string, setting
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f8fafc;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, #002c5f 0%, #004494 100%); padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+    <div style="background: ${primaryColor}; padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 700;">${schoolName}</h1>
       <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0 0; font-size: 15px;">Lunch Account Balance Update</p>
     </div>
@@ -437,7 +447,7 @@ function generateBalanceHtml(data: BalanceEmailData, schoolName: string, setting
 
       <!-- CTA Button -->
       <div style="text-align: center; margin-bottom: 28px;">
-        <a href="${data.portalUrl}" style="display: inline-block; background: linear-gradient(135deg, #00b1c1 0%, #008891 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 177, 193, 0.4);">
+        <a href="${data.portalUrl}" style="display: inline-block; background: ${accentColor}; color: white; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(0, 177, 193, 0.4);">
           Add Funds to Account
         </a>
       </div>
@@ -445,7 +455,7 @@ function generateBalanceHtml(data: BalanceEmailData, schoolName: string, setting
       <p style="color: #64748b; font-size: 13px; line-height: 1.6; margin: 0; text-align: center;">
         Click the button above to access your parent portal and add funds to your child's lunch account.
         <br><br>
-        <span style="font-size: 12px; color: #94a3b8;">This link will expire in 7 days for security purposes.</span>
+        <span style="font-size: 12px; color: #94a3b8;">This link will expire in ${tokenExpiryDays} days for security purposes.</span>
       </p>
     </div>
 
@@ -469,6 +479,7 @@ function generateBalanceHtml(data: BalanceEmailData, schoolName: string, setting
  */
 function generateBalanceText(data: BalanceEmailData, schoolName: string, settings: AppSettings): string {
   const totalBalance = data.students.reduce((sum, s) => sum + s.balance, 0)
+  const tokenExpiryDays = settings.parent_token_expiry_days || 7
 
   const studentsText = data.students.map(student => {
     const lunchPrice = student.schoolLevel === 'elementary'
@@ -496,7 +507,7 @@ FAMILY TOTAL: ${totalBalance} lunches
 To add funds to your account, visit:
 ${data.portalUrl}
 
-This link will expire in 7 days for security purposes.
+This link will expire in ${tokenExpiryDays} days for security purposes.
 
 If you have any questions, please contact the school office.
 

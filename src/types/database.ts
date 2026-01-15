@@ -95,6 +95,21 @@ export interface AppSettings {
   fall_semester_end: string | null
   spring_semester_start: string | null
   spring_semester_end: string | null
+  // Branding settings
+  school_logo_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  // Timing settings
+  scan_display_duration: number
+  scanner_buffer_timeout: number
+  parent_token_expiry_days: number
+  // Feature flags
+  parent_portal_enabled: boolean
+  manual_entry_enabled: boolean
+  // Security settings
+  password_min_length: number
+  settings_cache_minutes: number
 }
 
 export interface BalanceTransaction {
@@ -288,6 +303,21 @@ export interface Database {
           fall_semester_end?: string | null
           spring_semester_start?: string | null
           spring_semester_end?: string | null
+          // Branding settings
+          school_logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          accent_color?: string
+          // Timing settings
+          scan_display_duration?: number
+          scanner_buffer_timeout?: number
+          parent_token_expiry_days?: number
+          // Feature flags
+          parent_portal_enabled?: boolean
+          manual_entry_enabled?: boolean
+          // Security settings
+          password_min_length?: number
+          settings_cache_minutes?: number
         }
       }
       daily_meals: {

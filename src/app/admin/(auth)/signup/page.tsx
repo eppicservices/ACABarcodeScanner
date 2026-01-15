@@ -14,19 +14,34 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [checkingAdmins, setCheckingAdmins] = useState(true)
   const [hasAdmins, setHasAdmins] = useState(false)
+  const [passwordMinLength, setPasswordMinLength] = useState(6)
   const router = useRouter()
 
   useEffect(() => {
-    async function checkAdmins() {
+    async function checkAdminsAndSettings() {
       const supabase = createClient()
+
+      // Check if there are existing admins
       const { count } = await supabase
         .from('admin_users')
         .select('*', { count: 'exact', head: true })
 
       setHasAdmins((count ?? 0) > 0)
+
+      // Fetch password settings
+      const { data: settings } = await supabase
+        .from('app_settings')
+        .select('password_min_length')
+        .eq('id', 1)
+        .single()
+
+      if (settings?.password_min_length) {
+        setPasswordMinLength(settings.password_min_length)
+      }
+
       setCheckingAdmins(false)
     }
-    checkAdmins()
+    checkAdminsAndSettings()
   }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -38,8 +53,8 @@ export default function SignupPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (password.length < passwordMinLength) {
+      setError(`Password must be at least ${passwordMinLength} characters`)
       return
     }
 

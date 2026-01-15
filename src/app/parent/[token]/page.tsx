@@ -33,6 +33,13 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
         return
       }
 
+      // Check if parent portal is enabled
+      if (data.settings?.parent_portal_enabled === false) {
+        setError('The parent portal is currently disabled. Please contact the school for assistance.')
+        setLoading(false)
+        return
+      }
+
       setParent(data.parent)
       setSettings(data.settings)
       setExpiresAt(data.expiresAt)
