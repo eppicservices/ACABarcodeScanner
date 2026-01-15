@@ -595,7 +595,7 @@ export default function ParentsPage() {
                   <td>
                     <div className="action-buttons">
                       <button
-                        onClick={() => sendBalanceEmail(parent.id, parent.email)}
+                        onClick={() => sendBalanceEmail(parent.id)}
                         disabled={sendingEmailFor === parent.id || !parent.is_active}
                         className={`action-btn email-btn ${emailSuccess === parent.id ? 'success' : ''} ${!parent.is_active ? 'disabled-action' : ''}`}
                         title={!parent.is_active ? 'Cannot email inactive parent' : ''}
