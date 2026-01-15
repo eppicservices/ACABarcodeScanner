@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendBalanceEmail, type BalanceEmailData, type StudentBalance } from '@/lib/email'
 import { generateSecureToken, getTokenExpiryDate, getPortalUrl } from '@/lib/parent-portal'
+import { checkSchoolCalendarStatus } from '@/lib/school-calendar'
 import type { AppSettings, Student } from '@/types/database'
 
 export async function POST(request: NextRequest) {
@@ -70,6 +71,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Email is not configured. Please configure email settings first.'
+      }, { status: 400 })
+    }
+
+    // Check school calendar - should we send emails today?
+    const calendarStatus = await checkSchoolCalendarStatus(new Date())
+    if (!calendarStatus.canSendEmail) {
+      return NextResponse.json({
+        success: false,
+        error: `Emails paused: ${calendarStatus.reason}`,
+        calendarStatus
       }, { status: 400 })
     }
 
