@@ -39,7 +39,7 @@ export default function ParentsPage() {
       const response = await fetch('/api/admin/send-balance-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent_id: parentId })
+        body: JSON.stringify({ parent_id: parentId, force: true })
       })
 
       const data = await response.json()
