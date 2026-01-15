@@ -89,6 +89,12 @@ export interface AppSettings {
   // Calendar settings
   calendar_url: string | null
   calendar_enabled: boolean
+  // School calendar settings (for email control)
+  school_calendar_enabled: boolean
+  fall_semester_start: string | null
+  fall_semester_end: string | null
+  spring_semester_start: string | null
+  spring_semester_end: string | null
 }
 
 export interface BalanceTransaction {
@@ -126,6 +132,16 @@ export interface DailyMeal {
   created_at: string
   updated_at: string
   updated_by: string | null
+}
+
+export interface EmailBlackoutPeriod {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  description: string | null
+  created_at: string
+  created_by: string | null
 }
 
 export interface ParentAccessToken {
@@ -267,6 +283,11 @@ export interface Database {
           updated_by?: string | null
           calendar_url?: string | null
           calendar_enabled?: boolean
+          school_calendar_enabled?: boolean
+          fall_semester_start?: string | null
+          fall_semester_end?: string | null
+          spring_semester_start?: string | null
+          spring_semester_end?: string | null
         }
       }
       daily_meals: {
@@ -336,6 +357,22 @@ export interface Database {
           completed_at?: string | null
           completed_by?: string | null
           notes?: string | null
+        }
+      }
+      email_blackout_periods: {
+        Row: EmailBlackoutPeriod
+        Insert: {
+          name: string
+          start_date: string
+          end_date: string
+          description?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          name?: string
+          start_date?: string
+          end_date?: string
+          description?: string | null
         }
       }
     }
