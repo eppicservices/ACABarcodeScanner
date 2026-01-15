@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateSecureToken, getTokenExpiryDate, getPortalUrl } from '@/lib/parent-portal'
+import { sendPortalLinkEmail } from '@/lib/email'
+import type { AppSettings } from '@/types/database'
 
 // Simple in-memory rate limiting (in production, use Redis or similar)
 const rateLimitMap = new Map<string, number>()
@@ -57,16 +59,18 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get app settings for token expiry
+    // Get app settings for token expiry and email
     const { data: settings } = await supabase
       .from('app_settings')
-      .select('parent_token_expiry_days')
+      .select('*')
       .eq('id', 1)
       .single()
 
+    const tokenExpiryDays = settings?.parent_token_expiry_days ?? 7
+
     // Generate new token
     const token = generateSecureToken()
-    const expiresAt = getTokenExpiryDate(settings?.parent_token_expiry_days ?? 7)
+    const expiresAt = getTokenExpiryDate(tokenExpiryDays)
 
     // Delete any existing tokens for this parent
     await supabase
@@ -90,15 +94,23 @@ export async function POST(request: NextRequest) {
 
     const portalUrl = getPortalUrl(token)
 
-    // TODO: Send email with portal link
-    // For now, just log it (in production, integrate with email service)
-    console.log(`
-      ===== PARENT PORTAL LINK =====
-      Parent: ${parent.name} (${parent.email})
-      Portal URL: ${portalUrl}
-      Expires: ${expiresAt}
-      ==============================
-    `)
+    // Send email with portal link
+    if (settings) {
+      const emailResult = await sendPortalLinkEmail(settings as AppSettings, {
+        parentName: parent.name,
+        parentEmail: parent.email,
+        portalUrl,
+        expiresAt: new Date(expiresAt)
+      })
+
+      if (!emailResult.success) {
+        console.error('Failed to send portal link email:', emailResult.error)
+        // Still return success - token was created, email just failed
+      }
+    }
+
+    // Log for debugging
+    console.log(`Portal link generated for ${parent.name} (${parent.email})`)
 
     return NextResponse.json({
       success: true,

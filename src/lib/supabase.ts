@@ -1,30 +1,10 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import type { Database, AppSettings } from '@/types/database'
 
-// Lazy initialization to avoid build-time errors during static generation
-let supabaseInstance: SupabaseClient<Database> | null = null
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-function getSupabase(): SupabaseClient<Database> {
-  if (!supabaseInstance) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
-  }
-  return supabaseInstance
-}
-
-// For backwards compatibility, export a getter
-export const supabase = {
-  from: (...args: Parameters<SupabaseClient<Database>['from']>) => getSupabase().from(...args),
-  auth: {
-    getUser: () => getSupabase().auth.getUser(),
-    signInWithPassword: (...args: Parameters<SupabaseClient<Database>['auth']['signInWithPassword']>) =>
-      getSupabase().auth.signInWithPassword(...args),
-    signUp: (...args: Parameters<SupabaseClient<Database>['auth']['signUp']>) =>
-      getSupabase().auth.signUp(...args),
-    signOut: () => getSupabase().auth.signOut(),
-  },
-}
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
 export interface StudentRecord {
   id: string
