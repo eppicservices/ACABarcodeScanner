@@ -19,6 +19,7 @@ export default function ManualEntry({ onSubmit, isOpen, onClose }: ManualEntryPr
     }
   };
 
+  // Styles are now in globals.css to prevent FOUC
   if (!isOpen) return null;
 
   return (
@@ -54,137 +55,6 @@ export default function ManualEntry({ onSubmit, isOpen, onClose }: ManualEntryPr
           </div>
         </form>
       </div>
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.5);
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          z-index: 100;
-        }
-
-        .modal-content {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          box-shadow: var(--shadow-lg);
-          width: 100%;
-          max-width: 400px;
-          padding: 24px;
-        }
-
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 20px;
-        }
-
-        .modal-header h3 {
-          font-family: var(--font-body);
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--aca-navy);
-          margin: 0;
-        }
-
-        .close-btn {
-          background: none;
-          border: none;
-          padding: 4px;
-          cursor: pointer;
-          color: var(--gray-400);
-          border-radius: 4px;
-          transition: color 0.2s;
-        }
-
-        .close-btn:hover {
-          color: var(--gray-600);
-        }
-
-        .input-label {
-          display: block;
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--gray-500);
-          margin-bottom: 8px;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        .modal-actions .btn {
-          flex: 1;
-        }
-
-        @media (max-width: 480px) {
-          .modal-overlay {
-            padding: 16px;
-          }
-
-          .modal-content {
-            padding: 20px;
-            max-width: 100%;
-          }
-
-          .modal-header h3 {
-            font-size: 18px;
-          }
-
-          .close-btn {
-            padding: 8px;
-            min-width: 44px;
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .input-label {
-            font-size: 13px;
-          }
-
-          .modal-actions {
-            gap: 10px;
-            margin-top: 16px;
-          }
-        }
-
-        @media (max-width: 360px) {
-          .modal-overlay {
-            padding: 12px;
-          }
-
-          .modal-content {
-            padding: 16px;
-          }
-
-          .modal-header h3 {
-            font-size: 16px;
-          }
-
-          .modal-header {
-            margin-bottom: 16px;
-          }
-
-          .input-label {
-            font-size: 12px;
-            margin-bottom: 6px;
-          }
-
-          .modal-actions {
-            flex-direction: column;
-            gap: 8px;
-          }
-        }
-      `}</style>
     </div>
   );
 }
