@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Pagination from '@/components/Pagination'
 import type { DailyMeal, AppSettings } from '@/types/database'
 
 interface DailyScanStats {
@@ -12,6 +13,8 @@ interface DailyScanStats {
   highschool_scans: number
 }
 
+const ITEMS_PER_PAGE = 25
+
 export default function MealStatsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [dailyMeals, setDailyMeals] = useState<DailyMeal[]>([])
@@ -21,6 +24,7 @@ export default function MealStatsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [lastSynced, setLastSynced] = useState<Date | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Track if we've already auto-synced this session
   const hasAutoSynced = useRef(false)
@@ -247,6 +251,18 @@ export default function MealStatsPage() {
     })
   }
 
+  // Pagination helpers
+  const totalPages = Math.ceil(scanStats.length / ITEMS_PER_PAGE)
+  const paginatedStats = scanStats.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -376,6 +392,7 @@ export default function MealStatsPage() {
             <p className="hint">Statistics will appear here once students start scanning.</p>
           </div>
         ) : (
+          <>
           <div className="table-container">
             <table className="stats-table">
               <thead>
@@ -388,7 +405,7 @@ export default function MealStatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {scanStats.map((stat) => (
+                {paginatedStats.map((stat) => (
                   <tr key={stat.date}>
                     <td className="date-cell">{formatDate(stat.date)}</td>
                     <td className="meal-cell">
@@ -438,6 +455,17 @@ export default function MealStatsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={scanStats.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={handlePageChange}
+            isLoading={loading}
+          />
+          </>
         )}
       </div>
 
