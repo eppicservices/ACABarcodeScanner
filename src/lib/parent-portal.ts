@@ -8,10 +8,10 @@ export function generateSecureToken(length: number = 64): string {
   return Array.from(array, byte => chars[byte % chars.length]).join('')
 }
 
-// Calculate expiry date (7 days from now)
-export function getTokenExpiryDate(): string {
+// Calculate expiry date (default 7 days from now, configurable via settings)
+export function getTokenExpiryDate(expiryDays: number = 7): string {
   const date = new Date()
-  date.setDate(date.getDate() + 7)
+  date.setDate(date.getDate() + expiryDays)
   return date.toISOString()
 }
 

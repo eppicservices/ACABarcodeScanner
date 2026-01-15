@@ -93,6 +93,30 @@ export async function getSettings(): Promise<LunchSettings | null> {
   }
 }
 
+// Get full app settings (for pages that need all settings)
+export async function getFullSettings(): Promise<AppSettings | null> {
+  const now = Date.now()
+
+  if (settingsCache.data && (now - settingsCache.timestamp) < SETTINGS_CACHE_TTL) {
+    return settingsCache.data
+  }
+
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('*')
+    .eq('id', 1)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  const settings = data as unknown as AppSettings
+  settingsCache = { data: settings, timestamp: now }
+
+  return settings
+}
+
 export async function lookupStudentByBarcode(barcode: string): Promise<StudentRecord | null> {
   const { data, error } = await supabase
     .from('students')

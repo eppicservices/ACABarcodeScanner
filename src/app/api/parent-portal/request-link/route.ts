@@ -57,9 +57,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Get app settings for token expiry
+    const { data: settings } = await supabase
+      .from('app_settings')
+      .select('parent_token_expiry_days')
+      .eq('id', 1)
+      .single()
+
     // Generate new token
     const token = generateSecureToken()
-    const expiresAt = getTokenExpiryDate()
+    const expiresAt = getTokenExpiryDate(settings?.parent_token_expiry_days ?? 7)
 
     // Delete any existing tokens for this parent
     await supabase

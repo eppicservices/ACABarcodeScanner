@@ -6,7 +6,7 @@ import type { AppSettings, AdminUser, PendingPayment, EmailProvider } from '@/ty
 import CsvImport from '@/components/admin/CsvImport'
 import SchoolCalendarSettings from '@/components/admin/SchoolCalendarSettings'
 
-type TabId = 'pricing' | 'notifications' | 'email' | 'scanner' | 'school' | 'calendar' | 'admins' | 'payments' | 'import' | 'data'
+type TabId = 'pricing' | 'notifications' | 'email' | 'scanner' | 'school' | 'calendar' | 'branding' | 'advanced' | 'admins' | 'payments' | 'import' | 'data'
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   {
@@ -71,6 +71,27 @@ const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
         <line x1="16" y1="2" x2="16" y2="6" />
         <line x1="8" y1="2" x2="8" y2="6" />
         <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    id: 'branding',
+    label: 'Branding',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </svg>
+    ),
+  },
+  {
+    id: 'advanced',
+    label: 'Advanced',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
       </svg>
     ),
   },
@@ -168,6 +189,21 @@ export default function SettingsPage() {
     smtp_user: '',
     smtp_password: '',
     smtp_secure: true,
+    // Branding
+    school_logo_url: '',
+    primary_color: '#002c5f',
+    secondary_color: '#ffc82e',
+    accent_color: '#00b1c1',
+    // Timing
+    scan_display_duration: '3000',
+    scanner_buffer_timeout: '100',
+    parent_token_expiry_days: '7',
+    // Feature flags
+    parent_portal_enabled: true,
+    manual_entry_enabled: true,
+    // Security settings
+    password_min_length: '6',
+    settings_cache_minutes: '5',
   })
 
   // Admin invite state
@@ -222,6 +258,21 @@ export default function SettingsPage() {
         smtp_user: s.smtp_user || '',
         smtp_password: s.smtp_password || '',
         smtp_secure: s.smtp_secure ?? true,
+        // Branding
+        school_logo_url: s.school_logo_url || '',
+        primary_color: s.primary_color || '#002c5f',
+        secondary_color: s.secondary_color || '#ffc82e',
+        accent_color: s.accent_color || '#00b1c1',
+        // Timing
+        scan_display_duration: s.scan_display_duration?.toString() || '3000',
+        scanner_buffer_timeout: s.scanner_buffer_timeout?.toString() || '100',
+        parent_token_expiry_days: s.parent_token_expiry_days?.toString() || '7',
+        // Feature flags
+        parent_portal_enabled: s.parent_portal_enabled ?? true,
+        manual_entry_enabled: s.manual_entry_enabled ?? true,
+        // Security settings
+        password_min_length: s.password_min_length?.toString() || '6',
+        settings_cache_minutes: s.settings_cache_minutes?.toString() || '5',
       })
     }
 
@@ -388,6 +439,21 @@ export default function SettingsPage() {
         smtp_user: formData.smtp_user || null,
         smtp_password: formData.smtp_password || null,
         smtp_secure: formData.smtp_secure,
+        // Branding
+        school_logo_url: formData.school_logo_url || null,
+        primary_color: formData.primary_color,
+        secondary_color: formData.secondary_color,
+        accent_color: formData.accent_color,
+        // Timing
+        scan_display_duration: parseInt(formData.scan_display_duration),
+        scanner_buffer_timeout: parseInt(formData.scanner_buffer_timeout),
+        parent_token_expiry_days: parseInt(formData.parent_token_expiry_days),
+        // Feature flags
+        parent_portal_enabled: formData.parent_portal_enabled,
+        manual_entry_enabled: formData.manual_entry_enabled,
+        // Security settings
+        password_min_length: parseInt(formData.password_min_length),
+        settings_cache_minutes: parseInt(formData.settings_cache_minutes),
         updated_at: new Date().toISOString(),
         updated_by: user?.id || null,
       })
@@ -1318,6 +1384,227 @@ export default function SettingsPage() {
               }}
               onMessage={setMessage}
             />
+          )}
+
+          {activeTab === 'branding' && (
+            <div className="tab-panel">
+              <h2>Branding & Appearance</h2>
+              <p className="section-desc">Customize the look and feel of your lunch program.</p>
+
+              <div className="form-stack">
+                <div className="form-group">
+                  <label>School Logo URL</label>
+                  <input
+                    type="url"
+                    className="input"
+                    value={formData.school_logo_url}
+                    onChange={e => updateField('school_logo_url', e.target.value)}
+                    placeholder="https://your-school.com/logo.png"
+                  />
+                  <span className="hint">Used in the scanner header and emails. Leave blank to use default.</span>
+                </div>
+
+                {formData.school_logo_url && (
+                  <div className="logo-preview">
+                    <label>Logo Preview</label>
+                    <div className="preview-box">
+                      <img
+                        src={formData.school_logo_url}
+                        alt="School logo preview"
+                        style={{ maxHeight: '60px', maxWidth: '100%' }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Primary Color</label>
+                  <div className="color-input-row">
+                    <input
+                      type="color"
+                      value={formData.primary_color}
+                      onChange={e => updateField('primary_color', e.target.value)}
+                      className="color-picker"
+                    />
+                    <input
+                      type="text"
+                      className="input"
+                      value={formData.primary_color}
+                      onChange={e => updateField('primary_color', e.target.value)}
+                      placeholder="#002c5f"
+                    />
+                  </div>
+                  <span className="hint">Main brand color used in headers and buttons (default: navy #002c5f)</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Secondary Color</label>
+                  <div className="color-input-row">
+                    <input
+                      type="color"
+                      value={formData.secondary_color}
+                      onChange={e => updateField('secondary_color', e.target.value)}
+                      className="color-picker"
+                    />
+                    <input
+                      type="text"
+                      className="input"
+                      value={formData.secondary_color}
+                      onChange={e => updateField('secondary_color', e.target.value)}
+                      placeholder="#ffc82e"
+                    />
+                  </div>
+                  <span className="hint">Accent color for highlights (default: gold #ffc82e)</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Accent Color</label>
+                  <div className="color-input-row">
+                    <input
+                      type="color"
+                      value={formData.accent_color}
+                      onChange={e => updateField('accent_color', e.target.value)}
+                      className="color-picker"
+                    />
+                    <input
+                      type="text"
+                      className="input"
+                      value={formData.accent_color}
+                      onChange={e => updateField('accent_color', e.target.value)}
+                      placeholder="#00b1c1"
+                    />
+                  </div>
+                  <span className="hint">Used for call-to-action buttons (default: teal #00b1c1)</span>
+                </div>
+
+                <div className="color-preview">
+                  <label>Color Preview</label>
+                  <div className="preview-swatches">
+                    <div className="swatch" style={{ backgroundColor: formData.primary_color }}>
+                      <span>Primary</span>
+                    </div>
+                    <div className="swatch" style={{ backgroundColor: formData.secondary_color }}>
+                      <span>Secondary</span>
+                    </div>
+                    <div className="swatch" style={{ backgroundColor: formData.accent_color }}>
+                      <span>Accent</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'advanced' && (
+            <div className="tab-panel">
+              <h2>Advanced Settings</h2>
+              <p className="section-desc">Fine-tune timing and behavior settings.</p>
+
+              <h3>Timing Settings</h3>
+              <div className="form-stack">
+                <div className="form-group">
+                  <label>Scan Result Display Time (ms)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.scan_display_duration}
+                    onChange={e => updateField('scan_display_duration', e.target.value)}
+                    min="1000"
+                    max="10000"
+                    step="500"
+                  />
+                  <span className="hint">How long the scan result stays on screen (default: 3000ms = 3 seconds)</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Scanner Buffer Timeout (ms)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.scanner_buffer_timeout}
+                    onChange={e => updateField('scanner_buffer_timeout', e.target.value)}
+                    min="50"
+                    max="500"
+                    step="10"
+                  />
+                  <span className="hint">Time to wait for scanner input before clearing (default: 100ms)</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Parent Portal Link Expiry (days)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.parent_token_expiry_days}
+                    onChange={e => updateField('parent_token_expiry_days', e.target.value)}
+                    min="1"
+                    max="90"
+                  />
+                  <span className="hint">How long parent portal links remain valid (default: 7 days)</span>
+                </div>
+              </div>
+
+              <h3>Feature Toggles</h3>
+              <div className="toggle-card">
+                <div className="toggle-info">
+                  <strong>Parent Portal</strong>
+                  <span>Allow parents to view balances and submit payments online</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle ${formData.parent_portal_enabled ? 'on' : ''}`}
+                  onClick={() => updateField('parent_portal_enabled', !formData.parent_portal_enabled)}
+                >
+                  <span className="toggle-handle" />
+                </button>
+              </div>
+
+              <div className="toggle-card">
+                <div className="toggle-info">
+                  <strong>Manual Entry</strong>
+                  <span>Show manual barcode entry button on scanner screen</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle ${formData.manual_entry_enabled ? 'on' : ''}`}
+                  onClick={() => updateField('manual_entry_enabled', !formData.manual_entry_enabled)}
+                >
+                  <span className="toggle-handle" />
+                </button>
+              </div>
+
+              <h3>Security & Performance</h3>
+              <div className="form-stack">
+                <div className="form-group">
+                  <label>Minimum Password Length</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.password_min_length}
+                    onChange={e => updateField('password_min_length', e.target.value)}
+                    min="4"
+                    max="32"
+                  />
+                  <span className="hint">Minimum characters required for admin passwords (default: 6)</span>
+                </div>
+
+                <div className="form-group">
+                  <label>Settings Cache Duration (minutes)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.settings_cache_minutes}
+                    onChange={e => updateField('settings_cache_minutes', e.target.value)}
+                    min="1"
+                    max="60"
+                  />
+                  <span className="hint">How long to cache settings before refreshing from database (default: 5 minutes)</span>
+                </div>
+              </div>
+            </div>
           )}
 
           {activeTab === 'admins' && (
@@ -2524,6 +2811,66 @@ export default function SettingsPage() {
           .admin-email {
             font-size: 13px;
           }
+        }
+
+        /* Color picker styles */
+        .color-input-row {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .color-picker {
+          width: 50px;
+          height: 40px;
+          padding: 2px;
+          border: 1px solid var(--gray-300);
+          border-radius: var(--border-radius);
+          cursor: pointer;
+        }
+
+        .color-input-row .input {
+          flex: 1;
+          font-family: monospace;
+        }
+
+        .preview-swatches {
+          display: flex;
+          gap: 12px;
+          margin-top: 8px;
+        }
+
+        .swatch {
+          width: 80px;
+          height: 60px;
+          border-radius: var(--border-radius);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding-bottom: 8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .swatch span {
+          font-size: 11px;
+          font-weight: 600;
+          color: white;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .logo-preview {
+          margin: 4px 0 16px 0;
+        }
+
+        .preview-box {
+          margin-top: 8px;
+          padding: 16px;
+          background: var(--gray-50);
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
       `}</style>
     </div>
