@@ -42,6 +42,7 @@ export default function NewStudentPage() {
       school_level: schoolLevel,
       parent_id: parentId,
       balance: parseInt(balance) || 0,
+      is_active: true,
     })
 
     if (error) {

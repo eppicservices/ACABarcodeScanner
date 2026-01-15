@@ -27,6 +27,7 @@ export default function NewParentPage() {
       email,
       phone: phone || null,
       address: address || null,
+      is_active: true,
     })
 
     if (error) {

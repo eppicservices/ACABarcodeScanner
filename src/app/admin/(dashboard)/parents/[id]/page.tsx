@@ -23,6 +23,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [isActive, setIsActive] = useState(true)
 
   const router = useRouter()
   const [refetchTrigger, setRefetchTrigger] = useState(0)
@@ -46,6 +47,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
           setEmail(p.email)
           setPhone(p.phone || '')
           setAddress(p.address || '')
+          setIsActive(p.is_active)
         }
         setLoading(false)
       }
@@ -72,6 +74,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         email,
         phone: phone || null,
         address: address || null,
+        is_active: isActive,
       })
       .eq('id', id)
 
@@ -92,6 +95,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
       setEmail(parent.email)
       setPhone(parent.phone || '')
       setAddress(parent.address || '')
+      setIsActive(parent.is_active)
     }
     setIsEditing(false)
     setError(null)
@@ -326,6 +330,26 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>Status</label>
+                <div className="status-toggle">
+                  <button
+                    type="button"
+                    className={`status-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => setIsActive(true)}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    className={`status-btn ${!isActive ? 'inactive' : ''}`}
+                    onClick={() => setIsActive(false)}
+                  >
+                    Inactive
+                  </button>
+                </div>
+              </div>
+
               <div className="form-actions">
                 <button type="button" className="btn btn-outline" onClick={handleCancelEdit}>
                   Cancel
@@ -388,6 +412,14 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 <div className="detail-item">
                   <span className="detail-label">Address</span>
                   <span className="detail-value">{parent.address || <span className="not-set">Not set</span>}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Status</span>
+                  <span className="detail-value">
+                    <span className={`status-badge ${parent.is_active ? 'active' : 'inactive'}`}>
+                      {parent.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </span>
                 </div>
               </div>
 
@@ -757,6 +789,60 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
           margin-top: 32px;
           padding-top: 24px;
           border-top: 1px solid var(--gray-100);
+        }
+
+        .status-toggle {
+          display: flex;
+          gap: 8px;
+        }
+
+        .status-btn {
+          flex: 1;
+          padding: 10px 16px;
+          border: 1px solid var(--gray-200);
+          border-radius: var(--border-radius);
+          background: var(--white);
+          color: var(--gray-500);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          font-family: var(--font-body);
+        }
+
+        .status-btn:hover {
+          border-color: var(--gray-300);
+          color: var(--gray-700);
+        }
+
+        .status-btn.active {
+          background: var(--success-bg);
+          border-color: var(--success);
+          color: var(--success);
+        }
+
+        .status-btn.inactive {
+          background: var(--gray-100);
+          border-color: var(--gray-400);
+          color: var(--gray-600);
+        }
+
+        .status-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 16px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .status-badge.active {
+          background: var(--success-bg);
+          color: var(--success);
+        }
+
+        .status-badge.inactive {
+          background: var(--gray-100);
+          color: var(--gray-500);
         }
 
         .btn-spinner {
