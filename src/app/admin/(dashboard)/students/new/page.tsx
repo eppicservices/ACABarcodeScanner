@@ -18,17 +18,67 @@ export default function NewStudentPage() {
   const [parentId, setParentId] = useState('')
   const [balance, setBalance] = useState('0')
 
+  // New parent modal state
+  const [showNewParentModal, setShowNewParentModal] = useState(false)
+  const [newParentName, setNewParentName] = useState('')
+  const [newParentEmail, setNewParentEmail] = useState('')
+  const [newParentPhone, setNewParentPhone] = useState('')
+  const [creatingParent, setCreatingParent] = useState(false)
+  const [parentError, setParentError] = useState<string | null>(null)
+
   const router = useRouter()
 
+  async function fetchParents() {
+    const supabase = createClient()
+    const { data } = await supabase.from('parents').select('*').order('name')
+    if (data) setParents(data)
+    setLoading(false)
+  }
+
   useEffect(() => {
-    async function fetchParents() {
-      const supabase = createClient()
-      const { data } = await supabase.from('parents').select('*').order('name')
-      if (data) setParents(data)
-      setLoading(false)
-    }
     fetchParents()
   }, [])
+
+  async function handleCreateParent(e: React.FormEvent) {
+    e.preventDefault()
+    setParentError(null)
+    setCreatingParent(true)
+
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('parents')
+      .insert({
+        name: newParentName,
+        email: newParentEmail,
+        phone: newParentPhone || null,
+        is_active: true,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      setParentError(error.message)
+      setCreatingParent(false)
+    } else if (data) {
+      // Add new parent to list and select them
+      setParents(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+      setParentId(data.id)
+      // Reset modal state
+      setNewParentName('')
+      setNewParentEmail('')
+      setNewParentPhone('')
+      setShowNewParentModal(false)
+      setCreatingParent(false)
+    }
+  }
+
+  function handleParentSelectChange(value: string) {
+    if (value === '__new__') {
+      setShowNewParentModal(true)
+    } else {
+      setParentId(value)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -196,7 +246,7 @@ export default function NewStudentPage() {
                 id="parentId"
                 className="input"
                 value={parentId}
-                onChange={(e) => setParentId(e.target.value)}
+                onChange={(e) => handleParentSelectChange(e.target.value)}
                 required
               >
                 <option value="">Select a parent...</option>
@@ -205,6 +255,7 @@ export default function NewStudentPage() {
                     {parent.name} ({parent.email})
                   </option>
                 ))}
+                <option value="__new__" className="new-parent-option">+ Create New Parent</option>
               </select>
             </div>
 
@@ -234,7 +285,11 @@ export default function NewStudentPage() {
               </svg>
               <div>
                 <strong>No parents available</strong>
-                <p>You need to <Link href="/admin/parents/new">create a parent</Link> before adding students.</p>
+                <p>
+                  <button type="button" className="link-btn" onClick={() => setShowNewParentModal(true)}>
+                    Create a parent
+                  </button> before adding students.
+                </p>
               </div>
             </div>
           )}
@@ -264,6 +319,113 @@ export default function NewStudentPage() {
           </button>
         </div>
       </form>
+
+      {/* New Parent Modal */}
+      {showNewParentModal && (
+        <div className="modal-overlay" onClick={() => setShowNewParentModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Create New Parent</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowNewParentModal(false)}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateParent} className="modal-body">
+              {parentError && (
+                <div className="alert alert-error modal-alert">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  {parentError}
+                </div>
+              )}
+
+              <div className="modal-form-group">
+                <label htmlFor="newParentName">Parent Name *</label>
+                <input
+                  id="newParentName"
+                  type="text"
+                  className="input"
+                  value={newParentName}
+                  onChange={(e) => setNewParentName(e.target.value)}
+                  placeholder="John Smith"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="newParentEmail">Email Address *</label>
+                <input
+                  id="newParentEmail"
+                  type="email"
+                  className="input"
+                  value={newParentEmail}
+                  onChange={(e) => setNewParentEmail(e.target.value)}
+                  placeholder="parent@email.com"
+                  required
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="newParentPhone">Phone Number</label>
+                <input
+                  id="newParentPhone"
+                  type="tel"
+                  className="input"
+                  value={newParentPhone}
+                  onChange={(e) => setNewParentPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                />
+                <p className="field-hint">Optional</p>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowNewParentModal(false)}
+                  disabled={creatingParent}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={creatingParent}
+                >
+                  {creatingParent ? (
+                    <>
+                      <span className="btn-spinner" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="8.5" cy="7" r="4" />
+                        <line x1="20" y1="8" x2="20" y2="14" />
+                        <line x1="23" y1="11" x2="17" y2="11" />
+                      </svg>
+                      Create Parent
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .new-student-page {
@@ -544,6 +706,156 @@ export default function NewStudentPage() {
 
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+
+        /* Link button style */
+        .link-btn {
+          background: none;
+          border: none;
+          padding: 0;
+          color: inherit;
+          font: inherit;
+          cursor: pointer;
+          text-decoration: underline;
+          font-weight: 600;
+        }
+
+        .link-btn:hover {
+          opacity: 0.8;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+          animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .modal-content {
+          background: var(--white);
+          border-radius: var(--border-radius-lg);
+          max-width: 440px;
+          width: 100%;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px;
+          border-bottom: 1px solid var(--gray-100);
+        }
+
+        .modal-header h3 {
+          margin: 0;
+          font-size: 18px;
+          color: var(--aca-navy);
+        }
+
+        .modal-close {
+          width: 36px;
+          height: 36px;
+          border: none;
+          background: var(--gray-100);
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--gray-500);
+          transition: all 0.15s ease;
+        }
+
+        .modal-close:hover {
+          background: var(--gray-200);
+          color: var(--gray-700);
+        }
+
+        .modal-body {
+          padding: 24px;
+        }
+
+        .modal-alert {
+          margin-bottom: 20px;
+        }
+
+        .modal-form-group {
+          margin-bottom: 20px;
+        }
+
+        .modal-form-group:last-of-type {
+          margin-bottom: 0;
+        }
+
+        .modal-form-group label {
+          display: block;
+          font-weight: 600;
+          font-size: 13px;
+          color: var(--gray-600);
+          margin-bottom: 8px;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+          padding: 20px 24px;
+          background: var(--gray-50);
+          border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+          justify-content: flex-end;
+        }
+
+        @media (max-width: 480px) {
+          .modal-overlay {
+            padding: 16px;
+          }
+
+          .modal-content {
+            max-width: 100%;
+          }
+
+          .modal-header {
+            padding: 16px 20px;
+          }
+
+          .modal-body {
+            padding: 20px;
+          }
+
+          .modal-actions {
+            padding: 16px 20px;
+            flex-direction: column;
+          }
+
+          .modal-actions .btn {
+            width: 100%;
+          }
         }
       `}</style>
     </div>
