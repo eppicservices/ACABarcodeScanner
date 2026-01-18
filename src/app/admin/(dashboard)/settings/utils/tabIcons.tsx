@@ -100,30 +100,22 @@ export const DataExportIcon: React.FC<IconProps> = ({ className }) => (
 
 export const tabIconMap = {
   pricing: PricingIcon,
-  notifications: NotificationsIcon,
-  email: EmailIcon,
-  scanner: ScannerIcon,
   school: SchoolIcon,
+  scanner: ScannerIcon,
   calendar: CalendarIcon,
-  branding: BrandingIcon,
-  advanced: AdvancedIcon,
+  communications: EmailIcon,
   admins: AdminsIcon,
-  payments: PaymentsIcon,
-  import: ImportIcon,
   data: DataExportIcon,
+  advanced: AdvancedIcon,
 }
 
 export const tabLabels: Record<string, string> = {
   pricing: 'Pricing',
-  notifications: 'Notifications',
-  email: 'Email',
+  school: 'School Profile',
   scanner: 'Scanner',
-  school: 'School Info',
-  calendar: 'School Calendar',
-  branding: 'Branding',
-  advanced: 'Advanced',
+  calendar: 'Calendar',
+  communications: 'Communications',
   admins: 'Admins',
-  payments: 'Payments',
-  import: 'Import',
-  data: 'Data & Export',
+  data: 'Data',
+  advanced: 'Advanced',
 }

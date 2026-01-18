@@ -21,17 +21,12 @@ export default function MealStatsPage() {
   const [scanStats, setScanStats] = useState<DailyScanStats[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Track if we've already auto-synced this session
   const hasAutoSynced = useRef(false)
-
-  // Calendar form state
-  const [calendarUrl, setCalendarUrl] = useState('')
-  const [calendarEnabled, setCalendarEnabled] = useState(false)
 
   // Manual meal edit state
   const [editingDate, setEditingDate] = useState<string | null>(null)
@@ -52,8 +47,6 @@ export default function MealStatsPage() {
 
     if (settingsRes.data) {
       setSettings(settingsRes.data as AppSettings)
-      setCalendarUrl(settingsRes.data.calendar_url || '')
-      setCalendarEnabled(settingsRes.data.calendar_enabled || false)
     }
 
     if (mealsRes.data) {
@@ -139,65 +132,6 @@ export default function MealStatsPage() {
       autoSync()
     }
   }, [settings, loading, fetchData])
-
-  async function handleSaveCalendarSettings() {
-    setSaving(true)
-    setMessage(null)
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { error } = await supabase
-      .from('app_settings')
-      .update({
-        calendar_url: calendarUrl || null,
-        calendar_enabled: calendarEnabled,
-        updated_at: new Date().toISOString(),
-        updated_by: user?.id || null
-      })
-      .eq('id', 1)
-
-    if (error) {
-      setMessage({ type: 'error', text: error.message })
-    } else {
-      setMessage({ type: 'success', text: 'Calendar settings saved' })
-      fetchData()
-    }
-
-    setSaving(false)
-  }
-
-  async function handleSyncCalendar() {
-    if (!calendarUrl) {
-      setMessage({ type: 'error', text: 'Please enter a calendar URL first' })
-      return
-    }
-
-    setSyncing(true)
-    setMessage(null)
-
-    try {
-      const response = await fetch('/api/admin/sync-calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calendar_url: calendarUrl })
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to sync calendar')
-      }
-
-      setMessage({ type: 'success', text: `Synced ${result.imported} meals from calendar` })
-      setLastSynced(new Date())
-      fetchData()
-    } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to sync calendar' })
-    }
-
-    setSyncing(false)
-  }
 
   async function handleSaveMeal(date: string) {
     if (!editMealName.trim()) {
@@ -307,73 +241,15 @@ export default function MealStatsPage() {
         </div>
       )}
 
-      {/* Calendar Settings */}
-      <div className="settings-card">
-        <h2>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          Calendar Integration
-        </h2>
-        <p className="settings-desc">
-          Connect a Google Calendar or iCal URL to automatically import daily meal names.
-          Use the public iCal URL from your calendar settings.
+      {lastSynced && (
+        <p className="last-synced">
+          Calendar synced: {lastSynced.toLocaleTimeString()}
         </p>
+      )}
 
-        <div className="form-group">
-          <label htmlFor="calendar-url">Calendar URL (iCal/ICS format)</label>
-          <input
-            id="calendar-url"
-            type="url"
-            placeholder="https://calendar.google.com/calendar/ical/..."
-            value={calendarUrl}
-            onChange={(e) => setCalendarUrl(e.target.value)}
-          />
-        </div>
-
-        <div className="form-group checkbox-group">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={calendarEnabled}
-              onChange={(e) => setCalendarEnabled(e.target.checked)}
-            />
-            <span>Enable automatic calendar sync</span>
-          </label>
-        </div>
-
-        <div className="button-row">
-          <button
-            onClick={handleSaveCalendarSettings}
-            disabled={saving}
-            className="btn btn-primary"
-          >
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
-          <button
-            onClick={handleSyncCalendar}
-            disabled={syncing || !calendarUrl}
-            className="btn btn-secondary"
-          >
-            {syncing ? 'Syncing...' : 'Sync Now'}
-          </button>
-        </div>
-
-        {lastSynced && (
-          <p className="last-synced">
-            Last synced: {lastSynced.toLocaleTimeString()}
-          </p>
-        )}
-
-        {calendarEnabled && calendarUrl && (
-          <p className="auto-sync-note">
-            Auto-sync is enabled. Calendar will sync when this page loads.
-          </p>
-        )}
-      </div>
+      {syncing && (
+        <p className="syncing-note">Syncing calendar...</p>
+      )}
 
       {/* Stats Table */}
       <div className="stats-card">
@@ -528,7 +404,7 @@ export default function MealStatsPage() {
           opacity: 1;
         }
 
-        .settings-card, .stats-card {
+        .stats-card {
           background: white;
           border-radius: 12px;
           padding: 24px;
@@ -536,7 +412,7 @@ export default function MealStatsPage() {
           margin-bottom: 24px;
         }
 
-        .settings-card h2, .stats-card h2 {
+        .stats-card h2 {
           display: flex;
           align-items: center;
           gap: 10px;
@@ -546,26 +422,6 @@ export default function MealStatsPage() {
           margin: 0 0 8px 0;
         }
 
-        .settings-desc {
-          color: #64748b;
-          font-size: 14px;
-          margin: 0 0 20px 0;
-          line-height: 1.5;
-        }
-
-        .form-group {
-          margin-bottom: 16px;
-        }
-
-        .form-group label {
-          display: block;
-          font-size: 14px;
-          font-weight: 500;
-          color: #374151;
-          margin-bottom: 6px;
-        }
-
-        .form-group input[type="url"],
         .form-group input[type="text"] {
           width: 100%;
           padding: 10px 14px;
@@ -581,82 +437,16 @@ export default function MealStatsPage() {
           box-shadow: 0 0 0 3px rgba(0, 44, 95, 0.1);
         }
 
-        .checkbox-group {
-          margin-top: 16px;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .checkbox-label input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          accent-color: #002c5f;
-        }
-
-        .button-row {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        .btn {
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-          border: none;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .btn-primary {
-          background: #002c5f;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: #001d3d;
-        }
-
-        .btn-secondary {
-          background: #f1f5f9;
-          color: #475569;
-          border: 1px solid #e2e8f0;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-          background: #e2e8f0;
-        }
-
         .last-synced {
-          margin-top: 12px;
           font-size: 13px;
           color: #64748b;
+          margin-bottom: 16px;
         }
 
-        .auto-sync-note {
-          margin-top: 8px;
+        .syncing-note {
           font-size: 13px;
           color: #0ea5e9;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .auto-sync-note::before {
-          content: '✓';
-          font-weight: bold;
+          margin-bottom: 16px;
         }
 
         .empty-state {
@@ -814,16 +604,8 @@ export default function MealStatsPage() {
             padding-top: 80px;
           }
 
-          .settings-card, .stats-card {
+          .stats-card {
             padding: 16px;
-          }
-
-          .button-row {
-            flex-direction: column;
-          }
-
-          .btn {
-            width: 100%;
           }
 
           .stats-table th, .stats-table td {
