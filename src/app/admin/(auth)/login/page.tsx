@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { signIn } from '@/lib/auth/client'
 
 // Styles are in globals.css to prevent FOUC
 export default function LoginPage() {
@@ -13,25 +13,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
-    const supabase = createClient()
     e.preventDefault()
     setError(null)
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const result = await signIn(email, password)
 
-      if (error) {
-        setError(error.message)
-        setLoading(false)
-        return
-      }
-
-      if (!data.session) {
-        setError('Failed to create session')
+      if (!result.success) {
+        setError(result.error || 'Invalid credentials')
         setLoading(false)
         return
       }

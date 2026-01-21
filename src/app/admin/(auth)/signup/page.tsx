@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { signUp, checkSetup } from '@/lib/auth/client'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -19,26 +19,9 @@ export default function SignupPage() {
 
   useEffect(() => {
     async function checkAdminsAndSettings() {
-      const supabase = createClient()
-
-      // Check if there are existing admins
-      const { count } = await supabase
-        .from('admin_users')
-        .select('*', { count: 'exact', head: true })
-
-      setHasAdmins((count ?? 0) > 0)
-
-      // Fetch password settings
-      const { data: settings } = await supabase
-        .from('app_settings')
-        .select('password_min_length')
-        .eq('id', 1)
-        .single()
-
-      if (settings?.password_min_length) {
-        setPasswordMinLength(settings.password_min_length)
-      }
-
+      const setup = await checkSetup()
+      setHasAdmins(setup.hasAdmins)
+      setPasswordMinLength(setup.passwordMinLength)
       setCheckingAdmins(false)
     }
     checkAdminsAndSettings()
@@ -60,34 +43,10 @@ export default function SignupPage() {
 
     setLoading(true)
 
-    const supabase = createClient()
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    const result = await signUp(email, password)
 
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-      return
-    }
-
-    if (!authData.user) {
-      setError('Failed to create account')
-      setLoading(false)
-      return
-    }
-
-    const { error: adminError } = await supabase
-      .from('admin_users')
-      .insert({
-        id: authData.user.id,
-        email: authData.user.email!,
-        role: 'super_admin',
-      })
-
-    if (adminError) {
-      setError('Failed to create admin account: ' + adminError.message)
+    if (!result.success) {
+      setError(result.error || 'Failed to create account')
       setLoading(false)
       return
     }

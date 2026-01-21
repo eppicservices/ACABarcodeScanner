@@ -1,8 +1,14 @@
 import { type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { updateSession as updateSupabaseSession } from '@/lib/supabase/middleware'
+import { updateSessionNextAuth } from '@/lib/auth/nextauth-middleware'
+
+const authProvider = process.env.AUTH_PROVIDER || 'supabase'
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  if (authProvider === 'nextauth') {
+    return await updateSessionNextAuth(request)
+  }
+  return await updateSupabaseSession(request)
 }
 
 export const config = {

@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SchoolLevel {
+  elementary
+  high_school
+
+  @@map("school_level")
+}
+
+enum AdminRole {
+  admin
+  super_admin
+
+  @@map("admin_role")
+}
+
+enum TransactionType {
+  payment
+  adjustment
+  refund
+  lunch_used
+  lunch_card
+
+  @@map("transaction_type")
+}
+
+enum EmailProvider {
+  none
+  gmail
+  sendgrid
+  smtp
+
+  @@map("email_provider")
+}
+
+enum DayOfWeek {
+  sunday
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+
+  @@map("day_of_week")
+}
+
+enum AutoSendSchedule {
+  daily
+  weekly
+  weekdays
+
+  @@map("auto_send_schedule")
+}
+
+enum MealSource {
+  calendar
+  manual
+
+  @@map("meal_source")
+}
+
+enum PendingPaymentStatus {
+  pending
+  completed
+  cancelled
+  expired
+
+  @@map("pending_payment_status")
+}
+
+model Parent {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  students         Student[]
+  accessTokens     ParentAccessToken[]
+  notificationLogs NotificationLog[]
+  pendingPayments  PendingPayment[]
+
+  @@map("parents")
+}
+
+model Student {
+  id          String      @id @default(uuid())
+  parentId    String      @map("parent_id")
+  name        String
+  barcode     String      @unique
+  balance     Int         @default(0)
+  schoolLevel SchoolLevel @map("school_level")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  parent              Parent               @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  balanceTransactions BalanceTransaction[]
+  notificationLogs    NotificationLog[]
+
+  @@map("students")
+}
+
+model AdminUser {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String?   // Only used for NextAuth (Docker deployment)
+  role      AdminRole @default(admin)
+  invitedBy String?   @map("invited_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  invitations AdminInvitation[] @relation("InvitedBy")
+
+  @@map("admin_users")
+}
+
+model AdminInvitation {
+  id        String    @id @default(uuid())
+  email     String
+  invitedBy String    @map("invited_by")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  inviter AdminUser @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@map("admin_invitations")
+}
+
+model AppSettings {
+  id Int @id @default(1)
+
+  // Lunch pricing
+  elementaryLunchPrice       Decimal @default(3.50) @map("elementary_lunch_price") @db.Decimal(10, 2)
+  highschoolLunchPrice       Decimal @default(4.00) @map("highschool_lunch_price") @db.Decimal(10, 2)
+  highschoolLunchCardPrice   Decimal @default(50.00) @map("highschool_lunch_card_price") @db.Decimal(10, 2)
+  highschoolLunchCardLunches Int     @default(15) @map("highschool_lunch_card_lunches")
+  secondMealPrice            Decimal @default(4.50) @map("second_meal_price") @db.Decimal(10, 2)
+
+  // Negative balance limits
+  elementaryNegativeLimit Int @default(-5) @map("elementary_negative_limit")
+  highschoolNegativeLimit Int @default(-3) @map("highschool_negative_limit")
+
+  // Low balance thresholds
+  elementaryLowLunchThreshold Int @default(5) @map("elementary_low_lunch_threshold")
+  highschoolLowLunchThreshold Int @default(3) @map("highschool_low_lunch_threshold")
+
+  // Notification settings
+  notificationsEnabled  Boolean @default(true) @map("notifications_enabled")
+  zeroBalanceAlerts     Boolean @default(true) @map("zero_balance_alerts")
+  weeklySummaryEnabled  Boolean @default(false) @map("weekly_summary_enabled")
+  notificationFrequency String  @default("daily") @map("notification_frequency")
+
+  // Email scheduling
+  emailAllowedDays     DayOfWeek[]      @default([monday, tuesday, wednesday, thursday, friday]) @map("email_allowed_days")
+  emailWindowStart     String           @default("08:00") @map("email_window_start")
+  emailWindowEnd       String           @default("18:00") @map("email_window_end")
+  emailTimezone        String           @default("America/New_York") @map("email_timezone")
+  minDaysBetweenEmails Int              @default(3) @map("min_days_between_emails")
+  autoSendEnabled      Boolean          @default(false) @map("auto_send_enabled")
+  autoSendSchedule     AutoSendSchedule @default(weekdays) @map("auto_send_schedule")
+  autoSendTime         String           @default("07:00") @map("auto_send_time")
+
+  // Scanner settings
+  scannerSoundEnabled Boolean @default(true) @map("scanner_sound_enabled")
+  scannerAutoDeduct   Boolean @default(true) @map("scanner_auto_deduct")
+  showStudentPhoto    Boolean @default(false) @map("show_student_photo")
+
+  // School info
+  schoolName   String  @default("School Name") @map("school_name")
+  schoolYear   String  @default("2024-2025") @map("school_year")
+  contactEmail String? @map("contact_email")
+
+  // Email provider settings
+  emailProvider      EmailProvider @default(none) @map("email_provider")
+  emailFromAddress   String?       @map("email_from_address")
+  emailFromName      String?       @map("email_from_name")
+  gmailUser          String?       @map("gmail_user")
+  gmailAppPassword   String?       @map("gmail_app_password")
+  sendgridApiKey     String?       @map("sendgrid_api_key")
+  smtpHost           String?       @map("smtp_host")
+  smtpPort           Int?          @map("smtp_port")
+  smtpUser           String?       @map("smtp_user")
+  smtpPassword       String?       @map("smtp_password")
+  smtpSecure         Boolean       @default(true) @map("smtp_secure")
+
+  // Calendar settings
+  calendarUrl           String?   @map("calendar_url")
+  calendarEnabled       Boolean   @default(false) @map("calendar_enabled")
+  schoolCalendarEnabled Boolean   @default(false) @map("school_calendar_enabled")
+  fallSemesterStart     DateTime? @map("fall_semester_start") @db.Date
+  fallSemesterEnd       DateTime? @map("fall_semester_end") @db.Date
+  springSemesterStart   DateTime? @map("spring_semester_start") @db.Date
+  springSemesterEnd     DateTime? @map("spring_semester_end") @db.Date
+
+  // Branding
+  schoolLogoUrl  String? @map("school_logo_url")
+  primaryColor   String  @default("#1e40af") @map("primary_color")
+  secondaryColor String  @default("#3b82f6") @map("secondary_color")
+  accentColor    String  @default("#60a5fa") @map("accent_color")
+
+  // Timing settings
+  scanDisplayDuration    Int @default(3000) @map("scan_display_duration")
+  scannerBufferTimeout   Int @default(100) @map("scanner_buffer_timeout")
+  parentTokenExpiryDays  Int @default(7) @map("parent_token_expiry_days")
+
+  // Feature flags
+  parentPortalEnabled Boolean @default(true) @map("parent_portal_enabled")
+  manualEntryEnabled  Boolean @default(true) @map("manual_entry_enabled")
+
+  // Security settings
+  passwordMinLength    Int @default(8) @map("password_min_length")
+  settingsCacheMinutes Int @default(5) @map("settings_cache_minutes")
+
+  // Metadata
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by")
+
+  @@map("app_settings")
+}
+
+model BalanceTransaction {
+  id              String          @id @default(uuid())
+  studentId       String          @map("student_id")
+  lunchesChange   Int             @map("lunches_change")
+  previousLunches Int             @map("previous_lunches")
+  newLunches      Int             @map("new_lunches")
+  amountPaid      Decimal?        @map("amount_paid") @db.Decimal(10, 2)
+  lunchesAdded    Int?            @map("lunches_added")
+  transactionType TransactionType @map("transaction_type")
+  notes           String?
+  createdBy       String?         @map("created_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("balance_transactions")
+}
+
+model NotificationLog {
+  id                    String   @id @default(uuid())
+  studentId             String   @map("student_id")
+  parentId              String   @map("parent_id")
+  notificationType      String   @map("notification_type")
+  balanceAtNotification Int      @map("balance_at_notification")
+  sentAt                DateTime @default(now()) @map("sent_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@map("notification_log")
+}
+
+model DailyMeal {
+  id              String     @id @default(uuid())
+  mealDate        DateTime   @unique @map("meal_date") @db.Date
+  mealName        String     @map("meal_name")
+  source          MealSource @default(manual)
+  calendarEventId String?    @map("calendar_event_id")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at")
+  updatedBy       String?    @map("updated_by")
+
+  @@map("daily_meals")
+}
+
+model EmailBlackoutPeriod {
+  id          String   @id @default(uuid())
+  name        String
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdBy   String?  @map("created_by")
+
+  @@map("email_blackout_periods")
+}
+
+model ParentAccessToken {
+  id         String    @id @default(uuid())
+  parentId   String    @map("parent_id")
+  token      String    @unique
+  expiresAt  DateTime  @map("expires_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  createdBy  String?   @map("created_by")
+
+  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@map("parent_access_tokens")
+}
+
+model PendingPayment {
+  id              String               @id @default(uuid())
+  parentId        String               @map("parent_id")
+  studentPayments Json                 @map("student_payments")
+  totalAmount     Decimal              @map("total_amount") @db.Decimal(10, 2)
+  status          PendingPaymentStatus @default(pending)
+  createdAt       DateTime             @default(now()) @map("created_at")
+  completedAt     DateTime?            @map("completed_at")
+  completedBy     String?              @map("completed_by")
+  notes           String?
+
+  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@map("pending_payments")
+}
