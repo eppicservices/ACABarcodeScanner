@@ -5,17 +5,13 @@ import { SettingsTabNav } from './components/SettingsTabNav'
 import { EmailPreviewModal } from './components/EmailPreviewModal'
 import {
   PricingTab,
-  NotificationsTab,
-  EmailTab,
   ScannerTab,
-  SchoolInfoTab,
   CalendarTab,
-  BrandingTab,
   AdvancedTab,
   AdminsTab,
-  PaymentsTab,
-  ImportTab,
-  DataExportTab,
+  SchoolProfileTab,
+  CommunicationsTab,
+  DataTab,
 } from './components/tabs'
 
 function SettingsContent() {
@@ -56,28 +52,20 @@ function SettingsContent() {
     switch (activeTab) {
       case 'pricing':
         return <PricingTab />
-      case 'notifications':
-        return <NotificationsTab />
-      case 'email':
-        return <EmailTab />
+      case 'school':
+        return <SchoolProfileTab />
       case 'scanner':
         return <ScannerTab />
-      case 'school':
-        return <SchoolInfoTab />
       case 'calendar':
         return <CalendarTab />
-      case 'branding':
-        return <BrandingTab />
-      case 'advanced':
-        return <AdvancedTab />
+      case 'communications':
+        return <CommunicationsTab />
       case 'admins':
         return <AdminsTab />
-      case 'payments':
-        return <PaymentsTab />
-      case 'import':
-        return <ImportTab />
       case 'data':
-        return <DataExportTab />
+        return <DataTab />
+      case 'advanced':
+        return <AdvancedTab />
       default:
         return <PricingTab />
     }

@@ -6,17 +6,13 @@ import type { TabId } from '../types'
 
 const tabOrder: TabId[] = [
   'pricing',
-  'notifications',
-  'email',
-  'scanner',
   'school',
+  'scanner',
   'calendar',
-  'branding',
-  'advanced',
+  'communications',
   'admins',
-  'payments',
-  'import',
   'data',
+  'advanced',
 ]
 
 export function SettingsTabNav() {

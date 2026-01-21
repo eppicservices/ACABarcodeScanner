@@ -41,42 +41,52 @@ function getSettingsCacheTTL(): number {
   return minutes * 60 * 1000
 }
 
+// Public settings cache (non-sensitive settings from public_settings view)
+let publicSettingsCache: { data: LunchSettings | null; timestamp: number } = { data: null, timestamp: 0 }
+
+interface PublicSettingsRow {
+  id: number
+  elementary_lunch_price: number
+  highschool_lunch_price: number
+  highschool_lunch_card_price: number
+  highschool_lunch_card_lunches: number
+  elementary_negative_limit: number
+  highschool_negative_limit: number
+  settings_cache_minutes: number
+}
+
 export async function getSettings(): Promise<LunchSettings | null> {
   const now = Date.now()
 
-  if (settingsCache.data && (now - settingsCache.timestamp) < getSettingsCacheTTL()) {
-    return {
-      elementary_lunch_price: settingsCache.data.elementary_lunch_price,
-      highschool_lunch_price: settingsCache.data.highschool_lunch_price,
-      highschool_lunch_card_price: settingsCache.data.highschool_lunch_card_price,
-      highschool_lunch_card_lunches: settingsCache.data.highschool_lunch_card_lunches,
-      elementary_negative_limit: settingsCache.data.elementary_negative_limit,
-      highschool_negative_limit: settingsCache.data.highschool_negative_limit,
-    }
+  // Check cache first
+  if (publicSettingsCache.data && (now - publicSettingsCache.timestamp) < getSettingsCacheTTL()) {
+    return publicSettingsCache.data
   }
 
+  // Use public_settings view which only exposes non-sensitive fields
+  // Cast needed because views aren't fully typed in Supabase
   const { data, error } = await supabase
-    .from('app_settings')
-    .select('*')
+    .from('public_settings' as 'app_settings')
+    .select('elementary_lunch_price, highschool_lunch_price, highschool_lunch_card_price, highschool_lunch_card_lunches, elementary_negative_limit, highschool_negative_limit, settings_cache_minutes')
     .eq('id', 1)
-    .single()
+    .single() as { data: PublicSettingsRow | null; error: unknown }
 
   if (error || !data) {
     return null
   }
 
-  // Cast to any to access new columns that may not be in the type yet
-  const settings = data as unknown as AppSettings
-  settingsCache = { data: settings, timestamp: now }
-
-  return {
-    elementary_lunch_price: settings.elementary_lunch_price ?? 4,
-    highschool_lunch_price: settings.highschool_lunch_price ?? 6,
-    highschool_lunch_card_price: settings.highschool_lunch_card_price ?? 50,
-    highschool_lunch_card_lunches: settings.highschool_lunch_card_lunches ?? 10,
-    elementary_negative_limit: settings.elementary_negative_limit ?? -5,
-    highschool_negative_limit: settings.highschool_negative_limit ?? 0,
+  const settings: LunchSettings = {
+    elementary_lunch_price: data.elementary_lunch_price ?? 4,
+    highschool_lunch_price: data.highschool_lunch_price ?? 6,
+    highschool_lunch_card_price: data.highschool_lunch_card_price ?? 50,
+    highschool_lunch_card_lunches: data.highschool_lunch_card_lunches ?? 10,
+    elementary_negative_limit: data.elementary_negative_limit ?? -5,
+    highschool_negative_limit: data.highschool_negative_limit ?? 0,
   }
+
+  publicSettingsCache = { data: settings, timestamp: now }
+
+  return settings
 }
 
 // Get full app settings (for pages that need all settings)

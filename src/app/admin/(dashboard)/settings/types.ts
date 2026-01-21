@@ -2,17 +2,13 @@ import type { DayOfWeek, AutoSendSchedule, EmailProvider } from '@/types/databas
 
 export type TabId =
   | 'pricing'
-  | 'notifications'
-  | 'email'
+  | 'school'     // Combined: School Info + Branding
   | 'scanner'
-  | 'school'
-  | 'calendar'
-  | 'branding'
-  | 'advanced'
+  | 'calendar'   // Combined: School Calendar + Meal Calendar
+  | 'communications' // Combined: Email + Notifications
   | 'admins'
-  | 'payments'
-  | 'import'
-  | 'data'
+  | 'data'       // Combined: Import + Export + Payments
+  | 'advanced'
 
 export type PreviewTemplate = 'balance' | 'receipt' | 'portal' | 'weekly' | 'welcome' | null
 
