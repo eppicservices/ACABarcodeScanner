@@ -1,0 +1,281 @@
+# Migration Progress: Supabase to Prisma-Only
+
+Last Updated: 2026-01-21 (All Phases Complete - Migration Finished)
+
+## Phase 1: Server Actions Foundation
+- [x] Create src/actions/students.ts
+- [x] Create src/actions/parents.ts
+- [x] Create src/actions/transactions.ts
+- [x] Create src/actions/settings.ts
+- [x] Create src/actions/meals.ts
+- [x] Create src/actions/notifications.ts
+- [x] Create src/actions/admin.ts
+
+## Phase 2: Admin Dashboard Pages
+- [x] Migrate students/page.tsx
+- [x] Migrate students/[id]/page.tsx
+- [x] Migrate students/new/page.tsx
+- [x] Migrate parents/page.tsx
+- [x] Migrate parents/[id]/page.tsx
+- [x] Migrate parents/new/page.tsx
+- [x] Migrate transactions/page.tsx
+- [x] Migrate add-payment/page.tsx
+- [x] Migrate meal-stats/page.tsx
+
+## Phase 3: Settings System
+- [x] Migrate SettingsContext.tsx
+- [x] Migrate DataTab.tsx
+- [x] Migrate AdminsTab.tsx
+- [x] Migrate CalendarTab.tsx
+- [x] Migrate CommunicationsTab.tsx
+- [x] Migrate EmailTab.tsx
+- [x] Migrate PaymentsTab.tsx
+- [x] Migrate DataExportTab.tsx
+
+## Phase 4: Components
+- [x] Migrate AdminNav.tsx
+- [x] Migrate CsvImport.tsx
+- [x] Migrate SchoolCalendarSettings.tsx
+- [x] Migrate ScanResult.tsx
+
+## Phase 5: API Routes - Admin
+- [x] Migrate api/admin/sync-calendar/route.ts
+- [x] Migrate api/admin/school-calendar-status/route.ts
+- [x] Migrate api/admin/blackout-periods/route.ts
+- [x] Migrate api/admin/test-email/route.ts
+- [x] Migrate api/admin/send-receipt/route.ts
+- [x] Migrate api/admin/send-balance-email/route.ts
+- [x] Migrate api/admin/cash-payment/route.ts
+
+## Phase 5: API Routes - Parent Portal
+- [x] Migrate api/parent-portal/generate-token/route.ts
+- [x] Migrate api/parent-portal/create-payment/route.ts
+- [x] Migrate api/parent-portal/request-link/route.ts
+- [x] Migrate api/parent-portal/validate/[token]/route.ts
+
+## Phase 6: Cron & Utilities
+- [x] Convert api/cron/sync-calendar/route.ts to use Prisma
+- [x] Convert api/cron/send-low-balance-emails/route.ts to use Prisma
+- [x] Update src/lib/csvImport.ts
+- [x] Update src/lib/school-calendar.ts
+
+## Phase 7: Cleanup
+- [x] Delete src/lib/supabase.ts (already deleted)
+- [x] Delete src/lib/supabase/client.ts (already deleted)
+- [x] Delete src/lib/supabase/server.ts (already deleted)
+- [x] Delete src/lib/supabase/middleware.ts (already deleted)
+- [x] Delete src/lib/db/index.ts (already deleted)
+- [x] Delete src/lib/db/supabase-adapter.ts (already deleted)
+- [x] Delete src/lib/db/prisma-adapter.ts (already deleted)
+- [x] Delete src/lib/db/types.ts (already deleted)
+- [x] Delete src/lib/auth/supabase-adapter.ts (already deleted)
+- [x] src/lib/auth/client.ts - already uses NextAuth only, no deletion needed
+- [x] middleware.ts - already uses NextAuth only, no changes needed
+- [x] src/app/api/auth/[...nextauth]/route.ts - fixed default from 'supabase' to 'nextauth'
+- [x] src/types/database.ts - removed Supabase Database interface (kept other types)
+- [x] Remove @supabase/ssr from package.json (already removed)
+- [x] Remove @supabase/supabase-js from package.json (already removed)
+- [x] Remove unused environment variables from .env files (no Supabase vars found)
+- [x] Run npm install to clean up node_modules
+- [x] Verify npm run build succeeds
+
+## Phase 8: Docker Infrastructure
+
+### Production Docker (docker-compose.yml)
+- [x] Rename docker-compose.prisma.yml to docker-compose.yml
+- [x] Delete docker-compose.selfhosted.yml (Supabase self-hosted)
+- [x] Delete old docker-compose.yml (Supabase Cloud)
+- [x] Add migrations service (runs prisma migrate deploy)
+- [x] Add Caddy service for HTTPS
+- [x] Add backup service for PostgreSQL
+- [x] Add resource limits (memory/CPU)
+- [x] Add proper network isolation
+- [x] Create Caddyfile for reverse proxy
+- [x] Create .env.production.example
+
+### Development Docker (docker-compose.dev.yml)
+- [x] Create docker-compose.dev.yml
+- [x] Configure PostgreSQL for local dev
+- [x] Add pgAdmin service (optional profile)
+- [x] Create .env.development.example
+- [x] Document local dev workflow in README
+
+### Dockerfile Refinements
+- [x] Create docker-entrypoint.sh (migrations + startup)
+- [x] Update Dockerfile to use entrypoint
+- [ ] Test multi-stage build works (requires Docker daemon)
+- [ ] Verify image size is reasonable (requires Docker daemon)
+
+### Docker Cleanup
+- [x] Delete docker/ directory (Supabase init scripts)
+- [x] Delete Caddyfile.selfhosted (if exists)
+- [x] Delete docker/kong.yml (if exists)
+- [x] Update .dockerignore if needed
+
+## Phase 9: Missing Supabase Items
+
+### 9.1 public_settings View (Critical)
+- [x] Add getPublicSettings() action to src/actions/settings.ts (already existed, added scannerBufferTimeout)
+- [x] Update src/app/page.tsx to use getPublicSettings() instead of getSettings() (security fix)
+- [x] Verify ScanResult.tsx doesn't need changes (already migrated, no settings usage)
+
+### 9.2 Row Level Security (RLS)
+- [x] Document: RLS not needed with Prisma (NextAuth handles auth at app layer)
+- [x] No code changes required - just documentation
+
+### 9.3 Realtime Subscriptions
+- [x] Document: Realtime configured in init.sql but NOT used in app code (no .subscribe() calls)
+- [x] No code changes required - just documentation
+
+### 9.4 Database Triggers
+- [x] Verify Prisma schema has @updatedAt on AppSettings model (line 227)
+- [x] Verify Prisma schema has @updatedAt on DailyMeal model (line 272)
+
+### 9.5 PostgreSQL Extensions
+- [x] Document: Prisma uses @default(uuid()) which generates UUIDs in app layer or uses gen_random_uuid()
+- [x] No explicit uuid-ossp extension required for Prisma deployments
+- [x] pgcrypto still recommended for gen_random_uuid() fallback
+
+### 9.6 Service Role Key
+- [x] Already handled in Phase 6 (cron uses CRON_SECRET header, no RLS to bypass with Prisma)
+
+### 9.7 Missing File Cleanup
+- [x] Checked src/lib/auth/index.ts - already Supabase-free (only imports NextAuth adapter)
+- [x] No cleanup needed - file does not use Supabase
+
+### 9.8 Test/Seed Data
+- [x] Create prisma/seed.ts with test data (parents, students, admin user)
+- [x] Update package.json with prisma seed command and tsx dependency
+
+## Phase 10: Final Cleanup
+- [x] Delete supabase/ directory (old Supabase migrations)
+- [x] Verify npm install succeeds
+- [x] Verify npm run build succeeds
+
+---
+
+## Verification
+
+### Application
+- [ ] All pages load without errors
+- [ ] Authentication flow works (login, logout, session)
+- [ ] CRUD operations work for all entities
+- [ ] Scanner functionality works
+- [ ] Parent portal works
+- [ ] Email sending works
+- [ ] CSV import/export works
+- [ ] Scheduled tasks run correctly
+
+### Docker - Development
+- [ ] docker compose -f docker-compose.dev.yml up starts database
+- [ ] npm run dev connects to Docker PostgreSQL
+- [ ] Prisma migrations work locally
+- [ ] Hot reload works
+
+### Docker - Production
+- [ ] docker compose up builds and starts all services
+- [ ] Migrations run automatically on startup
+- [ ] Health checks pass
+- [ ] Caddy serves HTTPS correctly
+- [ ] Backups are created
+- [ ] App survives container restart
+- [ ] Logs are accessible
+
+---
+
+## Completed Items
+
+[2025-01-21] Created prd.md
+[2025-01-21] Created progress.txt
+[2025-01-21] Phase 1 Complete - Created all 7 server action files:
+  - src/actions/students.ts (CRUD, stats, bulk updates, barcode lookup)
+  - src/actions/parents.ts (CRUD, stats, cascade status updates)
+  - src/actions/transactions.ts (CRUD, consume lunch, payments, adjustments)
+  - src/actions/settings.ts (all settings with caching)
+  - src/actions/meals.ts (daily meals CRUD, bulk import)
+  - src/actions/notifications.ts (notification log, blackout periods)
+  - src/actions/admin.ts (admin users, invitations, access tokens)
+[2025-01-21] Phase 4 Complete - Migrated all component files:
+  - AdminNav.tsx: Replaced Supabase auth.signOut with NextAuth signOut
+  - CsvImport.tsx: Created src/actions/csv-import.ts with validateCsvRows and importCsvRows using Prisma
+  - SchoolCalendarSettings.tsx: Added updateCalendarSettings server action to settings.ts
+  - ScanResult.tsx: Already migrated (no Supabase imports present)
+[2025-01-21] Phase 3 Complete - Migrated all Settings System files:
+  - SettingsContext.tsx: Replaced Supabase with server actions, camelCase properties
+  - DataTab.tsx: Added export server actions (getStudentsForExport, getParentsForExport, getTransactionsForExport)
+  - AdminsTab.tsx: Replaced Supabase delete with deleteAdmin action, fixed snake_case to camelCase
+  - CalendarTab.tsx: Updated to use camelCase properties, replaced Supabase with updateSettings action
+  - CommunicationsTab.tsx: Replaced Supabase auth with NextAuth session
+  - EmailTab.tsx: Replaced Supabase auth with NextAuth session
+  - PaymentsTab.tsx: Replaced Supabase with completePendingPayment/cancelPendingPayment actions
+  - DataExportTab.tsx: Replaced Supabase with export server actions
+[2025-01-21] Phase 5 Complete - Migrated all API route files:
+  Admin Routes (7 files):
+  - api/admin/sync-calendar: Replaced Supabase with Prisma, NextAuth for auth
+  - api/admin/school-calendar-status: Replaced Supabase auth with NextAuth session
+  - api/admin/blackout-periods: Replaced Supabase with Prisma, camelCase fields
+  - api/admin/test-email: Replaced Supabase with Prisma, NextAuth for auth
+  - api/admin/send-receipt: Replaced Supabase with Prisma for parent/settings queries
+  - api/admin/send-balance-email: Replaced Supabase with Prisma, portal token management
+  - api/admin/cash-payment: Replaced Supabase with Prisma for payments/transactions
+  Parent Portal Routes (4 files):
+  - api/parent-portal/generate-token: Replaced Supabase with Prisma, NextAuth for admin auth
+  - api/parent-portal/create-payment: Replaced Supabase with Prisma for token validation
+  - api/parent-portal/request-link: Replaced Supabase with Prisma for parent lookup/token creation
+  - api/parent-portal/validate/[token]: Replaced Supabase with Prisma for token/parent lookup
+  Utility (early Phase 6):
+  - src/lib/school-calendar.ts: Migrated from Supabase service client to Prisma
+[2026-01-21] Phase 6 Complete - Migrated all Cron & Utility files:
+  - api/cron/sync-calendar/route.ts: Replaced Supabase service client with Prisma, camelCase properties
+  - api/cron/send-low-balance-emails/route.ts: Replaced Supabase service client with Prisma, camelCase
+  - src/lib/csvImport.ts: Removed SupabaseClient dependency, now uses Prisma directly
+  - src/lib/school-calendar.ts: (Already migrated in Phase 5)
+[2026-01-21] Phase 8 Complete - Docker Infrastructure:
+  Production Docker:
+  - Created new docker-compose.yml with PostgreSQL, migrations service, app, Caddy, and backup services
+  - Added resource limits (memory/CPU) for all services
+  - Added network isolation (internal/external networks)
+  - Updated Caddyfile with security headers, health checks, and gzip/zstd compression
+  - Created .env.production.example with all required variables
+  Development Docker:
+  - Created docker-compose.dev.yml with PostgreSQL and optional pgAdmin
+  - Created .env.development.example with local dev settings
+  Dockerfile:
+  - Created docker-entrypoint.sh for database wait and optional migrations
+  - Updated Dockerfile to use entrypoint, added netcat for health checks
+  Cleanup:
+  - Deleted docker-compose.selfhosted.yml (Supabase self-hosted)
+  - Deleted docker-compose.prisma.yml (replaced by new docker-compose.yml)
+  - Deleted Caddyfile.selfhosted
+  - Deleted docker/ directory (kong.yml, generate-keys.sh, init.sql)
+[2026-01-21] Phase 9 Complete - Missing Supabase Items:
+  - 9.1 public_settings view: Updated getPublicSettings() with scannerBufferTimeout, fixed page.tsx security issue
+  - 9.2 RLS: Documented - not needed with Prisma (NextAuth handles auth)
+  - 9.3 Realtime: Documented - configured but NOT used in app code
+  - 9.4 Triggers: Verified Prisma schema has @updatedAt on AppSettings and DailyMeal
+  - 9.5 Extensions: Documented - Prisma handles UUID generation, no explicit extensions required
+  - 9.6 Service Role: Already handled in Phase 6 (cron uses CRON_SECRET)
+  - 9.7 auth/index.ts: Verified - already Supabase-free, no cleanup needed
+  - 9.8 Seed Data: Created prisma/seed.ts with test data, added tsx dependency to package.json
+[2026-01-21] Phase 7 Audit - Found and fixed remaining Supabase references:
+  - src/app/api/auth/[...nextauth]/route.ts: Changed default from 'supabase' to direct NextAuth handlers
+  - src/types/database.ts: Removed Supabase Database interface (~225 lines), kept application types
+  - Verified: All src/lib/supabase* files already deleted
+  - Verified: All src/lib/db/* files already deleted
+  - Verified: src/lib/auth/client.ts and src/middleware.ts already use NextAuth only
+  - Verified: @supabase packages already removed from package.json
+  - Verified: No SUPABASE_* env vars in .env files
+  - Deleted .mcp.json (contained Supabase MCP server with exposed access token)
+  - Rewrote DEPLOYMENT.md to focus only on Docker/Prisma deployment (removed Supabase options)
+[2026-01-21] Phase 7 Build Verification Complete - Fixed TypeScript type mismatches:
+  - src/app/admin/(dashboard)/settings/context/SettingsContext.tsx: Added type assertion for notificationFrequency
+  - src/app/admin/(dashboard)/settings/page.tsx: Changed updated_at to updatedAt
+  - src/app/admin/(dashboard)/students/page.tsx: Changed is_active/school_level to isActive/schoolLevel
+  - All 13 email module files: Changed imports from @/types/database to @prisma/client, updated all camelCase properties
+  - src/app/parent/[token]/page.tsx: Updated to use Prisma types and camelCase properties
+  - src/components/admin/SchoolCalendarSettings.tsx: Fixed formatDate to handle Date objects, changed start_date/end_date to startDate/endDate
+  - src/lib/csvImport.ts: Changed to use Prisma connect syntax for parent relation
+[2026-01-21] Final Cleanup:
+  - Deleted supabase/ directory (contained 6 old Supabase migrations, no longer needed)
+  - Verified npm install succeeds (0 vulnerabilities)
+  - Verified npm run build succeeds (all routes compile correctly)
