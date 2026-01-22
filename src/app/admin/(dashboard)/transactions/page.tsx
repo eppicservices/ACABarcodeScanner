@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import Pagination from '@/components/Pagination'
-import type { BalanceTransaction, Student } from '@/types/database'
-
-interface TransactionWithStudent extends BalanceTransaction {
-  student: Student
-}
+import {
+  getTransactions,
+  getTransactionCount,
+  getTransactionStats,
+  type TransactionWithStudent,
+} from '@/actions/transactions'
+import type { TransactionType } from '@prisma/client'
 
 type SortField = 'date' | 'amount' | 'student'
 type SortDirection = 'asc' | 'desc'
@@ -36,84 +37,51 @@ export default function TransactionsPage() {
 
   // Fetch stats separately (always from all data)
   const fetchStats = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('balance_transactions')
-      .select('transaction_type, lunches_change')
-
-    if (data) {
-      const totalLunchesAdded = data
-        .filter((tx) => tx.lunches_change > 0)
-        .reduce((sum, tx) => sum + tx.lunches_change, 0)
-      const totalLunchesUsed = data
-        .filter((tx) => tx.transaction_type === 'lunch_used')
-        .reduce((sum, tx) => sum + Math.abs(tx.lunches_change), 0)
-      const paymentCount = data.filter((tx) => tx.transaction_type === 'payment' || tx.transaction_type === 'lunch_card').length
-      const adjustmentCount = data.filter((tx) => tx.transaction_type === 'adjustment').length
-      const usedCount = data.filter((tx) => tx.transaction_type === 'lunch_used').length
-
-      setStats({ totalLunchesAdded, totalLunchesUsed, paymentCount, adjustmentCount, usedCount })
+    try {
+      const statsData = await getTransactionStats()
+      setStats(statsData)
+    } catch (error) {
+      console.error('Failed to fetch stats:', error)
     }
   }, [])
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true)
-    const supabase = createClient()
+    try {
+      // Build filters for server action
+      const filters = {
+        transactionType: filter as TransactionType | 'all',
+        limit: ITEMS_PER_PAGE,
+        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+      }
 
-    // Build query for count
-    let countQuery = supabase
-      .from('balance_transactions')
-      .select('*', { count: 'exact', head: true })
+      // Fetch count and data
+      const [count, data] = await Promise.all([
+        getTransactionCount(filters),
+        getTransactions(filters),
+      ])
 
-    // Apply filter to count query
-    if (filter !== 'all') {
-      countQuery = countQuery.eq('transaction_type', filter)
-    }
+      setTotalCount(count)
 
-    const { count } = await countQuery
-    setTotalCount(count || 0)
-
-    // Build query for data
-    let dataQuery = supabase
-      .from('balance_transactions')
-      .select('*, student:students(*)')
-
-    // Apply filter
-    if (filter !== 'all') {
-      dataQuery = dataQuery.eq('transaction_type', filter)
-    }
-
-    // Apply sorting
-    switch (sortField) {
-      case 'date':
-        dataQuery = dataQuery.order('created_at', { ascending: sortDirection === 'asc' })
-        break
-      case 'amount':
-        dataQuery = dataQuery.order('lunches_change', { ascending: sortDirection === 'asc' })
-        break
-      case 'student':
-        dataQuery = dataQuery.order('student_id', { ascending: sortDirection === 'asc' })
-        break
-    }
-
-    // Apply pagination
-    const from = (currentPage - 1) * ITEMS_PER_PAGE
-    const to = from + ITEMS_PER_PAGE - 1
-    dataQuery = dataQuery.range(from, to)
-
-    const { data, error } = await dataQuery
-
-    if (!error && data) {
-      // If sorting by student name, we need to sort client-side after fetching
-      if (sortField === 'student') {
-        const sorted = [...data].sort((a, b) => {
+      // Apply sorting (server actions return data sorted by date desc by default)
+      let sortedData = data
+      if (sortField === 'date' && sortDirection === 'asc') {
+        sortedData = [...data].reverse()
+      } else if (sortField === 'amount') {
+        sortedData = [...data].sort((a, b) => {
+          const comparison = a.lunchesChange - b.lunchesChange
+          return sortDirection === 'asc' ? comparison : -comparison
+        })
+      } else if (sortField === 'student') {
+        sortedData = [...data].sort((a, b) => {
           const comparison = a.student.name.localeCompare(b.student.name)
           return sortDirection === 'asc' ? comparison : -comparison
         })
-        setTransactions(sorted as TransactionWithStudent[])
-      } else {
-        setTransactions(data as TransactionWithStudent[])
       }
+
+      setTransactions(sortedData)
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error)
     }
     setLoading(false)
   }, [filter, sortField, sortDirection, currentPage])
@@ -276,34 +244,34 @@ export default function TransactionsPage() {
                 <tr key={tx.id}>
                   <td className="date-cell">
                     <span className="date">
-                      {new Date(tx.created_at!).toLocaleDateString()}
+                      {new Date(tx.createdAt!).toLocaleDateString()}
                     </span>
                     <span className="time">
-                      {new Date(tx.created_at!).toLocaleTimeString([], {
+                      {new Date(tx.createdAt!).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                     </span>
                   </td>
                   <td>
-                    <Link href={`/admin/students/${tx.student_id}`} className="student-link">
+                    <Link href={`/admin/students/${tx.studentId}`} className="student-link">
                       {tx.student.name}
                     </Link>
                     <span className="barcode">{tx.student.barcode}</span>
                   </td>
                   <td>
-                    <span className={`type-badge ${tx.transaction_type}`}>
-                      {tx.transaction_type === 'lunch_used' ? 'used' : tx.transaction_type === 'lunch_card' ? 'lunch card' : tx.transaction_type}
+                    <span className={`type-badge ${tx.transactionType}`}>
+                      {tx.transactionType === 'lunch_used' ? 'used' : tx.transactionType === 'lunch_card' ? 'lunch card' : tx.transactionType}
                     </span>
                   </td>
                   <td>
-                    <span className={`amount ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`}>
-                      {tx.lunches_change >= 0 ? '+' : ''}{tx.lunches_change}
+                    <span className={`amount ${tx.lunchesChange >= 0 ? 'positive' : 'negative'}`}>
+                      {tx.lunchesChange >= 0 ? '+' : ''}{tx.lunchesChange}
                     </span>
                   </td>
                   <td>
                     <span className="balance-change">
-                      {tx.previous_lunches} → {tx.new_lunches}
+                      {tx.previousLunches} → {tx.newLunches}
                     </span>
                   </td>
                   <td className="notes-cell">
@@ -343,24 +311,24 @@ export default function TransactionsPage() {
                 {transactions.map((tx, index) => (
                   <Link
                     key={tx.id}
-                    href={`/admin/students/${tx.student_id}`}
+                    href={`/admin/students/${tx.studentId}`}
                     className="list-item"
                     style={{ animationDelay: `${index * 0.02}s` }}
                   >
-                    <div className={`list-item-indicator ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`} />
+                    <div className={`list-item-indicator ${tx.lunchesChange >= 0 ? 'positive' : 'negative'}`} />
                     <div className="list-item-content">
                       <div className="list-item-top">
                         <span className="list-item-name">{tx.student.name}</span>
-                        <span className={`list-item-amount ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`}>
-                          {tx.lunches_change >= 0 ? '+' : ''}{tx.lunches_change}
+                        <span className={`list-item-amount ${tx.lunchesChange >= 0 ? 'positive' : 'negative'}`}>
+                          {tx.lunchesChange >= 0 ? '+' : ''}{tx.lunchesChange}
                         </span>
                       </div>
                       <div className="list-item-bottom">
-                        <span className={`list-item-type ${tx.transaction_type}`}>
-                          {tx.transaction_type === 'lunch_used' ? 'Used' : tx.transaction_type === 'lunch_card' ? 'Lunch Card' : tx.transaction_type.charAt(0).toUpperCase() + tx.transaction_type.slice(1)}
+                        <span className={`list-item-type ${tx.transactionType}`}>
+                          {tx.transactionType === 'lunch_used' ? 'Used' : tx.transactionType === 'lunch_card' ? 'Lunch Card' : tx.transactionType.charAt(0).toUpperCase() + tx.transactionType.slice(1)}
                         </span>
                         <span className="list-item-date">
-                          {new Date(tx.created_at!).toLocaleDateString()} • {new Date(tx.created_at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(tx.createdAt!).toLocaleDateString()} • {new Date(tx.createdAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       {tx.notes && (

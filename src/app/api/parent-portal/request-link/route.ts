@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import prisma from '@/lib/prisma'
 import { generateSecureToken, getTokenExpiryDate, getPortalUrl } from '@/lib/parent-portal'
 import { sendPortalLinkEmail } from '@/lib/email'
-import type { AppSettings } from '@/types/database'
 
 // Simple in-memory rate limiting (in production, use Redis or similar)
 const rateLimitMap = new Map<string, number>()
@@ -31,18 +30,15 @@ export async function POST(request: NextRequest) {
     // Update rate limit
     rateLimitMap.set(normalizedEmail, now)
 
-    const supabase = await createClient()
-
     // Find parent by email
-    const { data: parent, error: parentError } = await supabase
-      .from('parents')
-      .select('id, name, email, is_active')
-      .eq('email', normalizedEmail)
-      .single()
+    const parent = await prisma.parent.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, name: true, email: true, isActive: true },
+    })
 
     // Always return success to prevent email enumeration
     // Even if parent not found or inactive, show the same message
-    if (parentError || !parent) {
+    if (!parent) {
       console.log(`Parent not found for email: ${normalizedEmail}`)
       return NextResponse.json({
         success: true,
@@ -51,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If parent is inactive, don't generate token but return same message
-    if (!parent.is_active) {
+    if (!parent.isActive) {
       console.log(`Inactive parent requested link: ${normalizedEmail}`)
       return NextResponse.json({
         success: true,
@@ -60,43 +56,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Get app settings for token expiry and email
-    const { data: settings } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
+    const settings = await prisma.appSettings.findUnique({
+      where: { id: 1 },
+    })
 
-    const tokenExpiryDays = settings?.parent_token_expiry_days ?? 7
+    const tokenExpiryDays = settings?.parentTokenExpiryDays ?? 7
 
     // Generate new token
     const token = generateSecureToken()
     const expiresAt = getTokenExpiryDate(tokenExpiryDays)
 
     // Delete any existing tokens for this parent
-    await supabase
-      .from('parent_access_tokens')
-      .delete()
-      .eq('parent_id', parent.id)
+    await prisma.parentAccessToken.deleteMany({
+      where: { parentId: parent.id },
+    })
 
     // Insert new token
-    const { error: tokenError } = await supabase
-      .from('parent_access_tokens')
-      .insert({
-        parent_id: parent.id,
+    await prisma.parentAccessToken.create({
+      data: {
+        parentId: parent.id,
         token,
-        expires_at: expiresAt
-      })
-
-    if (tokenError) {
-      console.error('Error creating token:', tokenError)
-      return NextResponse.json({ error: 'Failed to generate link' }, { status: 500 })
-    }
+        expiresAt: new Date(expiresAt),
+      },
+    })
 
     const portalUrl = getPortalUrl(token)
 
     // Send email with portal link
     if (settings) {
-      const emailResult = await sendPortalLinkEmail(settings as AppSettings, {
+      const emailResult = await sendPortalLinkEmail(settings, {
         parentName: parent.name,
         parentEmail: parent.email,
         portalUrl,

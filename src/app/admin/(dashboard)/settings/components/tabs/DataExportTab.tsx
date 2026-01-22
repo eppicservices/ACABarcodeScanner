@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useSettings } from '../../context/SettingsContext'
+import { getStudentsForExport } from '@/actions/students'
+import { getParentsForExport } from '@/actions/parents'
+import { getTransactionsForExport } from '@/actions/transactions'
 
 export function DataExportTab() {
   const { setMessage } = useSettings()
@@ -12,59 +14,55 @@ export function DataExportTab() {
     setMessage(null)
     setExporting(type)
 
-    const supabase = createClient()
-    let query
-    let filename
+    try {
+      let data: Record<string, unknown>[]
+      let filename: string
 
-    if (type === 'students') {
-      query = supabase.from('students').select('*, parent:parents(name, email)')
-      filename = 'students.csv'
-    } else if (type === 'transactions') {
-      query = supabase.from('balance_transactions').select('*, student:students(name, barcode)')
-      filename = 'transactions.csv'
-    } else {
-      query = supabase.from('parents').select('*')
-      filename = 'parents.csv'
+      if (type === 'students') {
+        data = await getStudentsForExport()
+        filename = 'students.csv'
+      } else if (type === 'transactions') {
+        data = await getTransactionsForExport()
+        filename = 'transactions.csv'
+      } else {
+        data = await getParentsForExport()
+        filename = 'parents.csv'
+      }
+
+      if (!data || data.length === 0) {
+        setMessage({ type: 'error', text: 'No data to export' })
+        setExporting(null)
+        return
+      }
+
+      // Convert to CSV
+      const headers = Object.keys(data[0])
+      const csvContent = [
+        headers.join(','),
+        ...data.map(row =>
+          headers.map(h => {
+            const val = row[h]
+            if (typeof val === 'object') return JSON.stringify(val)
+            if (typeof val === 'string' && val.includes(',')) return `"${val}"`
+            return val
+          }).join(',')
+        )
+      ].join('\n')
+
+      // Download
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+
+      setMessage({ type: 'success', text: `${type} exported successfully` })
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to export data' })
     }
 
-    const { data, error } = await query
-
-    if (error) {
-      setMessage({ type: 'error', text: error.message })
-      setExporting(null)
-      return
-    }
-
-    if (!data || data.length === 0) {
-      setMessage({ type: 'error', text: 'No data to export' })
-      setExporting(null)
-      return
-    }
-
-    // Convert to CSV
-    const headers = Object.keys(data[0])
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row =>
-        headers.map(h => {
-          const val = row[h as keyof typeof row]
-          if (typeof val === 'object') return JSON.stringify(val)
-          if (typeof val === 'string' && val.includes(',')) return `"${val}"`
-          return val
-        }).join(',')
-      )
-    ].join('\n')
-
-    // Download
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-
-    setMessage({ type: 'success', text: `${type} exported successfully` })
     setExporting(null)
   }
 

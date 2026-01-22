@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 
 // Generate a cryptographically secure token
 export function generateSecureToken(length: number = 64): string {
@@ -45,13 +45,13 @@ export function calculateLunches(
 ): number {
   if (isLunchCard && schoolLevel === 'high_school') {
     // Lunch card gives fixed number of lunches
-    const cardsCount = Math.floor(amount / settings.highschool_lunch_card_price)
-    return cardsCount * settings.highschool_lunch_card_lunches
+    const cardsCount = Math.floor(amount / Number(settings.highschoolLunchCardPrice))
+    return cardsCount * settings.highschoolLunchCardLunches
   }
 
   const pricePerLunch = schoolLevel === 'elementary'
-    ? settings.elementary_lunch_price
-    : settings.highschool_lunch_price
+    ? Number(settings.elementaryLunchPrice)
+    : Number(settings.highschoolLunchPrice)
 
   return Math.floor(amount / pricePerLunch)
 }

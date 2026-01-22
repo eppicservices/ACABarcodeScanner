@@ -1,26 +1,24 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth/nextauth-config'
+import prisma from '@/lib/prisma'
 import { checkSchoolCalendarStatus } from '@/lib/school-calendar'
 
 // GET - Check current school calendar status
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

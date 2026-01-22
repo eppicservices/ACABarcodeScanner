@@ -103,9 +103,9 @@ function SettingsContent() {
 
       <EmailPreviewModal />
 
-      {settings?.updated_at && (
+      {settings?.updatedAt && (
         <p className="last-updated">
-          Last updated: {new Date(settings.updated_at).toLocaleString()}
+          Last updated: {new Date(settings.updatedAt).toLocaleString()}
         </p>
       )}
 

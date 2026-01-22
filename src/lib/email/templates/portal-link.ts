@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import type { PortalLinkEmailData } from '../types'
 import { getLogoUrl } from './shared'
 
@@ -6,9 +6,9 @@ import { getLogoUrl } from './shared'
  * Generates the HTML portal access link email
  */
 export function generatePortalLinkHtml(data: PortalLinkEmailData, schoolName: string, settings: AppSettings): string {
-  const primaryColor = settings.primary_color || '#002c5f'
-  const accentColor = settings.accent_color || '#00b1c1'
-  const tokenExpiryDays = settings.parent_token_expiry_days || 7
+  const primaryColor = settings.primaryColor || '#002c5f'
+  const accentColor = settings.accentColor || '#00b1c1'
+  const tokenExpiryDays = settings.parentTokenExpiryDays || 7
   const logoUrl = getLogoUrl(settings)
 
   const expiryDate = data.expiresAt.toLocaleDateString('en-US', {
@@ -84,7 +84,7 @@ export function generatePortalLinkHtml(data: PortalLinkEmailData, schoolName: st
  * Generates a plain text version of the portal link email
  */
 export function generatePortalLinkText(data: PortalLinkEmailData, schoolName: string, settings: AppSettings): string {
-  const tokenExpiryDays = settings.parent_token_expiry_days || 7
+  const tokenExpiryDays = settings.parentTokenExpiryDays || 7
   const expiryDate = data.expiresAt.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',

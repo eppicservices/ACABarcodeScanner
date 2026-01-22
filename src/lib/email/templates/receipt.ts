@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import type { ReceiptData } from '../types'
 import { getLogoUrl } from './shared'
 
@@ -7,8 +7,8 @@ import { getLogoUrl } from './shared'
  */
 export function generateReceiptHtml(data: ReceiptData, schoolName: string, settings: AppSettings): string {
   const logoUrl = getLogoUrl(settings)
-  const primaryColor = settings.primary_color || '#002c5f'
-  const secondaryColor = settings.secondary_color || '#ffc82e'
+  const primaryColor = settings.primaryColor || '#002c5f'
+  const secondaryColor = settings.secondaryColor || '#ffc82e'
 
   const formattedDate = data.date.toLocaleDateString('en-US', {
     weekday: 'long',

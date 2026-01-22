@@ -1,15 +1,16 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   parseCsv,
-  validateRows,
-  importRows,
   downloadCsvTemplate,
-  ParsedRow,
-  ImportResult,
 } from '@/lib/csvImport'
+import {
+  validateCsvRows,
+  importCsvRows,
+  type ParsedRow,
+  type ImportResult,
+} from '@/actions/csv-import'
 
 type ImportStep = 'upload' | 'preview' | 'importing' | 'complete'
 
@@ -19,8 +20,6 @@ export default function CsvImport() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const supabase = createClient()
 
   const handleFile = useCallback(async (file: File) => {
     setError(null)
@@ -39,13 +38,13 @@ export default function CsvImport() {
         return
       }
 
-      const validated = await validateRows(rows, supabase)
+      const validated = await validateCsvRows(rows)
       setParsedRows(validated)
       setStep('preview')
     } catch (err) {
       setError(`Failed to parse CSV: ${err}`)
     }
-  }, [supabase])
+  }, [])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -62,7 +61,7 @@ export default function CsvImport() {
 
   const handleImport = async () => {
     setStep('importing')
-    const result = await importRows(parsedRows, supabase)
+    const result = await importCsvRows(parsedRows)
     setImportResult(result)
     setStep('complete')
   }

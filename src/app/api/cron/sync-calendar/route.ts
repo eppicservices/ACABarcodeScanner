@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import prisma from '@/lib/prisma'
 
 interface CalendarEvent {
   uid: string
@@ -79,7 +79,7 @@ function parseICalFeed(icalData: string): CalendarEvent[] {
 }
 
 // Cron-compatible endpoint for scheduled calendar sync
-// Can be called by Vercel Cron, external cron services, etc.
+// Can be called by Vercel Cron, external cron services, Docker cron, etc.
 // Requires CRON_SECRET environment variable for authentication
 export async function GET(request: NextRequest) {
   try {
@@ -91,28 +91,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Use service role key for cron jobs (bypasses RLS)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Get calendar settings using Prisma
+    const settings = await prisma.appSettings.findFirst()
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Get calendar settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('app_settings')
-      .select('calendar_url, calendar_enabled')
-      .eq('id', 1)
-      .single()
-
-    if (settingsError || !settings) {
+    if (!settings) {
       return NextResponse.json({ error: 'Could not load settings' }, { status: 500 })
     }
 
-    if (!settings.calendar_enabled || !settings.calendar_url) {
+    if (!settings.calendarEnabled || !settings.calendarUrl) {
       return NextResponse.json({
         success: true,
         message: 'Calendar sync is disabled or no URL configured',
@@ -123,7 +109,7 @@ export async function GET(request: NextRequest) {
     // Fetch the iCal feed
     let icalData: string
     try {
-      const response = await fetch(settings.calendar_url, {
+      const response = await fetch(settings.calendarUrl, {
         headers: {
           'Accept': 'text/calendar',
           'User-Agent': 'ACABarcodeScanner/1.0'
@@ -160,32 +146,33 @@ export async function GET(request: NextRequest) {
     let imported = 0
 
     for (const event of relevantEvents) {
-      const { data: existing } = await supabase
-        .from('daily_meals')
-        .select('id, source')
-        .eq('meal_date', event.dateStart)
-        .single()
+      const mealDate = new Date(event.dateStart)
+
+      const existing = await prisma.dailyMeal.findUnique({
+        where: { mealDate },
+        select: { id: true, source: true }
+      })
 
       if (existing) {
         if (existing.source === 'calendar') {
-          await supabase
-            .from('daily_meals')
-            .update({
-              meal_name: event.summary,
-              calendar_event_id: event.uid
-            })
-            .eq('id', existing.id)
+          await prisma.dailyMeal.update({
+            where: { id: existing.id },
+            data: {
+              mealName: event.summary,
+              calendarEventId: event.uid
+            }
+          })
           imported++
         }
       } else {
-        await supabase
-          .from('daily_meals')
-          .insert({
-            meal_date: event.dateStart,
-            meal_name: event.summary,
+        await prisma.dailyMeal.create({
+          data: {
+            mealDate,
+            mealName: event.summary,
             source: 'calendar',
-            calendar_event_id: event.uid
-          })
+            calendarEventId: event.uid
+          }
+        })
         imported++
       }
     }

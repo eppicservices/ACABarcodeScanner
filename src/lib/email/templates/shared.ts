@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 
 /**
  * Default logo URL (ACA horizontal white logo)
@@ -9,5 +9,5 @@ export const DEFAULT_LOGO_URL = 'https://www.aldersgatechristian.com/wp-content/
  * Gets the logo URL from settings or returns the default
  */
 export function getLogoUrl(settings: AppSettings): string {
-  return settings.school_logo_url || DEFAULT_LOGO_URL
+  return settings.schoolLogoUrl || DEFAULT_LOGO_URL
 }

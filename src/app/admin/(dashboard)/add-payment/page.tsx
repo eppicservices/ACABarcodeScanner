@@ -2,18 +2,15 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import type { Parent, Student, AppSettings } from '@/types/database'
+import { getParentsWithStudents, type ParentWithStudents } from '@/actions/parents'
+import { getSettingsForClient, type SerializedAppSettings } from '@/actions/settings'
 import { calculateLunches } from '@/lib/parent-portal'
+import type { SchoolLevel } from '@prisma/client'
 
 interface StudentAmount {
-  student_id: string
+  studentId: string
   amount: string
   isLunchCard: boolean
-}
-
-interface ParentWithStudents extends Parent {
-  students: Student[]
 }
 
 const PAYMENT_METHODS = [
@@ -30,7 +27,7 @@ function AddPaymentContent() {
 
   const [parents, setParents] = useState<ParentWithStudents[]>([])
   const [selectedParent, setSelectedParent] = useState<ParentWithStudents | null>(null)
-  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [settings, setSettings] = useState<SerializedAppSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [amounts, setAmounts] = useState<StudentAmount[]>([])
@@ -42,9 +39,9 @@ function AddPaymentContent() {
   const handleSelectParent = useCallback((parent: ParentWithStudents) => {
     setSelectedParent(parent)
     // Only set amounts for active students
-    const activeStudents = parent.students.filter(s => s.is_active)
+    const activeStudents = parent.students.filter(s => s.isActive)
     setAmounts(activeStudents.map(s => ({
-      student_id: s.id,
+      studentId: s.id,
       amount: '',
       isLunchCard: false
     })))
@@ -52,27 +49,29 @@ function AddPaymentContent() {
   }, [])
 
   const fetchData = useCallback(async () => {
-    const supabase = createClient()
-    const [parentsRes, settingsRes] = await Promise.all([
-      supabase.from('parents').select('*, students(*)').order('name'),
-      supabase.from('app_settings').select('*').eq('id', 1).single()
-    ])
+    try {
+      const [parentsData, settingsData] = await Promise.all([
+        getParentsWithStudents(),
+        getSettingsForClient()
+      ])
 
-    if (parentsRes.data) {
-      setParents(parentsRes.data as ParentWithStudents[])
+      setParents(parentsData)
       // Update selected parent with fresh data
       setSelectedParent(prev => {
         if (prev) {
-          const updatedParent = parentsRes.data.find((p: ParentWithStudents) => p.id === prev.id)
+          const updatedParent = parentsData.find((p) => p.id === prev.id)
           if (updatedParent) {
-            return updatedParent as ParentWithStudents
+            return updatedParent
           }
         }
         return prev
       })
-    }
-    if (settingsRes.data) {
-      setSettings(settingsRes.data)
+
+      if (settingsData) {
+        setSettings(settingsData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
     }
     setLoading(false)
   }, [])
@@ -92,7 +91,7 @@ function AddPaymentContent() {
 
   function updateAmount(studentId: string, value: string, isLunchCard: boolean = false) {
     setAmounts(prev => prev.map(a =>
-      a.student_id === studentId
+      a.studentId === studentId
         ? { ...a, amount: value, isLunchCard }
         : a
     ))
@@ -100,7 +99,7 @@ function AddPaymentContent() {
 
   function addQuickAmount(studentId: string, addValue: number) {
     setAmounts(prev => prev.map(a => {
-      if (a.student_id !== studentId) return a
+      if (a.studentId !== studentId) return a
       const current = parseFloat(a.amount) || 0
       return { ...a, amount: (current + addValue).toFixed(2), isLunchCard: false }
     }))
@@ -109,14 +108,14 @@ function AddPaymentContent() {
   function setLunchCard(studentId: string) {
     if (!settings) return
     setAmounts(prev => prev.map(a =>
-      a.student_id === studentId
-        ? { ...a, amount: settings.highschool_lunch_card_price.toFixed(2), isLunchCard: true }
+      a.studentId === studentId
+        ? { ...a, amount: Number(settings.highschoolLunchCardPrice).toFixed(2), isLunchCard: true }
         : a
     ))
   }
 
   function getStudentAmount(studentId: string): StudentAmount {
-    return amounts.find(a => a.student_id === studentId) || { student_id: studentId, amount: '', isLunchCard: false }
+    return amounts.find(a => a.studentId === studentId) || { studentId: studentId, amount: '', isLunchCard: false }
   }
 
   function getTotal(): number {
@@ -129,16 +128,16 @@ function AddPaymentContent() {
     return amounts
       .filter(a => parseFloat(a.amount) > 0)
       .map(a => {
-        const student = selectedParent.students.find(s => s.id === a.student_id)!
+        const student = selectedParent.students.find(s => s.id === a.studentId)!
         const amount = parseFloat(a.amount)
-        const lunches = calculateLunches(amount, student.school_level, settings, a.isLunchCard)
+        const lunches = calculateLunches(amount, student.schoolLevel as 'elementary' | 'high_school', settings, a.isLunchCard)
         return {
-          student_id: a.student_id,
-          student_name: student.name,
+          studentId: a.studentId,
+          studentName: student.name,
           amount,
-          lunches_to_add: lunches,
-          is_lunch_card: a.isLunchCard,
-          new_balance: student.balance + lunches
+          lunchesToAdd: lunches,
+          isLunchCard: a.isLunchCard,
+          newBalance: student.balance + lunches
         }
       })
   }
@@ -150,12 +149,22 @@ function AddPaymentContent() {
     setMessage(null)
 
     try {
+      // Convert to API format (snake_case for backwards compatibility until API is migrated)
+      const paymentItems = getPaymentItems().map(item => ({
+        student_id: item.studentId,
+        student_name: item.studentName,
+        amount: item.amount,
+        lunches_to_add: item.lunchesToAdd,
+        is_lunch_card: item.isLunchCard,
+        new_balance: item.newBalance
+      }))
+
       const res = await fetch('/api/admin/cash-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           parent_id: selectedParent.id,
-          student_payments: getPaymentItems(),
+          student_payments: paymentItems,
           total_amount: getTotal(),
           payment_method: paymentMethod,
           notes: notes || null
@@ -173,8 +182,8 @@ function AddPaymentContent() {
       setMessage({ type: 'success', text: 'Payment recorded successfully! Receipt email sent to parent.' })
 
       // Reset form (only active students)
-      setAmounts(selectedParent.students.filter(s => s.is_active).map(s => ({
-        student_id: s.id,
+      setAmounts(selectedParent.students.filter(s => s.isActive).map(s => ({
+        studentId: s.id,
         amount: '',
         isLunchCard: false
       })))
@@ -192,8 +201,8 @@ function AddPaymentContent() {
 
   // Only show active parents with active students
   const filteredParents = parents.filter(p =>
-    p.is_active &&
-    p.students.some(s => s.is_active) &&
+    p.isActive &&
+    p.students.some(s => s.isActive) &&
     (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.email.toLowerCase().includes(searchQuery.toLowerCase()))
   )
@@ -284,7 +293,7 @@ function AddPaymentContent() {
                 <div className="parent-info">
                   <span className="parent-name">{parent.name}</span>
                   <span className="parent-email">{parent.email}</span>
-                  <span className="student-count">{parent.students.filter(s => s.is_active).length} student{parent.students.filter(s => s.is_active).length !== 1 ? 's' : ''}</span>
+                  <span className="student-count">{parent.students.filter(s => s.isActive).length} student{parent.students.filter(s => s.isActive).length !== 1 ? 's' : ''}</span>
                 </div>
               </button>
             ))}
@@ -312,16 +321,16 @@ function AddPaymentContent() {
               </div>
 
               <div className="students-list">
-                {selectedParent.students.filter(s => s.is_active).map(student => {
+                {selectedParent.students.filter(s => s.isActive).map(student => {
                   const studentAmount = getStudentAmount(student.id)
                   const amount = parseFloat(studentAmount.amount) || 0
                   const lunches = amount > 0 && settings
-                    ? calculateLunches(amount, student.school_level, settings, studentAmount.isLunchCard)
+                    ? calculateLunches(amount, student.schoolLevel as 'elementary' | 'high_school', settings, studentAmount.isLunchCard)
                     : 0
                   const pricePerLunch = settings
-                    ? (student.school_level === 'elementary'
-                        ? settings.elementary_lunch_price
-                        : settings.highschool_lunch_price)
+                    ? (student.schoolLevel === 'elementary'
+                        ? Number(settings.elementaryLunchPrice)
+                        : Number(settings.highschoolLunchPrice))
                     : 0
                   const newBalance = student.balance + lunches
 
@@ -334,7 +343,7 @@ function AddPaymentContent() {
                         <div className="student-info">
                           <h3>{student.name}</h3>
                           <span className="school-level">
-                            {student.school_level === 'elementary' ? 'Elementary' : 'High School'} • ${pricePerLunch.toFixed(2)}/lunch
+                            {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'} • ${pricePerLunch.toFixed(2)}/lunch
                           </span>
                         </div>
                       </div>
@@ -385,13 +394,13 @@ function AddPaymentContent() {
                           <button type="button" onClick={() => addQuickAmount(student.id, 20)}>+$20</button>
                           <button type="button" onClick={() => addQuickAmount(student.id, 50)}>+$50</button>
                           <button type="button" onClick={() => addQuickAmount(student.id, 100)}>+$100</button>
-                          {student.school_level === 'high_school' && settings && (
+                          {student.schoolLevel === 'high_school' && settings && (
                             <button
                               type="button"
                               className={`lunch-card-btn ${studentAmount.isLunchCard ? 'active' : ''}`}
                               onClick={() => setLunchCard(student.id)}
                             >
-                              Lunch Card ${settings.highschool_lunch_card_price}
+                              Lunch Card ${Number(settings.highschoolLunchCardPrice)}
                             </button>
                           )}
                         </div>
@@ -406,11 +415,11 @@ function AddPaymentContent() {
                   <h3>Payment Summary</h3>
                   <div className="summary-items">
                     {paymentItems.map(item => (
-                      <div key={item.student_id} className="summary-item">
-                        <span>{item.student_name}</span>
+                      <div key={item.studentId} className="summary-item">
+                        <span>{item.studentName}</span>
                         <span>
-                          ${item.amount.toFixed(2)} ({item.lunches_to_add} {item.lunches_to_add === 1 ? 'lunch' : 'lunches'})
-                          {item.is_lunch_card && <span className="lunch-card-tag">Card</span>}
+                          ${item.amount.toFixed(2)} ({item.lunchesToAdd} {item.lunchesToAdd === 1 ? 'lunch' : 'lunches'})
+                          {item.isLunchCard && <span className="lunch-card-tag">Card</span>}
                         </span>
                       </div>
                     ))}

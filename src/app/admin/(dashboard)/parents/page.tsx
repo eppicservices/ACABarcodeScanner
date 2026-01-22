@@ -3,13 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import Pagination from '@/components/Pagination'
-import type { Parent, Student, ActiveFilter } from '@/types/database'
+import {
+  getParentsWithStudents,
+  getParentStats,
+  updateParentsStatus,
+  updateParentsAndStudentsStatus,
+  type ParentWithStudents,
+} from '@/actions/parents'
 
-interface ParentWithStudents extends Parent {
-  students: Student[]
-}
+type ActiveFilter = 'all' | 'active' | 'inactive'
 
 type SortField = 'name' | 'balance' | 'children'
 type SortDirection = 'asc' | 'desc'
@@ -44,24 +47,11 @@ export default function ParentsPage() {
 
   // Fetch stats separately (always from all data)
   const fetchStats = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('parents')
-      .select('is_active, students(is_active)')
-
-    if (data) {
-      const activeParents = data.filter(p => p.is_active)
-      const totalStudents = activeParents.reduce((sum, p) =>
-        sum + (p.students as Student[]).filter(s => s.is_active).length, 0)
-      const parentsWithMultipleKids = activeParents.filter(p =>
-        (p.students as Student[]).filter(s => s.is_active).length > 1).length
-
-      setStats({
-        activeCount: activeParents.length,
-        inactiveCount: data.filter(p => !p.is_active).length,
-        totalStudents,
-        parentsWithMultipleKids,
-      })
+    try {
+      const stats = await getParentStats()
+      setStats(stats)
+    } catch (error) {
+      console.error('Failed to fetch parent stats:', error)
     }
   }, [])
 
@@ -95,68 +85,28 @@ export default function ParentsPage() {
 
   const fetchParents = useCallback(async () => {
     setLoading(true)
-    const supabase = createClient()
+    try {
+      const allData = await getParentsWithStudents({
+        status: statusFilter,
+        search,
+        sortField,
+        sortDirection,
+      })
 
-    // Build data query
-    let dataQuery = supabase
-      .from('parents')
-      .select('*, students(*)')
-
-    // Apply status filter
-    if (statusFilter === 'active') {
-      dataQuery = dataQuery.eq('is_active', true)
-    } else if (statusFilter === 'inactive') {
-      dataQuery = dataQuery.eq('is_active', false)
-    }
-
-    // Apply sorting (name only - balance and children need client-side)
-    if (sortField === 'name') {
-      dataQuery = dataQuery.order('name', { ascending: sortDirection === 'asc' })
-    } else {
-      dataQuery = dataQuery.order('name')
-    }
-
-    const { data: allData, error } = await dataQuery
-
-    if (!error && allData) {
-      let filteredData = allData as ParentWithStudents[]
-
-      // Apply search filter client-side (needed for email search)
-      if (search) {
-        const searchLower = search.toLowerCase()
-        filteredData = filteredData.filter((parent) =>
-          parent.name.toLowerCase().includes(searchLower) ||
-          parent.email.toLowerCase().includes(searchLower)
-        )
-      }
-
-      // Apply sorting for balance and children (client-side)
-      if (sortField !== 'name') {
-        filteredData.sort((a, b) => {
-          let comparison = 0
-          switch (sortField) {
-            case 'balance':
-              comparison = getFamilyBalance(a) - getFamilyBalance(b)
-              break
-            case 'children':
-              comparison = a.students.length - b.students.length
-              break
-          }
-          return sortDirection === 'asc' ? comparison : -comparison
-        })
-      }
-
-      // Update total count after search filtering
-      setTotalCount(filteredData.length)
+      // Update total count after filtering
+      setTotalCount(allData.length)
 
       // Apply pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE
       const to = from + ITEMS_PER_PAGE
-      const paginatedData = filteredData.slice(from, to)
+      const paginatedData = allData.slice(from, to)
 
       setParents(paginatedData)
+    } catch (error) {
+      console.error('Failed to fetch parents:', error)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [statusFilter, sortField, sortDirection, search, currentPage])
 
   useEffect(() => {
@@ -190,25 +140,13 @@ export default function ParentsPage() {
     setBulkUpdating(true)
     setShowCascadeModal(false)
     try {
-      const supabase = createClient()
       const parentIds = Array.from(selectedParents)
-
-      // Update parents
-      const { error: parentError } = await supabase
-        .from('parents')
-        .update({ is_active: setActive })
-        .in('id', parentIds)
-
-      if (parentError) throw parentError
 
       // If deactivating and cascade is requested, also deactivate students
       if (!setActive && cascadeToStudents) {
-        const { error: studentError } = await supabase
-          .from('students')
-          .update({ is_active: false })
-          .in('parent_id', parentIds)
-
-        if (studentError) throw studentError
+        await updateParentsAndStudentsStatus(parentIds, setActive)
+      } else {
+        await updateParentsStatus(parentIds, setActive)
       }
 
       await fetchParents()
@@ -539,7 +477,12 @@ export default function ParentsPage() {
             </thead>
             <tbody>
               {parents.map((parent, index) => (
-                <tr key={parent.id} className={!parent.is_active ? 'inactive-row' : ''} style={{ animationDelay: `${index * 30}ms` }}>
+                <tr 
+                  key={parent.id} 
+                  className={`clickable-row ${!parent.isActive ? 'inactive-row' : ''}`} 
+                  style={{ animationDelay: `${index * 30}ms` }}
+                  onClick={() => router.push(`/admin/parents/${parent.id}`)}
+                >
                   <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
@@ -548,11 +491,8 @@ export default function ParentsPage() {
                     />
                   </td>
                   <td className="name-cell">
-                    <div
-                      className="parent-info clickable"
-                      onClick={() => router.push(`/admin/parents/${parent.id}`)}
-                    >
-                      <div className={`avatar ${!parent.is_active ? 'inactive' : ''}`}>
+                    <div className="parent-info">
+                      <div className={`avatar ${!parent.isActive ? 'inactive' : ''}`}>
                         {parent.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="parent-name">{parent.name}</span>
@@ -563,42 +503,38 @@ export default function ParentsPage() {
                   </td>
                   <td>
                     <div className="contact-info">
-                      <a href={`mailto:${parent.email}`} className="email-link">
+                      <a 
+                        href={`mailto:${parent.email}`} 
+                        className="email-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                           <polyline points="22,6 12,13 2,6" />
                         </svg>
                         {parent.email}
                       </a>
-                      {parent.phone && (
-                        <span className="phone">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                          </svg>
-                          {parent.phone}
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td>
                     <div className="children-info">
                       <span className="student-count">
-                        {parent.students.filter(s => s.is_active).length} {parent.students.filter(s => s.is_active).length === 1 ? 'child' : 'children'}
+                        {parent.students.filter(s => s.isActive).length}
                       </span>
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${parent.is_active ? 'active' : 'inactive'}`}>
-                      {parent.is_active ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${parent.isActive ? 'active' : 'inactive'}`}>
+                      {parent.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td>
-                    <div className="action-buttons">
+                    <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => sendBalanceEmail(parent.id)}
-                        disabled={sendingEmailFor === parent.id || !parent.is_active}
-                        className={`action-btn email-btn ${emailSuccess === parent.id ? 'success' : ''} ${!parent.is_active ? 'disabled-action' : ''}`}
-                        title={!parent.is_active ? 'Cannot email inactive parent' : ''}
+                        disabled={sendingEmailFor === parent.id || !parent.isActive}
+                        className={`action-btn email-btn ${emailSuccess === parent.id ? 'success' : ''} ${!parent.isActive ? 'disabled-action' : ''}`}
+                        title={!parent.isActive ? 'Cannot email inactive parent' : ''}
                       >
                         {sendingEmailFor === parent.id ? (
                           <>
@@ -622,13 +558,18 @@ export default function ParentsPage() {
                           </>
                         )}
                       </button>
-                      <Link href={`/admin/add-payment?parent=${parent.id}`} className={`action-btn payment-btn ${!parent.is_active ? 'disabled-action' : ''}`}>
+                      <button
+                        onClick={() => router.push(`/admin/add-payment?parent=${parent.id}`)}
+                        disabled={!parent.isActive}
+                        className={`action-btn payment-btn ${!parent.isActive ? 'disabled-action' : ''}`}
+                        title={!parent.isActive ? 'Cannot add payment for inactive parent' : ''}
+                      >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="12" y1="1" x2="12" y2="23" />
                           <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                         </svg>
                         Add Payment
-                      </Link>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -694,7 +635,7 @@ export default function ParentsPage() {
                 {parents.map((parent, index) => (
                   <div
                     key={parent.id}
-                    className={`list-item ${!parent.is_active ? 'inactive-item' : ''}`}
+                    className={`list-item ${!parent.isActive ? 'inactive-item' : ''}`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
                     <input
@@ -704,17 +645,17 @@ export default function ParentsPage() {
                       onChange={() => toggleParentSelection(parent.id)}
                     />
                     <Link href={`/admin/parents/${parent.id}`} className="list-item-link">
-                      <div className={`list-item-avatar ${!parent.is_active ? 'inactive' : ''}`}>
+                      <div className={`list-item-avatar ${!parent.isActive ? 'inactive' : ''}`}>
                         {parent.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="list-item-content">
                         <div className="list-item-name">
                           {parent.name}
-                          {!parent.is_active && <span className="inactive-badge-small">Inactive</span>}
+                          {!parent.isActive && <span className="inactive-badge-small">Inactive</span>}
                         </div>
                         <div className="list-item-meta">
                           <span className="list-item-children-count">
-                            {parent.students.filter(s => s.is_active).length} {parent.students.filter(s => s.is_active).length === 1 ? 'child' : 'children'}
+                            {parent.students.filter(s => s.isActive).length}
                           </span>
                           <span className="list-item-email">{parent.email}</span>
                         </div>
@@ -1450,34 +1391,27 @@ export default function ParentsPage() {
           }
         }
 
-        .data-table tbody tr:hover {
+        .data-table tbody tr:last-child td {
+          border-bottom: none;
+        }
+
+        .clickable-row {
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .clickable-row:hover {
           background: var(--gray-50);
         }
 
-        .data-table tbody tr:last-child td {
-          border-bottom: none;
+        .clickable-row:active {
+          background: var(--gray-100);
         }
 
         .parent-info {
           display: flex;
           align-items: center;
           gap: 12px;
-        }
-
-        .parent-info.clickable {
-          cursor: pointer;
-          padding: 8px 12px;
-          margin: -8px -12px;
-          border-radius: var(--border-radius);
-          transition: all var(--transition-fast);
-        }
-
-        .parent-info.clickable:hover {
-          background: var(--gray-50);
-        }
-
-        .parent-info.clickable:active {
-          background: var(--gray-100);
         }
 
         .name-chevron {
@@ -1487,7 +1421,7 @@ export default function ParentsPage() {
           margin-left: auto;
         }
 
-        .parent-info.clickable:hover .name-chevron {
+        .clickable-row:hover .name-chevron {
           opacity: 1;
           transform: translateX(2px);
         }
@@ -1530,24 +1464,18 @@ export default function ParentsPage() {
           color: var(--aca-teal-dark);
         }
 
-        .phone {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 13px;
-          color: var(--gray-400);
-        }
-
         .children-info {
           display: flex;
           flex-direction: column;
           gap: 8px;
+          align-items: center;
         }
 
         .student-count {
           font-weight: 600;
           font-size: 14px;
           color: var(--gray-600);
+          text-align: center;
         }
 
         .action-btn {
@@ -1633,12 +1561,20 @@ export default function ParentsPage() {
         }
 
         .payment-btn {
-          background: var(--success-bg);
-          color: var(--success);
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
+          border: none;
+          cursor: pointer;
         }
 
-        .payment-btn:hover {
-          background: #bbf7d0;
+        .payment-btn:hover:not(:disabled) {
+          background: var(--aca-teal);
+          color: var(--white);
+        }
+
+        .payment-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
         }
 
         .empty-state {

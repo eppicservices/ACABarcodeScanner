@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useSettings } from '../../context/SettingsContext'
 import { HorizontalTabs } from '../HorizontalTabs'
 import SchoolCalendarSettings from '@/components/admin/SchoolCalendarSettings'
+import { updateSettings } from '@/actions/settings'
 
 function SchoolCalendarContent() {
   const { settings, fetchData, setMessage } = useSettings()
@@ -32,8 +32,8 @@ function MealCalendarContent() {
   // Initialize form from settings
   useEffect(() => {
     if (settings) {
-      setCalendarUrl(settings.calendar_url || '')
-      setCalendarEnabled(settings.calendar_enabled || false)
+      setCalendarUrl(settings.calendarUrl || '')
+      setCalendarEnabled(settings.calendarEnabled || false)
     }
   }, [settings])
 
@@ -41,7 +41,7 @@ function MealCalendarContent() {
   useEffect(() => {
     async function autoSync() {
       if (hasAutoSynced.current) return
-      if (!settings?.calendar_enabled || !settings?.calendar_url) return
+      if (!settings?.calendarEnabled || !settings?.calendarUrl) return
 
       hasAutoSynced.current = true
       setSyncing(true)
@@ -50,7 +50,7 @@ function MealCalendarContent() {
         const response = await fetch('/api/admin/sync-calendar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ calendar_url: settings.calendar_url })
+          body: JSON.stringify({ calendar_url: settings.calendarUrl })
         })
 
         const result = await response.json()
@@ -74,24 +74,15 @@ function MealCalendarContent() {
     setSaving(true)
     setMessage(null)
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { error } = await supabase
-      .from('app_settings')
-      .update({
-        calendar_url: calendarUrl || null,
-        calendar_enabled: calendarEnabled,
-        updated_at: new Date().toISOString(),
-        updated_by: user?.id || null
+    try {
+      await updateSettings({
+        calendarUrl: calendarUrl || null,
+        calendarEnabled: calendarEnabled,
       })
-      .eq('id', 1)
-
-    if (error) {
-      setMessage({ type: 'error', text: error.message })
-    } else {
       setMessage({ type: 'success', text: 'Calendar settings saved' })
       fetchData()
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save settings' })
     }
 
     setSaving(false)

@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import type { BalanceEmailData } from '../types'
 import { getLogoUrl } from './shared'
 
@@ -41,8 +41,8 @@ export function generateBalanceHtml(data: BalanceEmailData, schoolName: string, 
     }
 
     const lunchPrice = student.schoolLevel === 'elementary'
-      ? settings.elementary_lunch_price
-      : settings.highschool_lunch_price
+      ? Number(settings.elementaryLunchPrice)
+      : Number(settings.highschoolLunchPrice)
     const lunchesValue = student.balance * lunchPrice
 
     return `
@@ -61,9 +61,9 @@ export function generateBalanceHtml(data: BalanceEmailData, schoolName: string, 
     `
   }).join('')
 
-  const primaryColor = settings.primary_color || '#002c5f'
-  const accentColor = settings.accent_color || '#00b1c1'
-  const tokenExpiryDays = settings.parent_token_expiry_days || 7
+  const primaryColor = settings.primaryColor || '#002c5f'
+  const accentColor = settings.accentColor || '#00b1c1'
+  const tokenExpiryDays = settings.parentTokenExpiryDays || 7
   const logoUrl = getLogoUrl(settings)
 
   return `
@@ -150,12 +150,12 @@ export function generateBalanceHtml(data: BalanceEmailData, schoolName: string, 
  */
 export function generateBalanceText(data: BalanceEmailData, schoolName: string, settings: AppSettings): string {
   const totalBalance = data.students.reduce((sum, s) => sum + s.balance, 0)
-  const tokenExpiryDays = settings.parent_token_expiry_days || 7
+  const tokenExpiryDays = settings.parentTokenExpiryDays || 7
 
   const studentsText = data.students.map(student => {
     const lunchPrice = student.schoolLevel === 'elementary'
-      ? settings.elementary_lunch_price
-      : settings.highschool_lunch_price
+      ? Number(settings.elementaryLunchPrice)
+      : Number(settings.highschoolLunchPrice)
     const lunchesValue = student.balance * lunchPrice
     return `  - ${student.name} (${student.schoolLevel.replace('_', ' ')}): ${student.balance} lunches (~$${lunchesValue.toFixed(2)} value)`
   }).join('\n')

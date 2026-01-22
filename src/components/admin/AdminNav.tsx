@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { signOut } from 'next-auth/react'
 
 const navItems = [
   { href: '/admin/students', label: 'Students', icon: 'users' },
@@ -18,7 +18,6 @@ const navItems = [
 export default function AdminNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -49,9 +48,7 @@ export default function AdminNav() {
   }, [isOpen, isMobile])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/admin/login')
-    router.refresh()
+    await signOut({ callbackUrl: '/admin/login' })
   }
 
   const handleNavClick = () => {

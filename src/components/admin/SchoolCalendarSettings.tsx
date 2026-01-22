@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { EmailBlackoutPeriod, AppSettings } from '@/types/database'
+import { updateCalendarSettings } from '@/actions/settings'
+import type { AppSettings, EmailBlackoutPeriod } from '@prisma/client'
 
 interface SchoolCalendarSettingsProps {
   settings: AppSettings | null
@@ -68,12 +68,18 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
 
   useEffect(() => {
     if (settings) {
+      // Convert Date objects to date strings for form inputs
+      const formatDateForInput = (date: Date | string | null): string => {
+        if (!date) return ''
+        if (typeof date === 'string') return date.split('T')[0]
+        return date.toISOString().split('T')[0]
+      }
       setLocalSettings({
-        school_calendar_enabled: settings.school_calendar_enabled ?? false,
-        fall_semester_start: settings.fall_semester_start || '',
-        fall_semester_end: settings.fall_semester_end || '',
-        spring_semester_start: settings.spring_semester_start || '',
-        spring_semester_end: settings.spring_semester_end || ''
+        school_calendar_enabled: settings.schoolCalendarEnabled ?? false,
+        fall_semester_start: formatDateForInput(settings.fallSemesterStart),
+        fall_semester_end: formatDateForInput(settings.fallSemesterEnd),
+        spring_semester_start: formatDateForInput(settings.springSemesterStart),
+        spring_semester_end: formatDateForInput(settings.springSemesterEnd)
       })
     }
   }, [settings])
@@ -94,38 +100,30 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
   const handleSaveCalendarSettings = async () => {
     setSaving(true)
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const result = await updateCalendarSettings({
+        schoolCalendarEnabled: localSettings.school_calendar_enabled,
+        fallSemesterStart: localSettings.fall_semester_start || null,
+        fallSemesterEnd: localSettings.fall_semester_end || null,
+        springSemesterStart: localSettings.spring_semester_start || null,
+        springSemesterEnd: localSettings.spring_semester_end || null,
+      })
 
-      const { error } = await supabase
-        .from('app_settings')
-        .update({
-          school_calendar_enabled: localSettings.school_calendar_enabled,
-          fall_semester_start: localSettings.fall_semester_start || null,
-          fall_semester_end: localSettings.fall_semester_end || null,
-          spring_semester_start: localSettings.spring_semester_start || null,
-          spring_semester_end: localSettings.spring_semester_end || null,
-          updated_at: new Date().toISOString(),
-          updated_by: user?.id || null
-        })
-        .eq('id', 1)
-
-      if (error) {
-        onMessage({ type: 'error', text: error.message })
+      if (!result.success) {
+        onMessage({ type: 'error', text: result.error || 'Failed to save settings' })
       } else {
         onMessage({ type: 'success', text: 'School calendar settings saved' })
         // Update parent settings
         onSettingsChange({
-          school_calendar_enabled: localSettings.school_calendar_enabled,
-          fall_semester_start: localSettings.fall_semester_start || null,
-          fall_semester_end: localSettings.fall_semester_end || null,
-          spring_semester_start: localSettings.spring_semester_start || null,
-          spring_semester_end: localSettings.spring_semester_end || null
+          schoolCalendarEnabled: localSettings.school_calendar_enabled,
+          fallSemesterStart: localSettings.fall_semester_start ? new Date(localSettings.fall_semester_start) : null,
+          fallSemesterEnd: localSettings.fall_semester_end ? new Date(localSettings.fall_semester_end) : null,
+          springSemesterStart: localSettings.spring_semester_start ? new Date(localSettings.spring_semester_start) : null,
+          springSemesterEnd: localSettings.spring_semester_end ? new Date(localSettings.spring_semester_end) : null
         })
         // Refresh status
         await fetchCalendarStatus()
       }
-    } catch (error) {
+    } catch {
       onMessage({ type: 'error', text: 'Failed to save settings' })
     }
     setSaving(false)
@@ -181,9 +179,9 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
     }
   }
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return ''
-    const date = new Date(dateStr + 'T00:00:00')
+  const formatDate = (dateInput: Date | string) => {
+    if (!dateInput) return ''
+    const date = typeof dateInput === 'string' ? new Date(dateInput + 'T00:00:00') : dateInput
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
@@ -356,7 +354,7 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
                       <div className="blackout-info">
                         <strong>{period.name}</strong>
                         <span className="blackout-dates">
-                          {formatDate(period.start_date)} - {formatDate(period.end_date)}
+                          {formatDate(period.startDate)} - {formatDate(period.endDate)}
                         </span>
                         {period.description && (
                           <span className="blackout-desc">{period.description}</span>

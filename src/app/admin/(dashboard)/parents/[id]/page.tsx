@@ -3,10 +3,30 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import type { Parent, Student } from '@/types/database'
+import {
+  getParentById,
+  updateParent,
+  deleteParent,
+} from '@/actions/parents'
+import type { SchoolLevel } from '@prisma/client'
 
-interface ParentWithStudents extends Parent {
+interface Student {
+  id: string
+  name: string
+  barcode: string
+  balance: number
+  schoolLevel: SchoolLevel
+  isActive: boolean
+}
+
+interface ParentWithStudents {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  address: string | null
+  isActive: boolean
+  createdAt: Date
   students: Student[]
 }
 
@@ -29,27 +49,29 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   const [refetchTrigger, setRefetchTrigger] = useState(0)
 
   useEffect(() => {
-    const supabase = createClient()
     let isMounted = true
 
     async function fetchParent() {
-      const { data } = await supabase
-        .from('parents')
-        .select('*, students(*)')
-        .eq('id', id)
-        .single()
+      try {
+        const data = await getParentById(id)
 
-      if (isMounted) {
-        if (data) {
-          const p = data as ParentWithStudents
-          setParent(p)
-          setName(p.name)
-          setEmail(p.email)
-          setPhone(p.phone || '')
-          setAddress(p.address || '')
-          setIsActive(p.is_active)
+        if (isMounted) {
+          if (data) {
+            const p = data as ParentWithStudents
+            setParent(p)
+            setName(p.name)
+            setEmail(p.email)
+            setPhone(p.phone || '')
+            setAddress(p.address || '')
+            setIsActive(p.isActive)
+          }
+          setLoading(false)
         }
-        setLoading(false)
+      } catch (error) {
+        console.error('Failed to fetch parent:', error)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
@@ -66,27 +88,23 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     setSuccess(null)
     setSaving(true)
 
-    const supabase = createClient()
-    const { error: saveError } = await supabase
-      .from('parents')
-      .update({
+    try {
+      await updateParent(id, {
         name,
         email,
         phone: phone || null,
         address: address || null,
-        is_active: isActive,
+        isActive,
       })
-      .eq('id', id)
 
-    if (saveError) {
-      setError(saveError.message)
-    } else {
       setSuccess('Parent updated successfully')
       setIsEditing(false)
       setRefetchTrigger(prev => prev + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update parent')
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   function handleCancelEdit() {
@@ -95,7 +113,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
       setEmail(parent.email)
       setPhone(parent.phone || '')
       setAddress(parent.address || '')
-      setIsActive(parent.is_active)
+      setIsActive(parent.isActive)
     }
     setIsEditing(false)
     setError(null)
@@ -104,22 +122,15 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   async function handleDelete() {
     if (!parent) return
 
-    if (parent.students.length > 0) {
-      setError('Cannot delete parent with students. Please reassign or delete their students first.')
-      return
-    }
-
     if (!confirm('Are you sure you want to delete this parent?')) {
       return
     }
 
-    const supabase = createClient()
-    const { error: deleteError } = await supabase.from('parents').delete().eq('id', id)
-
-    if (deleteError) {
-      setError('Failed to delete parent: ' + deleteError.message)
-    } else {
+    try {
+      await deleteParent(id)
       router.push('/admin/parents')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete parent')
     }
   }
 
@@ -416,8 +427,8 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 <div className="detail-item">
                   <span className="detail-label">Status</span>
                   <span className="detail-value">
-                    <span className={`status-badge ${parent.is_active ? 'active' : 'inactive'}`}>
-                      {parent.is_active ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${parent.isActive ? 'active' : 'inactive'}`}>
+                      {parent.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </span>
                 </div>
@@ -469,8 +480,8 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                       <div className="student-details">
                         <span className="student-name">{student.name}</span>
                         <span className="student-info">
-                          <span className={`level-dot ${student.school_level}`} />
-                          {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                          <span className={`level-dot ${student.schoolLevel}`} />
+                          {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
                           <span className="balance">${student.balance.toFixed(2)}</span>
                         </span>
                       </div>

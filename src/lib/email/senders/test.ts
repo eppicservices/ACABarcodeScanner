@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import { getEmailTransporter } from '../transporter'
 import { getLogoUrl } from '../templates/shared'
 
@@ -15,10 +15,10 @@ export async function sendTestEmail(
     return { success: false, error: 'Email not configured' }
   }
 
-  const fromName = settings.email_from_name || settings.school_name || 'ACA Lunch Program'
-  const fromAddress = settings.email_from_address || settings.gmail_user || settings.smtp_user || 'noreply@school.com'
-  const schoolName = settings.school_name || 'Aldersgate Christian Academy'
-  const primaryColor = settings.primary_color || '#002c5f'
+  const fromName = settings.emailFromName || settings.schoolName || 'ACA Lunch Program'
+  const fromAddress = settings.emailFromAddress || settings.gmailUser || settings.smtpUser || 'noreply@school.com'
+  const schoolName = settings.schoolName || 'Aldersgate Christian Academy'
+  const primaryColor = settings.primaryColor || '#002c5f'
   const logoUrl = getLogoUrl(settings)
 
   try {

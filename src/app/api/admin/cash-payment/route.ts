@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth/nextauth-config'
+import prisma from '@/lib/prisma'
 import { sendReceiptEmail, type ReceiptData, type ReceiptItem } from '@/lib/email'
-import type { AppSettings } from '@/types/database'
 
 interface StudentPaymentItem {
   student_id: string
@@ -25,22 +25,19 @@ function getPaymentMethodLabel(method: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -52,24 +49,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Get parent info for email
-    const { data: parent, error: parentError } = await supabase
-      .from('parents')
-      .select('id, name, email')
-      .eq('id', parent_id)
-      .single()
+    const parent = await prisma.parent.findUnique({
+      where: { id: parent_id },
+      select: { id: true, name: true, email: true },
+    })
 
-    if (parentError || !parent) {
+    if (!parent) {
       return NextResponse.json({ error: 'Parent not found' }, { status: 404 })
     }
 
     // Get app settings for email
-    const { data: settings, error: settingsError } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
+    const settings = await prisma.appSettings.findUnique({
+      where: { id: 1 },
+    })
 
-    if (settingsError || !settings) {
+    if (!settings) {
       return NextResponse.json({ error: 'Could not load settings' }, { status: 500 })
     }
 
@@ -78,14 +72,15 @@ export async function POST(request: NextRequest) {
     // Process each student payment
     for (const sp of student_payments as StudentPaymentItem[]) {
       // Verify student belongs to parent
-      const { data: student, error: studentError } = await supabase
-        .from('students')
-        .select('id, balance, parent_id')
-        .eq('id', sp.student_id)
-        .eq('parent_id', parent_id)
-        .single()
+      const student = await prisma.student.findFirst({
+        where: {
+          id: sp.student_id,
+          parentId: parent_id,
+        },
+        select: { id: true, balance: true, parentId: true },
+      })
 
-      if (studentError || !student) {
+      if (!student) {
         return NextResponse.json({ error: `Student ${sp.student_name} not found or does not belong to this parent` }, { status: 400 })
       }
 
@@ -93,34 +88,24 @@ export async function POST(request: NextRequest) {
       const newBalance = previousBalance + sp.lunches_to_add
 
       // Update student balance
-      const { error: updateError } = await supabase
-        .from('students')
-        .update({ balance: newBalance })
-        .eq('id', sp.student_id)
-
-      if (updateError) {
-        console.error('Error updating student balance:', updateError)
-        return NextResponse.json({ error: 'Failed to update student balance' }, { status: 500 })
-      }
+      await prisma.student.update({
+        where: { id: sp.student_id },
+        data: { balance: newBalance },
+      })
 
       // Create transaction record
-      const { error: transactionError } = await supabase
-        .from('balance_transactions')
-        .insert({
-          student_id: sp.student_id,
-          lunches_change: sp.lunches_to_add,
-          previous_lunches: previousBalance,
-          new_lunches: newBalance,
-          amount_paid: sp.amount,
-          lunches_added: sp.lunches_to_add,
-          transaction_type: sp.is_lunch_card ? 'lunch_card' : 'payment',
+      await prisma.balanceTransaction.create({
+        data: {
+          studentId: sp.student_id,
+          lunchesChange: sp.lunches_to_add,
+          previousLunches: previousBalance,
+          newLunches: newBalance,
+          amountPaid: sp.amount,
+          lunchesAdded: sp.lunches_to_add,
+          transactionType: sp.is_lunch_card ? 'lunch_card' : 'payment',
           notes: notes ? `${paymentMethodLabel} payment - ${notes}` : `${paymentMethodLabel} payment`,
-          created_by: user.id
-        })
-
-      if (transactionError) {
-        console.error('Error creating transaction:', transactionError)
-      }
+        },
+      })
 
       // Add to receipt items
       receiptItems.push({
@@ -133,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send receipt email
-    if (settings.email_provider !== 'none') {
+    if (settings.emailProvider !== 'none') {
       const receiptData: ReceiptData = {
         parentName: parent.name,
         parentEmail: parent.email,
@@ -143,7 +128,7 @@ export async function POST(request: NextRequest) {
         date: new Date()
       }
 
-      const emailResult = await sendReceiptEmail(settings as AppSettings, receiptData)
+      const emailResult = await sendReceiptEmail(settings, receiptData)
       if (!emailResult.success) {
         console.error('Failed to send receipt email:', emailResult.error)
         // Don't fail the request if email fails, just log it

@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
-import { lookupStudentByBarcode, consumeLunch, StudentRecord, getFullSettings } from '@/lib/supabase';
-import type { AppSettings } from '@/types/database';
+import { getPublicSettings, type PublicSettings } from '@/actions/settings';
+import { getStudentByBarcode } from '@/actions/students';
+import { consumeLunch } from '@/actions/transactions';
 
 type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient' | 'inactive';
 
@@ -26,13 +27,13 @@ export default function Home() {
   const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
   const [scanBuffer, setScanBuffer] = useState('');
   const [isReady, setIsReady] = useState(true);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settings, setSettings] = useState<PublicSettings | null>(null);
   const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resultTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch settings on mount
+  // Fetch public settings on mount (only non-sensitive settings)
   useEffect(() => {
-    getFullSettings().then(setSettings);
+    getPublicSettings().then(setSettings);
   }, []);
 
   const processCode = useCallback(async (code: string) => {
@@ -49,8 +50,8 @@ export default function Home() {
       return;
     }
 
-    // Look up student in Supabase
-    const student: StudentRecord | null = await lookupStudentByBarcode(trimmedCode);
+    // Look up student in database
+    const student = await getStudentByBarcode(trimmedCode);
 
     if (!student) {
       setScanResult({
@@ -62,7 +63,7 @@ export default function Home() {
     }
 
     // Check if student is inactive
-    if (!student.is_active) {
+    if (!student.isActive) {
       setScanResult({
         code: trimmedCode,
         status: 'inactive',
@@ -73,12 +74,12 @@ export default function Home() {
     }
 
     // Try to use a lunch (decrement balance)
-    const result = await consumeLunch(student.id, student.school_level, student.balance);
-    const level = student.school_level === 'elementary' ? 'Elementary' : 'High School';
+    const result = await consumeLunch(student.id);
+    const level = student.schoolLevel === 'elementary' ? 'Elementary' : 'High School';
 
     if (result.success) {
       setScannedCodes((prev) => new Set(prev).add(trimmedCode));
-      if (student.school_level === 'elementary') {
+      if (student.schoolLevel === 'elementary') {
         setElementaryCount((prev) => prev + 1);
       } else {
         setHighSchoolCount((prev) => prev + 1);
@@ -128,7 +129,7 @@ export default function Home() {
         setScanBuffer((prev) => prev + e.key);
 
         // Clear buffer after configured timeout (scanner types fast)
-        const bufferTimeout = settings?.scanner_buffer_timeout ?? 100;
+        const bufferTimeout = settings?.scannerBufferTimeout ?? 100;
         if (bufferTimeoutRef.current) {
           clearTimeout(bufferTimeoutRef.current);
         }
@@ -145,13 +146,13 @@ export default function Home() {
         clearTimeout(bufferTimeoutRef.current);
       }
     };
-  }, [scanBuffer, isManualEntryOpen, processCode, settings?.scanner_buffer_timeout]);
+  }, [scanBuffer, isManualEntryOpen, processCode, settings?.scannerBufferTimeout]);
 
   // Auto-dismiss result after configured duration
   useEffect(() => {
     if (scanResult) {
       setIsReady(false);
-      const displayDuration = settings?.scan_display_duration ?? 3000;
+      const displayDuration = settings?.scanDisplayDuration ?? 3000;
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
       }
@@ -166,7 +167,7 @@ export default function Home() {
         clearTimeout(resultTimeoutRef.current);
       }
     };
-  }, [scanResult, settings?.scan_display_duration]);
+  }, [scanResult, settings?.scanDisplayDuration]);
 
   const handleDismissResult = () => {
     setScanResult(null);
@@ -184,8 +185,8 @@ export default function Home() {
       <header className="header">
         <div className="logo-container">
           <Image
-            src={settings?.school_logo_url || DEFAULT_LOGO_URL}
-            alt={settings?.school_name || 'School Logo'}
+            src={settings?.schoolLogoUrl || DEFAULT_LOGO_URL}
+            alt={settings?.schoolName || 'School Logo'}
             width={220}
             height={55}
             className="logo"
@@ -248,7 +249,7 @@ export default function Home() {
         </div>
 
         {/* Action Button - only show if manual entry is enabled */}
-        {(settings?.manual_entry_enabled !== false) && (
+        {(settings?.manualEntryEnabled !== false) && (
           <div className="action-buttons">
             <button
               className="btn btn-outline btn-lg"
@@ -266,7 +267,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="footer">
-        <p>{settings?.school_name || 'School Lunch Program'}</p>
+        <p>{settings?.schoolName || 'School Lunch Program'}</p>
       </footer>
 
       {/* Manual Entry Modal */}

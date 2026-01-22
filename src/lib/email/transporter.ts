@@ -1,33 +1,33 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
-import type { AppSettings, EmailProvider } from '@/types/database'
+import type { AppSettings, EmailProvider } from '@prisma/client'
 
 /**
  * Creates an email transporter based on the configured provider
  */
 export function getEmailTransporter(settings: AppSettings): Transporter | null {
-  const provider = settings.email_provider as EmailProvider
+  const provider = settings.emailProvider as EmailProvider
 
   if (provider === 'none') {
     return null
   }
 
   if (provider === 'gmail') {
-    if (!settings.gmail_user || !settings.gmail_app_password) {
+    if (!settings.gmailUser || !settings.gmailAppPassword) {
       console.error('Gmail credentials not configured')
       return null
     }
     return nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: settings.gmail_user,
-        pass: settings.gmail_app_password
+        user: settings.gmailUser,
+        pass: settings.gmailAppPassword
       }
     })
   }
 
   if (provider === 'sendgrid') {
-    if (!settings.sendgrid_api_key) {
+    if (!settings.sendgridApiKey) {
       console.error('SendGrid API key not configured')
       return null
     }
@@ -37,23 +37,23 @@ export function getEmailTransporter(settings: AppSettings): Transporter | null {
       secure: false,
       auth: {
         user: 'apikey',
-        pass: settings.sendgrid_api_key
+        pass: settings.sendgridApiKey
       }
     })
   }
 
   if (provider === 'smtp') {
-    if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_password) {
+    if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
       console.error('SMTP credentials not configured')
       return null
     }
     return nodemailer.createTransport({
-      host: settings.smtp_host,
-      port: settings.smtp_port || 587,
-      secure: settings.smtp_secure,
+      host: settings.smtpHost,
+      port: settings.smtpPort || 587,
+      secure: settings.smtpSecure,
       auth: {
-        user: settings.smtp_user,
-        pass: settings.smtp_password
+        user: settings.smtpUser,
+        pass: settings.smtpPassword
       }
     })
   }

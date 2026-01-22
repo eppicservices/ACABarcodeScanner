@@ -3,11 +3,21 @@
 import { useState, useEffect, useCallback, use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import type { ParentWithStudents, AppSettings, Student, StudentPaymentItem } from '@/types/database'
+import type { AppSettings, Parent, Student } from '@prisma/client'
+
+type ParentWithStudents = Parent & { students: Student[] }
+
+interface StudentPaymentItem {
+  studentId: string
+  studentName: string
+  amount: number
+  lunchesToAdd: number
+  isLunchCard: boolean
+}
 import { getDaysUntilExpiry, calculateLunches } from '@/lib/parent-portal'
 
 interface StudentAmount {
-  student_id: string
+  studentId: string
   amount: string
   isLunchCard: boolean
 }
@@ -34,7 +44,7 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
       }
 
       // Check if parent portal is enabled
-      if (data.settings?.parent_portal_enabled === false) {
+      if (data.settings?.parentPortalEnabled === false) {
         setError('The parent portal is currently disabled. Please contact the school for assistance.')
         setLoading(false)
         return
@@ -64,7 +74,7 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
 
   function updateAmount(studentId: string, value: string, isLunchCard: boolean = false) {
     setAmounts(prev => prev.map(a =>
-      a.student_id === studentId
+      a.studentId === studentId
         ? { ...a, amount: value, isLunchCard }
         : a
     ))
@@ -72,7 +82,7 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
 
   function addQuickAmount(studentId: string, addValue: number) {
     setAmounts(prev => prev.map(a => {
-      if (a.student_id !== studentId) return a
+      if (a.studentId !== studentId) return a
       const current = parseFloat(a.amount) || 0
       return { ...a, amount: (current + addValue).toFixed(2), isLunchCard: false }
     }))
@@ -81,14 +91,14 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
   function setLunchCard(studentId: string) {
     if (!settings) return
     setAmounts(prev => prev.map(a =>
-      a.student_id === studentId
-        ? { ...a, amount: settings.highschool_lunch_card_price.toFixed(2), isLunchCard: true }
+      a.studentId === studentId
+        ? { ...a, amount: Number(settings.highschoolLunchCardPrice).toFixed(2), isLunchCard: true }
         : a
     ))
   }
 
   function getStudentAmount(studentId: string): StudentAmount {
-    return amounts.find(a => a.student_id === studentId) || { student_id: studentId, amount: '', isLunchCard: false }
+    return amounts.find(a => a.studentId === studentId) || { studentId: studentId, amount: '', isLunchCard: false }
   }
 
   function getTotal(): number {
@@ -98,9 +108,9 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
   // Calculate minimum payment required to cover negative balance
   function getMinimumPayment(student: Student): number {
     if (!settings || student.balance >= 0) return 0
-    const pricePerLunch = student.school_level === 'elementary'
-      ? settings.elementary_lunch_price
-      : settings.highschool_lunch_price
+    const pricePerLunch = student.schoolLevel === 'elementary'
+      ? Number(settings.elementaryLunchPrice)
+      : Number(settings.highschoolLunchPrice)
     // Need enough to cover the negative balance (e.g., -3 lunches * $4 = $12 minimum)
     return Math.abs(student.balance) * pricePerLunch
   }
@@ -123,15 +133,15 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
     return amounts
       .filter(a => parseFloat(a.amount) > 0)
       .map(a => {
-        const student = parent.students.find(s => s.id === a.student_id)!
+        const student = parent.students.find(s => s.id === a.studentId)!
         const amount = parseFloat(a.amount)
-        const lunches = calculateLunches(amount, student.school_level, settings, a.isLunchCard)
+        const lunches = calculateLunches(amount, student.schoolLevel, settings, a.isLunchCard)
         return {
-          student_id: a.student_id,
-          student_name: student.name,
+          studentId: a.studentId,
+          studentName: student.name,
           amount,
-          lunches_to_add: lunches,
-          is_lunch_card: a.isLunchCard
+          lunchesToAdd: lunches,
+          isLunchCard: a.isLunchCard
         }
       })
   }
@@ -237,12 +247,12 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
           const studentAmount = getStudentAmount(student.id)
           const amount = parseFloat(studentAmount.amount) || 0
           const lunches = amount > 0 && settings
-            ? calculateLunches(amount, student.school_level, settings, studentAmount.isLunchCard)
+            ? calculateLunches(amount, student.schoolLevel, settings, studentAmount.isLunchCard)
             : 0
           const pricePerLunch = settings
-            ? (student.school_level === 'elementary'
-                ? settings.elementary_lunch_price
-                : settings.highschool_lunch_price)
+            ? (student.schoolLevel === 'elementary'
+                ? Number(settings.elementaryLunchPrice)
+                : Number(settings.highschoolLunchPrice))
             : 0
           const newBalance = student.balance + lunches
           const minimumPayment = getMinimumPayment(student)
@@ -257,7 +267,7 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
                 <div className="student-info">
                   <h3>{student.name}</h3>
                   <span className="school-level">
-                    {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                    {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
                   </span>
                 </div>
               </div>
@@ -333,13 +343,13 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
                   <button type="button" onClick={() => addQuickAmount(student.id, 20)}>+$20</button>
                   <button type="button" onClick={() => addQuickAmount(student.id, 50)}>+$50</button>
                   <button type="button" onClick={() => addQuickAmount(student.id, 100)}>+$100</button>
-                  {student.school_level === 'high_school' && settings && (
+                  {student.schoolLevel === 'high_school' && settings && (
                     <button
                       type="button"
                       className={`lunch-card-btn ${studentAmount.isLunchCard ? 'active' : ''}`}
                       onClick={() => setLunchCard(student.id)}
                     >
-                      Lunch Card ${settings.highschool_lunch_card_price}
+                      Lunch Card ${Number(settings.highschoolLunchCardPrice)}
                     </button>
                   )}
                 </div>
@@ -354,11 +364,11 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
           <h3>Payment Summary</h3>
           <div className="summary-items">
             {paymentItems.map(item => (
-              <div key={item.student_id} className="summary-item">
-                <span>{item.student_name}</span>
+              <div key={item.studentId} className="summary-item">
+                <span>{item.studentName}</span>
                 <span>
-                  ${item.amount.toFixed(2)} ({item.lunches_to_add} {item.lunches_to_add === 1 ? 'lunch' : 'lunches'})
-                  {item.is_lunch_card && <span className="lunch-card-tag">Card</span>}
+                  ${item.amount.toFixed(2)} ({item.lunchesToAdd} {item.lunchesToAdd === 1 ? 'lunch' : 'lunches'})
+                  {item.isLunchCard && <span className="lunch-card-tag">Card</span>}
                 </span>
               </div>
             ))}

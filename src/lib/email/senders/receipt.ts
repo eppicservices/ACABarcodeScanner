@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import type { ReceiptData } from '../types'
 import { getEmailTransporter } from '../transporter'
 import { generateReceiptHtml, generateReceiptText } from '../templates/receipt'
@@ -16,9 +16,9 @@ export async function sendReceiptEmail(
     return { success: false, error: 'Email not configured' }
   }
 
-  const fromName = settings.email_from_name || settings.school_name || 'ACA Lunch Program'
-  const fromAddress = settings.email_from_address || settings.gmail_user || settings.smtp_user || 'noreply@school.com'
-  const schoolName = settings.school_name || 'Aldersgate Christian Academy'
+  const fromName = settings.emailFromName || settings.schoolName || 'ACA Lunch Program'
+  const fromAddress = settings.emailFromAddress || settings.gmailUser || settings.smtpUser || 'noreply@school.com'
+  const schoolName = settings.schoolName || 'Aldersgate Christian Academy'
 
   const formattedDate = data.date.toLocaleDateString('en-US', {
     month: 'short',

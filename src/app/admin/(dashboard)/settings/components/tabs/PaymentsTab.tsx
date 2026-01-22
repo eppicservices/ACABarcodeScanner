@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useSession } from 'next-auth/react'
 import { useSettings } from '../../context/SettingsContext'
+import { completePendingPayment, cancelPendingPayment, type StudentPaymentItem } from '@/actions/transactions'
 
 export function PaymentsTab() {
   const { pendingPayments, setMessage, fetchData } = useSettings()
+  const { data: session } = useSession()
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
 
   async function handleCompletePayment(paymentId: string) {
@@ -17,85 +19,40 @@ export function PaymentsTab() {
     const payment = pendingPayments.find(p => p.id === paymentId)
     if (!payment) return
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Track new balances for receipt
-    const receiptItems: { student_name: string; amount: number; lunches: number; is_lunch_card: boolean; new_balance: number }[] = []
-
-    // Process each student payment
-    for (const sp of payment.student_payments) {
-      // Get current student balance
-      const { data: student } = await supabase
-        .from('students')
-        .select('balance')
-        .eq('id', sp.student_id)
-        .single()
-
-      if (!student) continue
-
-      const previousBalance = student.balance
-      const newBalance = previousBalance + sp.lunches_to_add
-
-      // Update student balance
-      await supabase
-        .from('students')
-        .update({ balance: newBalance })
-        .eq('id', sp.student_id)
-
-      // Create transaction record
-      await supabase
-        .from('balance_transactions')
-        .insert({
-          student_id: sp.student_id,
-          lunches_change: sp.lunches_to_add,
-          previous_lunches: previousBalance,
-          new_lunches: newBalance,
-          amount_paid: sp.amount,
-          lunches_added: sp.lunches_to_add,
-          transaction_type: sp.is_lunch_card ? 'lunch_card' : 'payment',
-          notes: 'Online payment via parent portal',
-          created_by: user?.id || null
-        })
-
-      // Add to receipt items
-      receiptItems.push({
-        student_name: sp.student_name,
-        amount: sp.amount,
-        lunches: sp.lunches_to_add,
-        is_lunch_card: sp.is_lunch_card,
-        new_balance: newBalance
-      })
-    }
-
-    // Mark payment as completed
-    await supabase
-      .from('pending_payments')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        completed_by: user?.id || null
-      })
-      .eq('id', paymentId)
-
-    // Send receipt email
     try {
-      await fetch('/api/admin/send-receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parent_id: payment.parent_id,
-          payment_method: 'online',
-          items: receiptItems,
-          total: payment.total_amount
+      // Convert studentPayments to the expected format
+      const studentPayments: StudentPaymentItem[] = (payment.studentPayments as StudentPaymentItem[]).map(sp => ({
+        studentId: sp.studentId,
+        studentName: sp.studentName,
+        amount: sp.amount,
+        lunchesToAdd: sp.lunchesToAdd,
+        isLunchCard: sp.isLunchCard || false
+      }))
+
+      const result = await completePendingPayment(paymentId, studentPayments, session?.user?.email || undefined)
+
+      // Send receipt email
+      try {
+        await fetch('/api/admin/send-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parent_id: payment.parentId,
+            payment_method: 'online',
+            items: result.receiptItems,
+            total: payment.totalAmount
+          })
         })
-      })
-    } catch {
-      // Don't fail if email fails, just log it
-      console.error('Failed to send receipt email')
+      } catch {
+        // Don't fail if email fails, just log it
+        console.error('Failed to send receipt email')
+      }
+
+      setMessage({ type: 'success', text: 'Payment completed and lunches added!' })
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to complete payment' })
     }
 
-    setMessage({ type: 'success', text: 'Payment completed and lunches added!' })
     setProcessingPayment(null)
     fetchData()
   }
@@ -103,14 +60,13 @@ export function PaymentsTab() {
   async function handleCancelPayment(paymentId: string) {
     if (!confirm('Cancel this pending payment?')) return
 
-    const supabase = createClient()
-    await supabase
-      .from('pending_payments')
-      .update({ status: 'cancelled' })
-      .eq('id', paymentId)
-
-    setMessage({ type: 'success', text: 'Payment cancelled' })
-    fetchData()
+    try {
+      await cancelPendingPayment(paymentId)
+      setMessage({ type: 'success', text: 'Payment cancelled' })
+      fetchData()
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to cancel payment' })
+    }
   }
 
   return (
@@ -135,21 +91,21 @@ export function PaymentsTab() {
             <div key={payment.id} className="payment-card">
               <div className="payment-header">
                 <div className="payment-info">
-                  <strong>{payment.parent_name || 'Unknown Parent'}</strong>
+                  <strong>{payment.parentName || 'Unknown Parent'}</strong>
                   <span className="payment-date">
-                    {new Date(payment.created_at).toLocaleDateString()} at {new Date(payment.created_at).toLocaleTimeString()}
+                    {new Date(payment.createdAt).toLocaleDateString()} at {new Date(payment.createdAt).toLocaleTimeString()}
                   </span>
                 </div>
-                <div className="payment-total">${payment.total_amount.toFixed(2)}</div>
+                <div className="payment-total">${payment.totalAmount.toFixed(2)}</div>
               </div>
 
               <div className="payment-students">
-                {payment.student_payments.map((sp, idx) => (
+                {(payment.studentPayments as StudentPaymentItem[]).map((sp, idx) => (
                   <div key={idx} className="student-payment">
-                    <span className="student-name">{sp.student_name}</span>
+                    <span className="student-name">{sp.studentName}</span>
                     <span className="student-amount">
-                      ${sp.amount.toFixed(2)} → {sp.lunches_to_add} {sp.lunches_to_add === 1 ? 'lunch' : 'lunches'}
-                      {sp.is_lunch_card && <span className="lunch-card-tag">Card</span>}
+                      ${sp.amount.toFixed(2)} → {sp.lunchesToAdd} {sp.lunchesToAdd === 1 ? 'lunch' : 'lunches'}
+                      {sp.isLunchCard && <span className="lunch-card-tag">Card</span>}
                     </span>
                   </div>
                 ))}

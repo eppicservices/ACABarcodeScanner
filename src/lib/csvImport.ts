@@ -1,4 +1,5 @@
-import { SupabaseClient } from '@supabase/supabase-js'
+import prisma from '@/lib/prisma'
+import type { SchoolLevel } from '@prisma/client'
 
 export interface CsvRow {
   student_name: string
@@ -111,17 +112,14 @@ function parseCSVLine(line: string): string[] {
   return result
 }
 
-// Validate parsed rows
-export async function validateRows(
-  rows: CsvRow[],
-  supabase: SupabaseClient
-): Promise<ParsedRow[]> {
-  // Get existing barcodes from database
-  const { data: existingStudents } = await supabase
-    .from('students')
-    .select('barcode')
+// Validate parsed rows using Prisma
+export async function validateRows(rows: CsvRow[]): Promise<ParsedRow[]> {
+  // Get existing barcodes from database using Prisma
+  const existingStudents = await prisma.student.findMany({
+    select: { barcode: true }
+  })
 
-  const existingBarcodes = new Set(existingStudents?.map(s => s.barcode) || [])
+  const existingBarcodes = new Set(existingStudents.map(s => s.barcode))
   const seenBarcodes = new Set<string>()
 
   return rows.map((row, index) => {
@@ -176,7 +174,7 @@ function isValidEmail(email: string): boolean {
 }
 
 // Normalize school level to database format
-function normalizeSchoolLevel(level: string): 'elementary' | 'high_school' {
+function normalizeSchoolLevel(level: string): SchoolLevel {
   const normalized = level.toLowerCase().trim()
   if (['high_school', 'highschool', 'high school'].includes(normalized)) {
     return 'high_school'
@@ -184,26 +182,22 @@ function normalizeSchoolLevel(level: string): 'elementary' | 'high_school' {
   return 'elementary'
 }
 
-// Import valid rows into database
-export async function importRows(
-  rows: ParsedRow[],
-  supabase: SupabaseClient
-): Promise<ImportResult> {
+// Import valid rows into database using Prisma
+export async function importRows(rows: ParsedRow[]): Promise<ImportResult> {
   const validRows = rows.filter(r => r.isValid)
   const errors: { row: number; message: string }[] = []
   let studentsCreated = 0
   let parentsCreated = 0
 
   // Get max existing barcode for auto-generation
-  const { data: maxBarcodeData } = await supabase
-    .from('students')
-    .select('barcode')
-    .order('barcode', { ascending: false })
-    .limit(1)
+  const maxBarcodeStudent = await prisma.student.findFirst({
+    select: { barcode: true },
+    orderBy: { barcode: 'desc' }
+  })
 
   let nextBarcode = 1001
-  if (maxBarcodeData && maxBarcodeData.length > 0) {
-    const maxNum = parseInt(maxBarcodeData[0].barcode)
+  if (maxBarcodeStudent) {
+    const maxNum = parseInt(maxBarcodeStudent.barcode)
     if (!isNaN(maxNum)) {
       nextBarcode = maxNum + 1
     }
@@ -218,12 +212,12 @@ export async function importRows(
     .map(r => r.parent_email.toLowerCase()))]
 
   if (uniqueEmails.length > 0) {
-    const { data: existingParents } = await supabase
-      .from('parents')
-      .select('id, email')
-      .in('email', uniqueEmails)
+    const existingParents = await prisma.parent.findMany({
+      where: { email: { in: uniqueEmails } },
+      select: { id: true, email: true }
+    })
 
-    existingParents?.forEach(p => {
+    existingParents.forEach(p => {
       parentEmailMap.set(p.email.toLowerCase(), p.id)
     })
   }
@@ -241,24 +235,23 @@ export async function importRows(
           parentId = parentEmailMap.get(emailLower)!
         } else {
           // Create new parent
-          const { data: newParent, error: parentError } = await supabase
-            .from('parents')
-            .insert({
-              name: row.parent_name || 'Parent',
-              email: row.parent_email,
-              phone: row.parent_phone || null,
+          try {
+            const newParent = await prisma.parent.create({
+              data: {
+                name: row.parent_name || 'Parent',
+                email: row.parent_email,
+                phone: row.parent_phone || null,
+              },
+              select: { id: true }
             })
-            .select('id')
-            .single()
 
-          if (parentError) {
-            errors.push({ row: row.rowNumber, message: `Failed to create parent: ${parentError.message}` })
+            parentId = newParent.id
+            parentEmailMap.set(emailLower, parentId)
+            parentsCreated++
+          } catch (parentError) {
+            errors.push({ row: row.rowNumber, message: `Failed to create parent: ${parentError}` })
             continue
           }
-
-          parentId = newParent.id
-          parentEmailMap.set(emailLower, parentId!)
-          parentsCreated++
         }
       }
 
@@ -268,24 +261,28 @@ export async function importRows(
       // Determine is_active status (default to true)
       const isActive = !['false', '0', 'no', 'inactive'].includes(row.is_active.toLowerCase().trim())
 
-      // Create student
-      const { error: studentError } = await supabase
-        .from('students')
-        .insert({
-          name: row.student_name.trim(),
-          barcode,
-          school_level: normalizeSchoolLevel(row.school_level),
-          balance: parseInt(row.balance) || 0,
-          parent_id: parentId,
-          is_active: isActive,
-        })
-
-      if (studentError) {
-        errors.push({ row: row.rowNumber, message: `Failed to create student: ${studentError.message}` })
+      // Create student - parentId is required in schema
+      if (!parentId) {
+        errors.push({ row: row.rowNumber, message: 'Student requires a valid parent email' })
         continue
       }
 
-      studentsCreated++
+      try {
+        await prisma.student.create({
+          data: {
+            name: row.student_name.trim(),
+            barcode,
+            schoolLevel: normalizeSchoolLevel(row.school_level),
+            balance: parseInt(row.balance) || 0,
+            parent: { connect: { id: parentId } },
+            isActive: isActive,
+          }
+        })
+        studentsCreated++
+      } catch (studentError) {
+        errors.push({ row: row.rowNumber, message: `Failed to create student: ${studentError}` })
+        continue
+      }
     } catch (err) {
       errors.push({ row: row.rowNumber, message: `Unexpected error: ${err}` })
     }

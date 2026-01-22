@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth/nextauth-config'
+import prisma from '@/lib/prisma'
 
 interface CalendarEvent {
   uid: string
@@ -38,7 +39,6 @@ function parseICalFeed(icalData: string): CalendarEvent[] {
   const lines = icalData.split(/\r?\n/)
 
   let currentEvent: Partial<CalendarEvent> | null = null
-  let currentKey = ''
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i]
@@ -89,22 +89,19 @@ function parseICalFeed(icalData: string): CalendarEvent[] {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -164,36 +161,33 @@ export async function POST(request: NextRequest) {
 
     for (const event of relevantEvents) {
       // Check if meal already exists for this date
-      const { data: existing } = await supabase
-        .from('daily_meals')
-        .select('id, source')
-        .eq('meal_date', event.dateStart)
-        .single()
+      const existing = await prisma.dailyMeal.findUnique({
+        where: { mealDate: new Date(event.dateStart) },
+        select: { id: true, source: true },
+      })
 
       if (existing) {
         // Only update if source was 'calendar' (don't overwrite manual entries)
         if (existing.source === 'calendar') {
-          await supabase
-            .from('daily_meals')
-            .update({
-              meal_name: event.summary,
-              calendar_event_id: event.uid,
-              updated_by: user.id
-            })
-            .eq('id', existing.id)
+          await prisma.dailyMeal.update({
+            where: { id: existing.id },
+            data: {
+              mealName: event.summary,
+              calendarEventId: event.uid,
+            },
+          })
           imported++
         }
       } else {
         // Insert new meal
-        await supabase
-          .from('daily_meals')
-          .insert({
-            meal_date: event.dateStart,
-            meal_name: event.summary,
+        await prisma.dailyMeal.create({
+          data: {
+            mealDate: new Date(event.dateStart),
+            mealName: event.summary,
             source: 'calendar',
-            calendar_event_id: event.uid,
-            updated_by: user.id
-          })
+            calendarEventId: event.uid,
+          },
+        })
         imported++
       }
     }

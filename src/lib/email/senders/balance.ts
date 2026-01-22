@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import type { BalanceEmailData } from '../types'
 import { getEmailTransporter } from '../transporter'
 import { generateBalanceHtml, generateBalanceText } from '../templates/balance'
@@ -16,9 +16,9 @@ export async function sendBalanceEmail(
     return { success: false, error: 'Email not configured' }
   }
 
-  const fromName = settings.email_from_name || settings.school_name || 'ACA Lunch Program'
-  const fromAddress = settings.email_from_address || settings.gmail_user || settings.smtp_user || 'noreply@school.com'
-  const schoolName = settings.school_name || 'Aldersgate Christian Academy'
+  const fromName = settings.emailFromName || settings.schoolName || 'ACA Lunch Program'
+  const fromAddress = settings.emailFromAddress || settings.gmailUser || settings.smtpUser || 'noreply@school.com'
+  const schoolName = settings.schoolName || 'Aldersgate Christian Academy'
 
   const totalBalance = data.students.reduce((sum, s) => sum + s.balance, 0)
   const hasNegative = data.students.some(s => s.balance < 0)

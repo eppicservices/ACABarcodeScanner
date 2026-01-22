@@ -1,4 +1,4 @@
-import type { DayOfWeek, AutoSendSchedule, EmailProvider } from '@/types/database'
+import type { DayOfWeek, AutoSendSchedule, EmailProvider } from '@prisma/client'
 
 export type TabId =
   | 'pricing'

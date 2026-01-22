@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useSettings } from '../../context/SettingsContext'
+import { deleteAdmin } from '@/actions/admin'
 
 export function AdminsTab() {
   const { admins, setMessage, fetchData } = useSettings()
@@ -28,17 +28,12 @@ export function AdminsTab() {
   async function handleRemoveAdmin(adminId: string) {
     if (!confirm('Are you sure you want to remove this admin?')) return
 
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('admin_users')
-      .delete()
-      .eq('id', adminId)
-
-    if (error) {
-      setMessage({ type: 'error', text: error.message })
-    } else {
+    try {
+      await deleteAdmin(adminId)
       setMessage({ type: 'success', text: 'Admin removed successfully' })
       fetchData()
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to remove admin' })
     }
   }
 
@@ -79,7 +74,7 @@ export function AdminsTab() {
                     {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                   </span>
                   <span className="admin-date">
-                    Added {new Date(admin.created_at).toLocaleDateString()}
+                    Added {new Date(admin.createdAt).toLocaleDateString()}
                   </span>
                 </div>
               </div>

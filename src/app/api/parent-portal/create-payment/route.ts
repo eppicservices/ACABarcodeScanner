@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import prisma from '@/lib/prisma'
 import { isTokenExpired } from '@/lib/parent-portal'
-import type { StudentPaymentItem } from '@/types/database'
+
+interface StudentPaymentItem {
+  student_id: string
+  amount: number
+  lunches: number
+  is_lunch_card: boolean
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
     const { token, student_payments, total_amount } = await request.json()
 
     if (!token || !student_payments || !total_amount) {
@@ -16,19 +20,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate token
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('parent_access_tokens')
-      .select('*')
-      .eq('token', token)
-      .single()
+    const tokenData = await prisma.parentAccessToken.findUnique({
+      where: { token },
+    })
 
-    if (tokenError || !tokenData) {
+    if (!tokenData) {
       return NextResponse.json({
         error: 'Invalid or expired link'
       }, { status: 401 })
     }
 
-    if (isTokenExpired(tokenData.expires_at)) {
+    if (isTokenExpired(tokenData.expiresAt.toISOString())) {
       return NextResponse.json({
         error: 'This link has expired'
       }, { status: 410 })
@@ -36,36 +38,29 @@ export async function POST(request: NextRequest) {
 
     // Verify all student_ids belong to this parent
     const studentIds = student_payments.map((sp: StudentPaymentItem) => sp.student_id)
-    const { data: students, error: studentsError } = await supabase
-      .from('students')
-      .select('id')
-      .eq('parent_id', tokenData.parent_id)
-      .in('id', studentIds)
+    const students = await prisma.student.findMany({
+      where: {
+        parentId: tokenData.parentId,
+        id: { in: studentIds },
+      },
+      select: { id: true },
+    })
 
-    if (studentsError || !students || students.length !== studentIds.length) {
+    if (students.length !== studentIds.length) {
       return NextResponse.json({
         error: 'Invalid student selection'
       }, { status: 400 })
     }
 
     // Create pending payment
-    const { data: payment, error: paymentError } = await supabase
-      .from('pending_payments')
-      .insert({
-        parent_id: tokenData.parent_id,
-        student_payments,
-        total_amount,
-        status: 'pending'
-      })
-      .select()
-      .single()
-
-    if (paymentError || !payment) {
-      console.error('Error creating payment:', paymentError)
-      return NextResponse.json({
-        error: 'Failed to create payment record'
-      }, { status: 500 })
-    }
+    const payment = await prisma.pendingPayment.create({
+      data: {
+        parentId: tokenData.parentId,
+        studentPayments: student_payments,
+        totalAmount: total_amount,
+        status: 'pending',
+      },
+    })
 
     return NextResponse.json({
       success: true,

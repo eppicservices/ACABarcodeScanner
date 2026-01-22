@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useSession } from 'next-auth/react'
 import { useSettings } from '../../context/SettingsContext'
 
 export function EmailTab() {
   const { formData, updateField, saving, handleSave, setMessage, setPreviewTemplate } = useSettings()
+  const { data: session } = useSession()
   const [testingEmail, setTestingEmail] = useState(false)
 
   async function handleTestEmail() {
@@ -15,19 +16,18 @@ export function EmailTab() {
     // First save the current settings
     await handleSave()
 
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.email) {
-        setMessage({ type: 'error', text: 'Could not get your email address' })
-        setTestingEmail(false)
-        return
-      }
+    const userEmail = session?.user?.email
+    if (!userEmail) {
+      setMessage({ type: 'error', text: 'Could not get your email address' })
+      setTestingEmail(false)
+      return
+    }
 
+    try {
       const res = await fetch('/api/admin/test-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email })
+        body: JSON.stringify({ email: userEmail })
       })
 
       const data = await res.json()
@@ -35,7 +35,7 @@ export function EmailTab() {
       if (!res.ok) {
         setMessage({ type: 'error', text: data.error || 'Failed to send test email' })
       } else {
-        setMessage({ type: 'success', text: `Test email sent to ${user.email}` })
+        setMessage({ type: 'success', text: `Test email sent to ${userEmail}` })
       }
     } catch {
       setMessage({ type: 'error', text: 'Failed to send test email' })

@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import type { Parent } from '@/types/database'
+import { createStudent } from '@/actions/students'
+import { getAllParents, createParent } from '@/actions/parents'
+
+interface Parent {
+  id: string
+  name: string
+  email: string
+}
 
 export default function NewStudentPage() {
   const [parents, setParents] = useState<Parent[]>([])
@@ -29,8 +35,7 @@ export default function NewStudentPage() {
   const router = useRouter()
 
   async function fetchParents() {
-    const supabase = createClient()
-    const { data } = await supabase.from('parents').select('*').order('name')
+    const data = await getAllParents()
     if (data) setParents(data)
     setLoading(false)
   }
@@ -44,30 +49,24 @@ export default function NewStudentPage() {
     setParentError(null)
     setCreatingParent(true)
 
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('parents')
-      .insert({
+    try {
+      const newParent = await createParent({
         name: newParentName,
         email: newParentEmail,
-        phone: newParentPhone || null,
-        is_active: true,
+        phone: newParentPhone || undefined,
       })
-      .select()
-      .single()
 
-    if (error) {
-      setParentError(error.message)
-      setCreatingParent(false)
-    } else if (data) {
       // Add new parent to list and select them
-      setParents(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-      setParentId(data.id)
+      setParents(prev => [...prev, { id: newParent.id, name: newParent.name, email: newParent.email }].sort((a, b) => a.name.localeCompare(b.name)))
+      setParentId(newParent.id)
       // Reset modal state
       setNewParentName('')
       setNewParentEmail('')
       setNewParentPhone('')
       setShowNewParentModal(false)
+    } catch (err) {
+      setParentError(err instanceof Error ? err.message : 'Failed to create parent')
+    } finally {
       setCreatingParent(false)
     }
   }
@@ -85,21 +84,18 @@ export default function NewStudentPage() {
     setError(null)
     setSaving(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.from('students').insert({
-      name,
-      barcode,
-      school_level: schoolLevel,
-      parent_id: parentId,
-      balance: parseInt(balance) || 0,
-      is_active: true,
-    })
-
-    if (error) {
-      setError(error.message)
-      setSaving(false)
-    } else {
+    try {
+      await createStudent({
+        name,
+        barcode,
+        schoolLevel,
+        parentId,
+        balance: parseInt(balance) || 0,
+      })
       router.push('/admin/students')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create student')
+      setSaving(false)
     }
   }
 

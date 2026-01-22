@@ -1,12 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import type { EmailBlackoutPeriod, DayOfWeek, AutoSendSchedule } from '@/types/database'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-function getServiceClient() {
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+import prisma from '@/lib/prisma'
+import type { EmailBlackoutPeriod, DayOfWeek, AutoSendSchedule } from '@prisma/client'
 
 export interface SchoolCalendarStatus {
   canSendEmail: boolean
@@ -27,22 +20,22 @@ export interface EmailScheduleStatus {
 }
 
 export interface EmailScheduleSettings {
-  email_allowed_days: DayOfWeek[]
-  email_window_start: string
-  email_window_end: string
-  email_timezone: string
-  min_days_between_emails: number
-  auto_send_enabled: boolean
-  auto_send_schedule: AutoSendSchedule
-  auto_send_time: string
+  emailAllowedDays: DayOfWeek[]
+  emailWindowStart: string
+  emailWindowEnd: string
+  emailTimezone: string
+  minDaysBetweenEmails: number
+  autoSendEnabled: boolean
+  autoSendSchedule: AutoSendSchedule
+  autoSendTime: string
 }
 
 interface SchoolCalendarSettings {
-  school_calendar_enabled: boolean
-  fall_semester_start: string | null
-  fall_semester_end: string | null
-  spring_semester_start: string | null
-  spring_semester_end: string | null
+  schoolCalendarEnabled: boolean
+  fallSemesterStart: Date | null
+  fallSemesterEnd: Date | null
+  springSemesterStart: Date | null
+  springSemesterEnd: Date | null
 }
 
 /**
@@ -55,18 +48,18 @@ function isDateInSemester(
   const checkDate = new Date(date.toISOString().split('T')[0])
 
   // Check fall semester
-  if (settings.fall_semester_start && settings.fall_semester_end) {
-    const fallStart = new Date(settings.fall_semester_start)
-    const fallEnd = new Date(settings.fall_semester_end)
+  if (settings.fallSemesterStart && settings.fallSemesterEnd) {
+    const fallStart = new Date(settings.fallSemesterStart)
+    const fallEnd = new Date(settings.fallSemesterEnd)
     if (checkDate >= fallStart && checkDate <= fallEnd) {
       return true
     }
   }
 
   // Check spring semester
-  if (settings.spring_semester_start && settings.spring_semester_end) {
-    const springStart = new Date(settings.spring_semester_start)
-    const springEnd = new Date(settings.spring_semester_end)
+  if (settings.springSemesterStart && settings.springSemesterEnd) {
+    const springStart = new Date(settings.springSemesterStart)
+    const springEnd = new Date(settings.springSemesterEnd)
     if (checkDate >= springStart && checkDate <= springEnd) {
       return true
     }
@@ -85,8 +78,8 @@ function isDateInBlackout(
   const checkDate = new Date(date.toISOString().split('T')[0])
 
   for (const period of blackoutPeriods) {
-    const startDate = new Date(period.start_date)
-    const endDate = new Date(period.end_date)
+    const startDate = new Date(period.startDate)
+    const endDate = new Date(period.endDate)
     if (checkDate >= startDate && checkDate <= endDate) {
       return period
     }
@@ -131,18 +124,19 @@ function findNextSchoolDay(
 export async function checkSchoolCalendarStatus(
   date: Date = new Date()
 ): Promise<SchoolCalendarStatus> {
-  const supabase = getServiceClient()
+  // Fetch app settings using Prisma
+  const settings = await prisma.appSettings.findUnique({
+    where: { id: 1 },
+    select: {
+      schoolCalendarEnabled: true,
+      fallSemesterStart: true,
+      fallSemesterEnd: true,
+      springSemesterStart: true,
+      springSemesterEnd: true,
+    },
+  })
 
-  // Fetch app settings
-  const { data, error: settingsError } = await supabase
-    .from('app_settings')
-    .select('school_calendar_enabled, fall_semester_start, fall_semester_end, spring_semester_start, spring_semester_end')
-    .eq('id', 1)
-    .single()
-
-  const settings = data as SchoolCalendarSettings | null
-
-  if (settingsError || !settings) {
+  if (!settings) {
     // If we can't fetch settings, allow emails (fail open)
     return {
       canSendEmail: true,
@@ -153,7 +147,7 @@ export async function checkSchoolCalendarStatus(
   }
 
   // If school calendar is not enabled, always allow emails
-  if (!settings.school_calendar_enabled) {
+  if (!settings.schoolCalendarEnabled) {
     return {
       canSendEmail: true,
       reason: 'School calendar control is disabled',
@@ -163,8 +157,8 @@ export async function checkSchoolCalendarStatus(
   }
 
   // Check if we have semester dates configured
-  const hasSemesterDates = (settings.fall_semester_start && settings.fall_semester_end) ||
-    (settings.spring_semester_start && settings.spring_semester_end)
+  const hasSemesterDates = (settings.fallSemesterStart && settings.fallSemesterEnd) ||
+    (settings.springSemesterStart && settings.springSemesterEnd)
 
   if (!hasSemesterDates) {
     return {
@@ -175,17 +169,10 @@ export async function checkSchoolCalendarStatus(
     }
   }
 
-  // Fetch blackout periods
-  const { data: blackoutData, error: blackoutError } = await supabase
-    .from('email_blackout_periods')
-    .select('*')
-    .order('start_date', { ascending: true })
-
-  if (blackoutError) {
-    console.error('Error fetching blackout periods:', blackoutError)
-  }
-
-  const periods = (blackoutData || []) as EmailBlackoutPeriod[]
+  // Fetch blackout periods using Prisma
+  const periods = await prisma.emailBlackoutPeriod.findMany({
+    orderBy: { startDate: 'asc' },
+  })
 
   // Check if date is within a semester
   const isWithinSemester = isDateInSemester(date, settings)
@@ -302,16 +289,22 @@ function isWithinTimeWindow(
 export async function checkEmailScheduleStatus(
   date: Date = new Date()
 ): Promise<EmailScheduleStatus> {
-  const supabase = getServiceClient()
+  // Fetch schedule settings using Prisma
+  const data = await prisma.appSettings.findUnique({
+    where: { id: 1 },
+    select: {
+      emailAllowedDays: true,
+      emailWindowStart: true,
+      emailWindowEnd: true,
+      emailTimezone: true,
+      minDaysBetweenEmails: true,
+      autoSendEnabled: true,
+      autoSendSchedule: true,
+      autoSendTime: true,
+    },
+  })
 
-  // Fetch schedule settings
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('email_allowed_days, email_window_start, email_window_end, email_timezone, min_days_between_emails, auto_send_enabled, auto_send_schedule, auto_send_time')
-    .eq('id', 1)
-    .single()
-
-  if (error || !data) {
+  if (!data) {
     // If we can't fetch settings, use defaults (allow)
     return {
       canSendNow: true,
@@ -323,28 +316,28 @@ export async function checkEmailScheduleStatus(
   }
 
   const settings: EmailScheduleSettings = {
-    email_allowed_days: data.email_allowed_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-    email_window_start: data.email_window_start || '08:00',
-    email_window_end: data.email_window_end || '18:00',
-    email_timezone: data.email_timezone || 'America/New_York',
-    min_days_between_emails: data.min_days_between_emails ?? 3,
-    auto_send_enabled: data.auto_send_enabled ?? false,
-    auto_send_schedule: data.auto_send_schedule || 'weekdays',
-    auto_send_time: data.auto_send_time || '09:00'
+    emailAllowedDays: data.emailAllowedDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    emailWindowStart: data.emailWindowStart || '08:00',
+    emailWindowEnd: data.emailWindowEnd || '18:00',
+    emailTimezone: data.emailTimezone || 'America/New_York',
+    minDaysBetweenEmails: data.minDaysBetweenEmails ?? 3,
+    autoSendEnabled: data.autoSendEnabled ?? false,
+    autoSendSchedule: data.autoSendSchedule || 'weekdays',
+    autoSendTime: data.autoSendTime || '09:00'
   }
 
   // Get current time in the configured timezone
-  const currentTime = getTimeInTimezone(date, settings.email_timezone)
+  const currentTime = getTimeInTimezone(date, settings.emailTimezone)
 
   // Check if today is an allowed day
-  const isAllowedDay = settings.email_allowed_days.includes(currentTime.dayOfWeek)
+  const isAllowedDay = settings.emailAllowedDays.includes(currentTime.dayOfWeek)
 
   // Check if current time is within window
   const isInWindow = isWithinTimeWindow(
     currentTime.hours,
     currentTime.minutes,
-    settings.email_window_start,
-    settings.email_window_end
+    settings.emailWindowStart,
+    settings.emailWindowEnd
   )
 
   const canSendNow = isAllowedDay && isInWindow
@@ -354,7 +347,7 @@ export async function checkEmailScheduleStatus(
   if (!isAllowedDay) {
     reason = `Emails not allowed on ${currentTime.dayOfWeek.charAt(0).toUpperCase() + currentTime.dayOfWeek.slice(1)}`
   } else if (!isInWindow) {
-    reason = `Outside email window (${settings.email_window_start} - ${settings.email_window_end})`
+    reason = `Outside email window (${settings.emailWindowStart} - ${settings.emailWindowEnd})`
   } else {
     reason = 'Within scheduled email window'
   }
@@ -375,9 +368,9 @@ export function shouldAutoSendNow(
   settings: EmailScheduleSettings,
   currentTime: { hours: number; minutes: number; dayOfWeek: DayOfWeek }
 ): boolean {
-  if (!settings.auto_send_enabled) return false
+  if (!settings.autoSendEnabled) return false
 
-  const sendTime = parseTime(settings.auto_send_time)
+  const sendTime = parseTime(settings.autoSendTime)
 
   // Check if current time matches send time (within 5 minute window)
   const currentMinutes = currentTime.hours * 60 + currentTime.minutes
@@ -387,7 +380,7 @@ export function shouldAutoSendNow(
   if (!isAtSendTime) return false
 
   // Check schedule type
-  switch (settings.auto_send_schedule) {
+  switch (settings.autoSendSchedule) {
     case 'daily':
       return true
     case 'weekdays':
@@ -406,24 +399,22 @@ export async function canSendToParent(
   parentId: string,
   minDaysBetweenEmails: number
 ): Promise<{ canSend: boolean; reason: string; lastSentAt?: string }> {
-  const supabase = getServiceClient()
+  // Get the most recent notification for this parent using Prisma
+  const lastNotification = await prisma.notificationLog.findFirst({
+    where: {
+      parentId,
+      notificationType: 'low_balance',
+    },
+    orderBy: { sentAt: 'desc' },
+    select: { sentAt: true },
+  })
 
-  // Get the most recent notification for this parent
-  const { data: lastNotification, error } = await supabase
-    .from('notification_log')
-    .select('sent_at')
-    .eq('parent_id', parentId)
-    .eq('notification_type', 'low_balance')
-    .order('sent_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (error || !lastNotification) {
+  if (!lastNotification) {
     // No previous notification, can send
     return { canSend: true, reason: 'No previous emails sent to this parent' }
   }
 
-  const lastSentDate = new Date(lastNotification.sent_at)
+  const lastSentDate = new Date(lastNotification.sentAt)
   const now = new Date()
   const daysSinceLastEmail = Math.floor((now.getTime() - lastSentDate.getTime()) / (1000 * 60 * 60 * 24))
 
@@ -431,14 +422,14 @@ export async function canSendToParent(
     return {
       canSend: false,
       reason: `Last email sent ${daysSinceLastEmail} day(s) ago. Minimum interval is ${minDaysBetweenEmails} days.`,
-      lastSentAt: lastNotification.sent_at
+      lastSentAt: lastNotification.sentAt.toISOString()
     }
   }
 
   return {
     canSend: true,
     reason: `Last email was ${daysSinceLastEmail} days ago`,
-    lastSentAt: lastNotification.sent_at
+    lastSentAt: lastNotification.sentAt.toISOString()
   }
 }
 

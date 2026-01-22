@@ -3,12 +3,56 @@
 import { useState, useEffect, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { addLunchesFromPayment, getSettings, LunchSettings } from '@/lib/supabase'
-import type { Student, Parent, BalanceTransaction } from '@/types/database'
+import {
+  getStudentById,
+  updateStudent,
+  deleteStudent,
+} from '@/actions/students'
+import { getAllParents } from '@/actions/parents'
+import {
+  getStudentTransactions,
+  addLunchesFromPayment,
+  adjustBalance,
+} from '@/actions/transactions'
+import { getLunchSettings } from '@/actions/settings'
+import type { SchoolLevel } from '@prisma/client'
 
-interface StudentWithParent extends Student {
+interface Parent {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+}
+
+interface StudentWithParent {
+  id: string
+  name: string
+  barcode: string
+  balance: number
+  schoolLevel: SchoolLevel
+  isActive: boolean
+  parentId: string
   parent: Parent
+}
+
+interface BalanceTransaction {
+  id: string
+  studentId: string
+  lunchesChange: number
+  previousLunches: number
+  newLunches: number
+  transactionType: string
+  notes: string | null
+  createdAt: Date
+}
+
+interface LunchSettings {
+  elementaryLunchPrice: number
+  highschoolLunchPrice: number
+  highschoolLunchCardPrice: number
+  highschoolLunchCardLunches: number
+  elementaryNegativeLimit: number
+  highschoolNegativeLimit: number
 }
 
 export default function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,40 +87,57 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
 
   const fetchData = useCallback(async () => {
-    const supabase = createClient()
-    const [studentRes, parentsRes, transactionsRes, settingsData] = await Promise.all([
-      supabase.from('students').select('*, parent:parents(*)').eq('id', id).single(),
-      supabase.from('parents').select('*').order('name'),
-      supabase.from('balance_transactions').select('*').eq('student_id', id).order('created_at', { ascending: false }).limit(10),
-      getSettings(),
+    const [studentData, parentsData, transactionsData, settingsData] = await Promise.all([
+      getStudentById(id),
+      getAllParents(),
+      getStudentTransactions(id, 10),
+      getLunchSettings(),
     ])
 
-    if (studentRes.data) {
-      const s = studentRes.data as StudentWithParent
+    if (studentData) {
+      const s: StudentWithParent = {
+        id: studentData.id,
+        name: studentData.name,
+        barcode: studentData.barcode,
+        balance: studentData.balance,
+        schoolLevel: studentData.schoolLevel,
+        isActive: studentData.isActive,
+        parentId: studentData.parentId,
+        parent: studentData.parent,
+      }
       setStudent(s)
       setName(s.name)
       setBarcode(s.barcode)
-      setSchoolLevel(s.school_level)
-      setParentId(s.parent_id)
-      setIsActive(s.is_active)
+      setSchoolLevel(s.schoolLevel === 'elementary' ? 'elementary' : 'high_school')
+      setParentId(s.parentId)
+      setIsActive(s.isActive)
     }
 
-    if (parentsRes.data) {
-      setParents(parentsRes.data)
+    if (parentsData) {
+      setParents(parentsData.map(p => ({ ...p, phone: null })))
     }
 
-    if (transactionsRes.data) {
-      setTransactions(transactionsRes.data)
+    if (transactionsData) {
+      setTransactions(transactionsData.map(tx => ({
+        id: tx.id,
+        studentId: tx.studentId,
+        lunchesChange: tx.lunchesChange,
+        previousLunches: tx.previousLunches,
+        newLunches: tx.newLunches,
+        transactionType: tx.transactionType,
+        notes: tx.notes,
+        createdAt: tx.createdAt,
+      })))
     }
 
     // Use settings from DB or fallback to defaults
     setSettings(settingsData || {
-      elementary_lunch_price: 4,
-      highschool_lunch_price: 6,
-      highschool_lunch_card_price: 50,
-      highschool_lunch_card_lunches: 10,
-      elementary_negative_limit: -3,
-      highschool_negative_limit: 0,
+      elementaryLunchPrice: 4,
+      highschoolLunchPrice: 6,
+      highschoolLunchCardPrice: 50,
+      highschoolLunchCardLunches: 10,
+      elementaryNegativeLimit: -3,
+      highschoolNegativeLimit: 0,
     })
 
     setLoading(false)
@@ -92,24 +153,19 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     setSuccess(null)
     setSaving(true)
 
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('students')
-      .update({
+    try {
+      await updateStudent(id, {
         name,
         barcode,
-        school_level: schoolLevel,
-        parent_id: parentId,
-        is_active: isActive,
+        schoolLevel,
+        parentId,
+        isActive,
       })
-      .eq('id', id)
-
-    if (error) {
-      setError(error.message)
-    } else {
       setSuccess('Student updated successfully')
       setIsEditing(false)
       fetchData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update student')
     }
 
     setSaving(false)
@@ -120,9 +176,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     if (student) {
       setName(student.name)
       setBarcode(student.barcode)
-      setSchoolLevel(student.school_level)
-      setParentId(student.parent_id)
-      setIsActive(student.is_active)
+      setSchoolLevel(student.schoolLevel === 'elementary' ? 'elementary' : 'high_school')
+      setParentId(student.parentId)
+      setIsActive(student.isActive)
     }
     setIsEditing(false)
     setError(null)
@@ -136,7 +192,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
     // For lunch card, use the fixed price
     if (paymentType === 'lunch_card') {
-      amount = settings.highschool_lunch_card_price
+      amount = settings.highschoolLunchCardPrice
     }
 
     if (isNaN(amount) || amount <= 0) {
@@ -146,8 +202,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
     const result = await addLunchesFromPayment(
       student.id,
-      student.school_level,
-      student.balance,
       amount,
       paymentType === 'lunch_card'
     )
@@ -175,37 +229,14 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       return
     }
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    const previousBalance = student.balance
-    const newBalance = previousBalance + lunches
+    const result = await adjustBalance(
+      student.id,
+      lunches,
+      paymentNotes || 'Manual adjustment'
+    )
 
-    // Create transaction record
-    const { error: txError } = await supabase
-      .from('balance_transactions')
-      .insert({
-        student_id: id,
-        lunches_change: lunches,
-        previous_lunches: previousBalance,
-        new_lunches: newBalance,
-        transaction_type: 'adjustment',
-        notes: paymentNotes || 'Manual adjustment',
-        created_by: user?.id || null,
-      })
-
-    if (txError) {
-      setError('Failed to create transaction: ' + txError.message)
-      return
-    }
-
-    // Update student balance
-    const { error: updateError } = await supabase
-      .from('students')
-      .update({ balance: newBalance })
-      .eq('id', id)
-
-    if (updateError) {
-      setError('Failed to update balance: ' + updateError.message)
+    if (!result.success) {
+      setError(result.error || 'Failed to adjust balance')
       return
     }
 
@@ -219,26 +250,24 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
   async function handleDelete() {
     setDeleting(true)
-    const supabase = createClient()
-    const { error } = await supabase.from('students').delete().eq('id', id)
-
-    if (error) {
-      setError('Failed to delete student: ' + error.message)
+    try {
+      await deleteStudent(id)
+      router.push('/admin/students')
+    } catch (err) {
+      setError('Failed to delete student: ' + (err instanceof Error ? err.message : 'Unknown error'))
       setDeleting(false)
       setShowDeleteModal(false)
-    } else {
-      router.push('/admin/students')
     }
   }
 
   // Calculate lunches from payment amount
   const calculateLunches = () => {
     if (!settings || !student) return 0
-    if (paymentType === 'lunch_card') return settings.highschool_lunch_card_lunches
+    if (paymentType === 'lunch_card') return settings.highschoolLunchCardLunches
     const amount = parseFloat(paymentAmount) || 0
-    const price = student.school_level === 'elementary'
-      ? settings.elementary_lunch_price
-      : settings.highschool_lunch_price
+    const price = student.schoolLevel === 'elementary'
+      ? settings.elementaryLunchPrice
+      : settings.highschoolLunchPrice
     return Math.floor(amount / price)
   }
 
@@ -268,7 +297,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const lunchPrice = settings
-    ? (student.school_level === 'elementary' ? settings.elementary_lunch_price : settings.highschool_lunch_price)
+    ? (student.schoolLevel === 'elementary' ? settings.elementaryLunchPrice : settings.highschoolLunchPrice)
     : 0
 
   return (
@@ -288,8 +317,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
             <div>
               <h1>{student.name}</h1>
               <p className="subtitle">
-                <span className={`level-badge ${student.school_level}`}>
-                  {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                <span className={`level-badge ${student.schoolLevel}`}>
+                  {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
                 </span>
                 <span className="barcode-badge">{student.barcode}</span>
               </p>
@@ -416,15 +445,15 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 <div className="detail-item">
                   <span className="detail-label">School Level</span>
                   <span className="detail-value">
-                    <span className={`level-badge ${student.school_level}`}>
-                      {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                    <span className={`level-badge ${student.schoolLevel}`}>
+                      {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
                     </span>
                   </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Parent</span>
                   <span className="detail-value">
-                    <Link href={`/admin/parents/${student.parent_id}`} className="parent-link">
+                    <Link href={`/admin/parents/${student.parentId}`} className="parent-link">
                       <span>{student.parent.name}</span>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
                         <polyline points="9 18 15 12 9 6" />
@@ -435,8 +464,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 <div className="detail-item">
                   <span className="detail-label">Status</span>
                   <span className="detail-value">
-                    <span className={`status-badge ${student.is_active ? 'active' : 'inactive'}`}>
-                      {student.is_active ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${student.isActive ? 'active' : 'inactive'}`}>
+                      {student.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </span>
                 </div>
@@ -483,15 +512,15 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 {transactions.map((tx) => (
                   <li key={tx.id} className="transaction-item">
                     <div className="tx-info">
-                      <span className={`tx-type ${tx.transaction_type}`}>
-                        {tx.transaction_type === 'lunch_used' ? 'Used' : tx.transaction_type}
+                      <span className={`tx-type ${tx.transactionType}`}>
+                        {tx.transactionType === 'lunch_used' ? 'Used' : tx.transactionType}
                       </span>
                       <span className="tx-date">
-                        {new Date(tx.created_at!).toLocaleDateString()}
+                        {new Date(tx.createdAt!).toLocaleDateString()}
                       </span>
                     </div>
-                    <span className={`tx-amount ${tx.lunches_change >= 0 ? 'positive' : 'negative'}`}>
-                      {tx.lunches_change >= 0 ? '+' : ''}{tx.lunches_change}
+                    <span className={`tx-amount ${tx.lunchesChange >= 0 ? 'positive' : 'negative'}`}>
+                      {tx.lunchesChange >= 0 ? '+' : ''}{tx.lunchesChange}
                     </span>
                   </li>
                 ))}
@@ -534,7 +563,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                       }}
                     >
                       <option value="payment">Cash Payment</option>
-                      {student.school_level === 'high_school' && (
+                      {student.schoolLevel === 'high_school' && (
                         <option value="lunch_card">Lunch Card ($50 for 10 lunches)</option>
                       )}
                       <option value="adjustment">Manual Adjustment</option>
@@ -565,11 +594,11 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                   {paymentType === 'lunch_card' && (
                     <div className="lunch-card-info">
                       <div className="lunch-card-details">
-                        <span className="lunch-card-price">${settings.highschool_lunch_card_price.toFixed(2)}</span>
-                        <span className="lunch-card-value">{settings.highschool_lunch_card_lunches} lunches</span>
+                        <span className="lunch-card-price">${settings.highschoolLunchCardPrice.toFixed(2)}</span>
+                        <span className="lunch-card-value">{settings.highschoolLunchCardLunches} lunches</span>
                       </div>
                       <p className="lunch-card-savings">
-                        ${(settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch (save ${(settings.highschool_lunch_price - settings.highschool_lunch_card_price / settings.highschool_lunch_card_lunches).toFixed(2)} per lunch)
+                        ${(settings.highschoolLunchCardPrice / settings.highschoolLunchCardLunches).toFixed(2)} per lunch (save ${(settings.highschoolLunchPrice - settings.highschoolLunchCardPrice / settings.highschoolLunchCardLunches).toFixed(2)} per lunch)
                       </p>
                     </div>
                   )}

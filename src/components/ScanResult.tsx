@@ -77,5 +77,6 @@ export default function ScanResult({ code, status, studentName, message, onDismi
         Scan Next
       </button>
     </div>
+
   );
 }

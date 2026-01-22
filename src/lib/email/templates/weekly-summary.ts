@@ -1,4 +1,4 @@
-import type { AppSettings } from '@/types/database'
+import type { AppSettings } from '@prisma/client'
 import type { WeeklySummaryEmailData } from '../types'
 import { getLogoUrl } from './shared'
 
@@ -6,9 +6,9 @@ import { getLogoUrl } from './shared'
  * Generates the HTML weekly summary email
  */
 export function generateWeeklySummaryHtml(data: WeeklySummaryEmailData, schoolName: string, settings: AppSettings): string {
-  const primaryColor = settings.primary_color || '#002c5f'
-  const accentColor = settings.accent_color || '#00b1c1'
-  const secondaryColor = settings.secondary_color || '#ffc82e'
+  const primaryColor = settings.primaryColor || '#002c5f'
+  const accentColor = settings.accentColor || '#00b1c1'
+  const secondaryColor = settings.secondaryColor || '#ffc82e'
   const logoUrl = getLogoUrl(settings)
 
   const weekRange = `${data.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${data.weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`

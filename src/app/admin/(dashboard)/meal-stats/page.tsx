@@ -1,22 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import Pagination from '@/components/Pagination'
-import type { DailyMeal, AppSettings } from '@/types/database'
-
-interface DailyScanStats {
-  date: string
-  meal_name: string | null
-  total_scans: number
-  elementary_scans: number
-  highschool_scans: number
-}
+import { getSettingsForClient, type SerializedAppSettings } from '@/actions/settings'
+import {
+  getAllMeals,
+  getDailyScanStats,
+  upsertMeal,
+  type DailyMeal,
+  type DailyScanStats,
+} from '@/actions/meals'
 
 const ITEMS_PER_PAGE = 25
 
 export default function MealStatsPage() {
-  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [settings, setSettings] = useState<SerializedAppSettings | null>(null)
   const [dailyMeals, setDailyMeals] = useState<DailyMeal[]>([])
   const [scanStats, setScanStats] = useState<DailyScanStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,62 +31,22 @@ export default function MealStatsPage() {
   const [editMealName, setEditMealName] = useState('')
 
   const fetchData = useCallback(async () => {
-    const supabase = createClient()
+    try {
+      // Fetch settings, meals, and scan stats
+      const [settingsData, mealsData, scanStatsData] = await Promise.all([
+        getSettingsForClient(),
+        getAllMeals(),
+        getDailyScanStats(),
+      ])
 
-    // Fetch settings, meals, and transactions
-    const [settingsRes, mealsRes, transactionsRes] = await Promise.all([
-      supabase.from('app_settings').select('*').eq('id', 1).single(),
-      supabase.from('daily_meals').select('*').order('meal_date', { ascending: false }),
-      supabase.from('balance_transactions')
-        .select('created_at, students(school_level)')
-        .eq('transaction_type', 'lunch_used')
-        .order('created_at', { ascending: false })
-    ])
-
-    if (settingsRes.data) {
-      setSettings(settingsRes.data as AppSettings)
-    }
-
-    if (mealsRes.data) {
-      setDailyMeals(mealsRes.data as DailyMeal[])
-    }
-
-    // Process transactions to create daily stats
-    if (transactionsRes.data) {
-      const statsMap = new Map<string, DailyScanStats>()
-
-      for (const tx of transactionsRes.data) {
-        const date = new Date(tx.created_at).toISOString().split('T')[0]
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const students = tx.students as any
-        const schoolLevel = students?.school_level as string | undefined
-
-        if (!statsMap.has(date)) {
-          // Find meal for this date
-          const meal = mealsRes.data?.find((m: DailyMeal) => m.meal_date === date)
-          statsMap.set(date, {
-            date,
-            meal_name: meal?.meal_name || null,
-            total_scans: 0,
-            elementary_scans: 0,
-            highschool_scans: 0
-          })
-        }
-
-        const stats = statsMap.get(date)!
-        stats.total_scans++
-        if (schoolLevel === 'elementary') {
-          stats.elementary_scans++
-        } else if (schoolLevel === 'high_school') {
-          stats.highschool_scans++
-        }
+      if (settingsData) {
+        setSettings(settingsData)
       }
 
-      // Sort by date descending
-      const sortedStats = Array.from(statsMap.values()).sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      )
-      setScanStats(sortedStats)
+      setDailyMeals(mealsData)
+      setScanStats(scanStatsData)
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
     }
 
     setLoading(false)
@@ -102,7 +60,7 @@ export default function MealStatsPage() {
   useEffect(() => {
     async function autoSync() {
       if (hasAutoSynced.current) return
-      if (!settings?.calendar_enabled || !settings?.calendar_url) return
+      if (!settings?.calendarEnabled || !settings?.calendarUrl) return
 
       hasAutoSynced.current = true
       setSyncing(true)
@@ -111,7 +69,7 @@ export default function MealStatsPage() {
         const response = await fetch('/api/admin/sync-calendar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ calendar_url: settings.calendar_url })
+          body: JSON.stringify({ calendar_url: settings.calendarUrl })
         })
 
         const result = await response.json()
@@ -139,40 +97,25 @@ export default function MealStatsPage() {
       return
     }
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    try {
+      await upsertMeal({
+        mealDate: new Date(date),
+        mealName: editMealName.trim(),
+        source: 'manual',
+      })
 
-    // Check if meal already exists for this date
-    const existingMeal = dailyMeals.find(m => m.meal_date === date)
-
-    if (existingMeal) {
-      await supabase
-        .from('daily_meals')
-        .update({
-          meal_name: editMealName.trim(),
-          source: 'manual',
-          updated_by: user?.id || null
-        })
-        .eq('id', existingMeal.id)
-    } else {
-      await supabase
-        .from('daily_meals')
-        .insert({
-          meal_date: date,
-          meal_name: editMealName.trim(),
-          source: 'manual',
-          updated_by: user?.id || null
-        })
+      setEditingDate(null)
+      setEditMealName('')
+      fetchData()
+    } catch (error) {
+      console.error('Failed to save meal:', error)
+      setMessage({ type: 'error', text: 'Failed to save meal' })
     }
-
-    setEditingDate(null)
-    setEditMealName('')
-    fetchData()
   }
 
-  function startEditMeal(date: string, currentMeal: string | null) {
+  function startEditMeal(date: string, currentMealName: string | null) {
     setEditingDate(date)
-    setEditMealName(currentMeal || '')
+    setEditMealName(currentMealName || '')
   }
 
   function formatDate(dateStr: string) {
@@ -313,9 +256,9 @@ export default function MealStatsPage() {
                       ) : (
                         <button
                           className="meal-edit-btn"
-                          onClick={() => startEditMeal(stat.date, stat.meal_name)}
+                          onClick={() => startEditMeal(stat.date, stat.mealName)}
                         >
-                          {stat.meal_name || <span className="no-meal">Click to add meal</span>}
+                          {stat.mealName || <span className="no-meal">Click to add meal</span>}
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -323,9 +266,9 @@ export default function MealStatsPage() {
                         </button>
                       )}
                     </td>
-                    <td className="num total-cell">{stat.total_scans}</td>
-                    <td className="num elem-cell">{stat.elementary_scans}</td>
-                    <td className="num hs-cell">{stat.highschool_scans}</td>
+                    <td className="num total-cell">{stat.totalScans}</td>
+                    <td className="num elem-cell">{stat.elementaryScans}</td>
+                    <td className="num hs-cell">{stat.highschoolScans}</td>
                   </tr>
                 ))}
               </tbody>

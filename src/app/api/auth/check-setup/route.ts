@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getAuthAdapter } from '@/lib/auth'
-import { getAdapter } from '@/lib/db'
+import prisma from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const auth = await getAuthAdapter()
-    const db = await getAdapter()
-
-    const adminCount = await auth.getAdminCount()
-    const settings = await db.getFullSettings()
+    const adminCount = await prisma.adminUser.count()
+    const settings = await prisma.appSettings.findFirst()
 
     return NextResponse.json({
       hasAdmins: adminCount > 0,
-      passwordMinLength: settings?.password_min_length ?? 6
+      passwordMinLength: settings?.passwordMinLength ?? 6
     })
   } catch (error) {
     console.error('Check setup error:', error)

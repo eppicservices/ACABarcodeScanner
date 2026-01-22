@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import prisma from '@/lib/prisma'
 import { sendBalanceEmail, type BalanceEmailData, type StudentBalance } from '@/lib/email'
 import { generateSecureToken, getTokenExpiryDate, getPortalUrl } from '@/lib/parent-portal'
 import {
   checkSchoolCalendarStatus,
   checkEmailScheduleStatus,
   canSendToParent,
-  type EmailScheduleSettings
 } from '@/lib/school-calendar'
-import type { AppSettings, Student } from '@/types/database'
+import type { Student, SchoolLevel } from '@prisma/client'
 
 interface ParentWithStudents {
   id: string
   name: string
   email: string
-  is_active: boolean
+  isActive: boolean
   students: Student[]
 }
 
@@ -28,7 +27,7 @@ interface SendResult {
 
 /**
  * Cron endpoint for automatically sending low balance emails
- * Called by external cron service (Vercel Cron, etc.)
+ * Called by external cron service (Vercel Cron, Docker cron, etc.)
  *
  * Security: Requires CRON_SECRET in Authorization header
  *
@@ -48,31 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Use service role key for cron jobs (bypasses RLS)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Get app settings using Prisma
+    const appSettings = await prisma.appSettings.findFirst()
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Get app settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
-
-    if (settingsError || !settings) {
+    if (!appSettings) {
       return NextResponse.json({ error: 'Could not load settings' }, { status: 500 })
     }
 
-    const appSettings = settings as AppSettings
-
     // Check if notifications are enabled
-    if (!appSettings.notifications_enabled) {
+    if (!appSettings.notificationsEnabled) {
       return NextResponse.json({
         success: true,
         message: 'Notifications are disabled',
@@ -82,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email is configured
-    if (appSettings.email_provider === 'none') {
+    if (appSettings.emailProvider === 'none') {
       return NextResponse.json({
         success: true,
         message: 'Email provider not configured',
@@ -92,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if auto-send is enabled
-    if (!appSettings.auto_send_enabled) {
+    if (!appSettings.autoSendEnabled) {
       return NextResponse.json({
         success: true,
         message: 'Auto-send is disabled',
@@ -126,35 +109,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Get thresholds
-    const elementaryThreshold = appSettings.elementary_low_lunch_threshold ?? 5
-    const highschoolThreshold = appSettings.highschool_low_lunch_threshold ?? 3
-    const minDaysBetweenEmails = appSettings.min_days_between_emails ?? 3
+    const elementaryThreshold = appSettings.elementaryLowLunchThreshold ?? 5
+    const highschoolThreshold = appSettings.highschoolLowLunchThreshold ?? 3
+    const minDaysBetweenEmails = appSettings.minDaysBetweenEmails ?? 3
 
-    // Get all active parents with their active students who have low balances
-    const { data: parentsData, error: parentsError } = await supabase
-      .from('parents')
-      .select(`
-        id,
-        name,
-        email,
-        is_active,
-        students (*)
-      `)
-      .eq('is_active', true)
+    // Get all active parents with their students
+    const parentsData = await prisma.parent.findMany({
+      where: { isActive: true },
+      include: { students: true }
+    })
 
-    if (parentsError) {
-      console.error('Error fetching parents:', parentsError)
-      return NextResponse.json({ error: 'Failed to fetch parents' }, { status: 500 })
-    }
+    const parents: ParentWithStudents[] = parentsData.map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      isActive: p.isActive,
+      students: p.students
+    }))
 
-    const parents = (parentsData || []) as ParentWithStudents[]
     const results: SendResult[] = []
     let sentCount = 0
     let skippedCount = 0
 
     for (const parent of parents) {
       // Filter to active students only
-      const activeStudents = (parent.students || []).filter(s => s.is_active)
+      const activeStudents = (parent.students || []).filter(s => s.isActive)
 
       if (activeStudents.length === 0) {
         skippedCount++
@@ -169,7 +148,7 @@ export async function POST(request: NextRequest) {
 
       // Check which students have low balances
       const lowBalanceStudents = activeStudents.filter(student => {
-        const threshold = student.school_level === 'elementary'
+        const threshold = student.schoolLevel === 'elementary'
           ? elementaryThreshold
           : highschoolThreshold
         return student.balance <= threshold
@@ -201,25 +180,23 @@ export async function POST(request: NextRequest) {
 
       // Generate portal token for this parent
       const token = generateSecureToken()
-      const expiresAt = getTokenExpiryDate(appSettings.parent_token_expiry_days ?? 7)
+      const expiresAt = getTokenExpiryDate(appSettings.parentTokenExpiryDays ?? 7)
 
-      // Delete any existing tokens for this parent
-      await supabase
-        .from('parent_access_tokens')
-        .delete()
-        .eq('parent_id', parent.id)
-
-      // Insert new token
-      const { error: tokenError } = await supabase
-        .from('parent_access_tokens')
-        .insert({
-          parent_id: parent.id,
-          token,
-          expires_at: expiresAt,
-          created_by: null // Cron job, no user
+      try {
+        // Delete any existing tokens for this parent and create new one
+        await prisma.parentAccessToken.deleteMany({
+          where: { parentId: parent.id }
         })
 
-      if (tokenError) {
+        await prisma.parentAccessToken.create({
+          data: {
+            parentId: parent.id,
+            token,
+            expiresAt,
+            createdBy: null // Cron job, no user
+          }
+        })
+      } catch (tokenError) {
         console.error(`Failed to generate token for parent ${parent.id}:`, tokenError)
         skippedCount++
         results.push({
@@ -237,7 +214,7 @@ export async function POST(request: NextRequest) {
       const studentBalances: StudentBalance[] = lowBalanceStudents.map(student => ({
         name: student.name,
         balance: student.balance,
-        schoolLevel: student.school_level
+        schoolLevel: student.schoolLevel as SchoolLevel
       }))
 
       // Build email data
@@ -253,17 +230,15 @@ export async function POST(request: NextRequest) {
         const result = await sendBalanceEmail(appSettings, emailData)
 
         if (result.success) {
-          // Log the notification
-          for (const student of lowBalanceStudents) {
-            await supabase
-              .from('notification_log')
-              .insert({
-                student_id: student.id,
-                parent_id: parent.id,
-                notification_type: 'low_balance',
-                balance_at_notification: student.balance
-              })
-          }
+          // Log the notification for each student
+          await prisma.notificationLog.createMany({
+            data: lowBalanceStudents.map(student => ({
+              studentId: student.id,
+              parentId: parent.id,
+              notificationType: 'low_balance',
+              balanceAtNotification: student.balance
+            }))
+          })
 
           sentCount++
           results.push({

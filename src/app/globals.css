@@ -2626,3 +2626,9 @@ body.menu-open {
     margin-bottom: 24px;
   }
 }
+
+/* Next.js Portal Override */
+nextjs-portal.dark {
+  left: unset !important;
+  top: unset !important;
+}

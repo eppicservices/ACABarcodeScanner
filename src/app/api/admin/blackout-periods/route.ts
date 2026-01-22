@@ -1,37 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth/nextauth-config'
+import prisma from '@/lib/prisma'
 
 // GET - List all blackout periods
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Fetch all blackout periods
-    const { data: periods, error } = await supabase
-      .from('email_blackout_periods')
-      .select('*')
-      .order('start_date', { ascending: true })
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    const periods = await prisma.emailBlackoutPeriod.findMany({
+      orderBy: { startDate: 'asc' },
+    })
 
     return NextResponse.json({ periods })
   } catch (error) {
@@ -43,22 +36,19 @@ export async function GET() {
 // POST - Create a new blackout period
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -77,21 +67,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create blackout period
-    const { data: period, error } = await supabase
-      .from('email_blackout_periods')
-      .insert({
+    const period = await prisma.emailBlackoutPeriod.create({
+      data: {
         name,
-        start_date,
-        end_date,
+        startDate: start,
+        endDate: end,
         description: description || null,
-        created_by: user.id
-      })
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+      },
+    })
 
     return NextResponse.json({ success: true, period })
   } catch (error) {
@@ -103,22 +86,19 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete a blackout period
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -128,14 +108,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    const { error } = await supabase
-      .from('email_blackout_periods')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    await prisma.emailBlackoutPeriod.delete({
+      where: { id },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -147,22 +122,19 @@ export async function DELETE(request: NextRequest) {
 // PATCH - Update a blackout period
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verify admin is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Verify admin is authenticated using NextAuth
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify user is an admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    const adminUser = await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    })
 
-    if (adminError || !adminUser) {
+    if (!adminUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -175,8 +147,8 @@ export async function PATCH(request: NextRequest) {
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {}
     if (name !== undefined) updates.name = name
-    if (start_date !== undefined) updates.start_date = start_date
-    if (end_date !== undefined) updates.end_date = end_date
+    if (start_date !== undefined) updates.startDate = new Date(start_date)
+    if (end_date !== undefined) updates.endDate = new Date(end_date)
     if (description !== undefined) updates.description = description
 
     // Validate dates if both are provided
@@ -188,16 +160,10 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { data: period, error } = await supabase
-      .from('email_blackout_periods')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    const period = await prisma.emailBlackoutPeriod.update({
+      where: { id },
+      data: updates,
+    })
 
     return NextResponse.json({ success: true, period })
   } catch (error) {

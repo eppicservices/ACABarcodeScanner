@@ -3,13 +3,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import Pagination from '@/components/Pagination'
-import type { Student, Parent, ActiveFilter } from '@/types/database'
+import {
+  getStudentsWithParents,
+  getStudentStats,
+  updateStudentsStatus,
+  type StudentWithParent as StudentWithParentType,
+  type StudentStats,
+  type StudentFilters,
+} from '@/actions/students'
+import type { ActiveFilter } from '@/types/database'
 
-interface StudentWithParent extends Student {
-  parent: Parent
-}
+interface StudentWithParent extends StudentWithParentType {}
 
 type SortField = 'name' | 'balance' | 'level'
 type SortDirection = 'asc' | 'desc'
@@ -42,82 +47,41 @@ export default function StudentsPage() {
 
   // Fetch stats separately (always from all data)
   const fetchStats = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('students')
-      .select('is_active, balance, school_level')
-
-    if (data) {
-      const activeStudents = data.filter(s => s.is_active)
-      setStats({
-        activeCount: activeStudents.length,
-        inactiveCount: data.filter(s => !s.is_active).length,
-        lowBalanceCount: activeStudents.filter(s => s.balance < 10).length,
-        elementaryCount: activeStudents.filter(s => s.school_level === 'elementary').length,
-        highSchoolCount: activeStudents.filter(s => s.school_level === 'high_school').length,
-      })
-    }
+    const statsData = await getStudentStats()
+    setStats(statsData)
   }, [])
 
   const fetchStudents = useCallback(async () => {
     setLoading(true)
-    const supabase = createClient()
 
-    // Build data query
-    let dataQuery = supabase
-      .from('students')
-      .select('*, parent:parents(*)')
-
-    // Apply school level filter
-    if (filter !== 'all') {
-      dataQuery = dataQuery.eq('school_level', filter)
+    // Build filters for server action
+    const filters: StudentFilters = {
+      schoolLevel: filter,
+      status: statusFilter,
+      search: search || undefined,
+      sortField,
+      sortDirection,
     }
 
-    // Apply status filter
-    if (statusFilter === 'active') {
-      dataQuery = dataQuery.eq('is_active', true)
-    } else if (statusFilter === 'inactive') {
-      dataQuery = dataQuery.eq('is_active', false)
-    }
+    const allData = await getStudentsWithParents(filters)
 
-    // Apply sorting
-    switch (sortField) {
-      case 'name':
-        dataQuery = dataQuery.order('name', { ascending: sortDirection === 'asc' })
-        break
-      case 'balance':
-        dataQuery = dataQuery.order('balance', { ascending: sortDirection === 'asc' })
-        break
-      case 'level':
-        dataQuery = dataQuery.order('school_level', { ascending: sortDirection === 'asc' })
-        break
-    }
+    // Update total count after filtering
+    setTotalCount(allData.length)
 
-    // Fetch all data first to apply search filter (since search involves parent name)
-    const { data: allData, error } = await dataQuery
+    // Apply pagination
+    const from = (currentPage - 1) * ITEMS_PER_PAGE
+    const to = from + ITEMS_PER_PAGE
+    const paginatedData = allData.slice(from, to)
 
-    if (!error && allData) {
-      // Apply search filter client-side (needed for parent name search)
-      let filteredData = allData as StudentWithParent[]
-      if (search) {
-        const searchLower = search.toLowerCase()
-        filteredData = filteredData.filter((student) =>
-          student.name.toLowerCase().includes(searchLower) ||
-          student.barcode.toLowerCase().includes(searchLower) ||
-          student.parent.name.toLowerCase().includes(searchLower)
-        )
-      }
+    // Map to expected format (server action uses camelCase, component expects snake_case in some places)
+    setStudents(paginatedData.map(s => ({
+      ...s,
+      school_level: s.schoolLevel,
+      is_active: s.isActive,
+      parent_id: s.parentId,
+      created_at: s.createdAt,
+    })) as unknown as StudentWithParent[])
 
-      // Update total count after search filtering
-      setTotalCount(filteredData.length)
-
-      // Apply pagination
-      const from = (currentPage - 1) * ITEMS_PER_PAGE
-      const to = from + ITEMS_PER_PAGE
-      const paginatedData = filteredData.slice(from, to)
-
-      setStudents(paginatedData)
-    }
     setLoading(false)
   }, [filter, statusFilter, sortField, sortDirection, search, currentPage])
 
@@ -157,13 +121,7 @@ export default function StudentsPage() {
 
     setBulkUpdating(true)
     try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('students')
-        .update({ is_active: setActive })
-        .in('id', Array.from(selectedStudents))
-
-      if (error) throw error
+      await updateStudentsStatus(Array.from(selectedStudents), setActive)
 
       await fetchStudents()
       await fetchStats()
@@ -491,7 +449,7 @@ export default function StudentsPage() {
                 {students.map((student, index) => (
                   <tr
                     key={student.id}
-                    className={`clickable-row ${!student.is_active ? 'inactive-row' : ''}`}
+                    className={`clickable-row ${!student.isActive ? 'inactive-row' : ''}`}
                     style={{ animationDelay: `${index * 0.02}s` }}
                   >
                     <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
@@ -502,7 +460,7 @@ export default function StudentsPage() {
                       />
                     </td>
                     <td className="name-cell" onClick={() => router.push(`/admin/students/${student.id}`)}>
-                      <div className={`student-avatar ${!student.is_active ? 'inactive' : ''}`}>
+                      <div className={`student-avatar ${!student.isActive ? 'inactive' : ''}`}>
                         {student.name.charAt(0).toUpperCase()}
                       </div>
                       <span className="student-name">{student.name}</span>
@@ -511,8 +469,8 @@ export default function StudentsPage() {
                       <code className="barcode">{student.barcode}</code>
                     </td>
                     <td onClick={() => router.push(`/admin/students/${student.id}`)}>
-                      <span className={`level-badge ${student.school_level}`}>
-                        {student.school_level === 'elementary' ? 'Elementary' : 'High School'}
+                      <span className={`level-badge ${student.schoolLevel}`}>
+                        {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
                       </span>
                     </td>
                     <td className="parent-cell" onClick={() => router.push(`/admin/students/${student.id}`)}>{student.parent.name}</td>
@@ -520,8 +478,8 @@ export default function StudentsPage() {
                       <span className={`balance ${getBalanceClass(student.balance)}`}>{student.balance}</span>
                     </td>
                     <td onClick={() => router.push(`/admin/students/${student.id}`)}>
-                      <span className={`status-badge ${student.is_active ? 'active' : 'inactive'}`}>
-                        {student.is_active ? 'Active' : 'Inactive'}
+                      <span className={`status-badge ${student.isActive ? 'active' : 'inactive'}`}>
+                        {student.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                   </tr>
@@ -569,7 +527,7 @@ export default function StudentsPage() {
                 {students.map((student, index) => (
                   <div
                     key={student.id}
-                    className={`list-item ${!student.is_active ? 'inactive-item' : ''}`}
+                    className={`list-item ${!student.isActive ? 'inactive-item' : ''}`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
                     <input
@@ -579,17 +537,17 @@ export default function StudentsPage() {
                       onChange={() => toggleStudentSelection(student.id)}
                     />
                     <Link href={`/admin/students/${student.id}`} className="list-item-link">
-                      <div className={`list-item-avatar ${!student.is_active ? 'inactive' : ''}`}>
+                      <div className={`list-item-avatar ${!student.isActive ? 'inactive' : ''}`}>
                         {student.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="list-item-content">
                         <div className="list-item-name">
                           {student.name}
-                          {!student.is_active && <span className="inactive-badge-small">Inactive</span>}
+                          {!student.isActive && <span className="inactive-badge-small">Inactive</span>}
                         </div>
                         <div className="list-item-meta">
-                          <span className={`list-item-level ${student.school_level}`}>
-                            {student.school_level === 'elementary' ? 'Elem' : 'HS'}
+                          <span className={`list-item-level ${student.schoolLevel}`}>
+                            {student.schoolLevel === 'elementary' ? 'Elem' : 'HS'}
                           </span>
                           <span className="list-item-barcode">{student.barcode}</span>
                         </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import prisma from '@/lib/prisma'
 import { isTokenExpired } from '@/lib/parent-portal'
 
 export async function GET(
@@ -8,16 +8,13 @@ export async function GET(
 ) {
   try {
     const { token } = await params
-    const supabase = await createClient()
 
     // Look up the token
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('parent_access_tokens')
-      .select('*')
-      .eq('token', token)
-      .single()
+    const tokenData = await prisma.parentAccessToken.findUnique({
+      where: { token },
+    })
 
-    if (tokenError || !tokenData) {
+    if (!tokenData) {
       return NextResponse.json({
         valid: false,
         error: 'Invalid or expired link'
@@ -25,7 +22,7 @@ export async function GET(
     }
 
     // Check if expired
-    if (isTokenExpired(tokenData.expires_at)) {
+    if (isTokenExpired(tokenData.expiresAt.toISOString())) {
       return NextResponse.json({
         valid: false,
         error: 'This link has expired. Please request a new one.'
@@ -33,13 +30,14 @@ export async function GET(
     }
 
     // Get parent with students
-    const { data: parent, error: parentError } = await supabase
-      .from('parents')
-      .select('*, students(*)')
-      .eq('id', tokenData.parent_id)
-      .single()
+    const parent = await prisma.parent.findUnique({
+      where: { id: tokenData.parentId },
+      include: {
+        students: true,
+      },
+    })
 
-    if (parentError || !parent) {
+    if (!parent) {
       return NextResponse.json({
         valid: false,
         error: 'Parent account not found'
@@ -47,7 +45,7 @@ export async function GET(
     }
 
     // Check if parent is active
-    if (!parent.is_active) {
+    if (!parent.isActive) {
       return NextResponse.json({
         valid: false,
         error: 'This account has been deactivated. Please contact the school office.'
@@ -55,25 +53,26 @@ export async function GET(
     }
 
     // Filter to only include active students
-    parent.students = parent.students.filter((s: { is_active: boolean }) => s.is_active)
+    const activeStudents = parent.students.filter(s => s.isActive)
 
     // Get settings for pricing
-    const { data: settings } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
+    const settings = await prisma.appSettings.findUnique({
+      where: { id: 1 },
+    })
 
     // Update last_used_at
-    await supabase
-      .from('parent_access_tokens')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('id', tokenData.id)
+    await prisma.parentAccessToken.update({
+      where: { id: tokenData.id },
+      data: { lastUsedAt: new Date() },
+    })
 
     return NextResponse.json({
       valid: true,
-      parent,
-      expiresAt: tokenData.expires_at,
+      parent: {
+        ...parent,
+        students: activeStudents,
+      },
+      expiresAt: tokenData.expiresAt.toISOString(),
       settings
     })
   } catch (error) {
