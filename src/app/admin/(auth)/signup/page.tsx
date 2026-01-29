@@ -5,6 +5,22 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { signUp, checkSetup } from '@/lib/auth/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Mail,
+  Lock,
+  Shield,
+  Loader2,
+  UserPlus,
+  Layers,
+} from 'lucide-react'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -61,13 +77,12 @@ export default function SignupPage() {
         <div className="signup-backdrop" />
         <div className="signup-card">
           <div className="card-inner">
-            <div className="loading-state">
-              <div className="loading-spinner" />
-              <span>Checking setup status...</span>
+            <div className="flex flex-col items-center gap-4 py-10">
+              <Skeleton className="h-12 w-12 rounded-lg" />
+              <Skeleton className="h-4 w-48" />
             </div>
           </div>
         </div>
-        {/* Styles are in globals.css to prevent FOUC */}
       </div>
     )
   }
@@ -80,10 +95,7 @@ export default function SignupPage() {
           <div className="card-inner">
             <div className="logo-section">
               <div className="logo-badge">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.2"/>
-                  <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <Layers className="h-8 w-8" />
               </div>
               <div className="logo-container">
                 <Image
@@ -99,9 +111,7 @@ export default function SignupPage() {
 
             <div className="header-section">
               <div className="status-badge">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
+                <Shield className="h-4 w-4" />
                 Already Configured
               </div>
               <h1>Admin Exists</h1>
@@ -111,27 +121,21 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <Link href="/admin/login" className="btn btn-primary btn-full">
-              <span>Go to Login</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </Link>
+            <Button asChild size="lg" className="w-full">
+              <Link href="/admin/login">
+                Go to Login
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
 
           <div className="card-footer">
             <Link href="/" className="back-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
+              <ArrowLeft className="h-4 w-4" />
               <span>Back to Scanner</span>
             </Link>
           </div>
         </div>
-
-        {/* Styles are in globals.css to prevent FOUC */}
       </div>
     )
   }
@@ -144,10 +148,7 @@ export default function SignupPage() {
         <div className="card-inner">
           <div className="logo-section">
             <div className="logo-badge">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.2"/>
-                <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <Layers className="h-8 w-8" />
             </div>
             <div className="logo-container">
               <Image
@@ -172,100 +173,90 @@ export default function SignupPage() {
             <p className="subtitle">Set up the first administrator for the lunch management system</p>
           </div>
 
-          <form onSubmit={handleSignup}>
+          <form onSubmit={handleSignup} className="space-y-4">
             {error && (
-              <div className="error-message">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span>{error}</span>
-              </div>
+              <Alert variant="destructive" className="animate-shake">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
-            <div className="form-group">
-              <label htmlFor="email">Email Address</label>
-              <div className="input-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-                <input
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wide text-gray-600">
+                Email Address
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                <Input
                   id="email"
                   type="email"
-                  className="input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@aldersgatechristian.com"
                   required
                   autoComplete="email"
+                  className="pl-10"
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <div className="input-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                <input
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wide text-gray-600">
+                Password
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                <Input
                   id="password"
                   type="password"
-                  className="input"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
+                  placeholder={`At least ${passwordMinLength} characters`}
                   required
-                  minLength={6}
+                  minLength={passwordMinLength}
                   autoComplete="new-password"
+                  className="pl-10"
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
-              <div className="input-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                <input
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-xs font-bold uppercase tracking-wide text-gray-600">
+                Confirm Password
+              </Label>
+              <div className="relative">
+                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                <Input
                   id="confirmPassword"
                   type="password"
-                  className="input"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter your password"
                   required
                   autoComplete="new-password"
+                  className="pl-10"
                 />
               </div>
             </div>
 
-            <button
+            <Button
               type="submit"
-              className="btn btn-primary btn-full"
+              size="lg"
+              className="w-full mt-2"
               disabled={loading}
             >
               {loading ? (
                 <>
-                  <span className="btn-spinner" />
-                  <span>Creating Account...</span>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating Account...
                 </>
               ) : (
                 <>
-                  <span>Create Admin Account</span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="8.5" cy="7" r="4" />
-                    <line x1="20" y1="8" x2="20" y2="14" />
-                    <line x1="23" y1="11" x2="17" y2="11" />
-                  </svg>
+                  Create Admin Account
+                  <UserPlus className="h-4 w-4" />
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
           <div className="divider">
@@ -279,16 +270,11 @@ export default function SignupPage() {
 
         <div className="card-footer">
           <Link href="/" className="back-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
+            <ArrowLeft className="h-4 w-4" />
             <span>Back to Scanner</span>
           </Link>
         </div>
       </div>
-
-      {/* Styles are in globals.css to prevent FOUC */}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { useSettings } from '../../context/SettingsContext'
 import { HorizontalTabs } from '../HorizontalTabs'
 import CsvImport from '@/components/admin/CsvImport'
@@ -18,11 +19,9 @@ function ImportContent() {
 }
 
 function ExportContent() {
-  const { setMessage } = useSettings()
   const [exporting, setExporting] = useState<string | null>(null)
 
   async function exportData(type: 'students' | 'transactions' | 'parents') {
-    setMessage(null)
     setExporting(type)
 
     try {
@@ -41,7 +40,7 @@ function ExportContent() {
       }
 
       if (!data || data.length === 0) {
-        setMessage({ type: 'error', text: 'No data to export' })
+        toast.error('No data to export')
         setExporting(null)
         return
       }
@@ -69,9 +68,9 @@ function ExportContent() {
       a.click()
       URL.revokeObjectURL(url)
 
-      setMessage({ type: 'success', text: `${type} exported successfully` })
+      toast.success(`${type} exported successfully`)
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Export failed' })
+      toast.error(error instanceof Error ? error.message : 'Export failed')
     }
 
     setExporting(null)
@@ -153,14 +152,13 @@ interface StoredStudentPayment {
 }
 
 function PaymentsContent() {
-  const { pendingPayments, setMessage, fetchData } = useSettings()
+  const { pendingPayments, fetchData } = useSettings()
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
 
   async function handleCompletePayment(paymentId: string) {
     if (!confirm('Mark this payment as completed? This will add lunches to the students\' accounts.')) return
 
     setProcessingPayment(paymentId)
-    setMessage(null)
 
     const payment = pendingPayments.find(p => p.id === paymentId)
     if (!payment) return
@@ -179,7 +177,7 @@ function PaymentsContent() {
     const result = await completePendingPayment(paymentId, studentPayments)
 
     if (!result.success) {
-      setMessage({ type: 'error', text: result.error || 'Failed to process payment' })
+      toast.error(result.error || 'Failed to process payment')
       setProcessingPayment(null)
       return
     }
@@ -207,7 +205,7 @@ function PaymentsContent() {
       console.error('Failed to send receipt email')
     }
 
-    setMessage({ type: 'success', text: 'Payment completed and lunches added!' })
+    toast.success('Payment completed and lunches added!')
     setProcessingPayment(null)
     fetchData()
   }
@@ -217,7 +215,7 @@ function PaymentsContent() {
 
     await cancelPendingPayment(paymentId)
 
-    setMessage({ type: 'success', text: 'Payment cancelled' })
+    toast.success('Payment cancelled')
     fetchData()
   }
 

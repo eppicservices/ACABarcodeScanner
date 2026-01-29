@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { useSettings } from '../../context/SettingsContext'
 import { deleteAdmin } from '@/actions/admin'
 
 export function AdminsTab() {
-  const { admins, setMessage, fetchData } = useSettings()
+  const { admins, fetchData } = useSettings()
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
 
@@ -14,13 +15,9 @@ export function AdminsTab() {
     if (!inviteEmail) return
 
     setInviting(true)
-    setMessage(null)
 
     // For now, just show a message - full invitation system would need email sending
-    setMessage({
-      type: 'success',
-      text: `Invitation would be sent to ${inviteEmail}. (Email sending not yet configured)`
-    })
+    toast.success(`Invitation would be sent to ${inviteEmail}. (Email sending not yet configured)`)
     setInviteEmail('')
     setInviting(false)
   }
@@ -30,10 +27,10 @@ export function AdminsTab() {
 
     try {
       await deleteAdmin(adminId)
-      setMessage({ type: 'success', text: 'Admin removed successfully' })
+      toast.success('Admin removed successfully')
       fetchData()
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to remove admin' })
+      toast.error(error instanceof Error ? error.message : 'Failed to remove admin')
     }
   }
 

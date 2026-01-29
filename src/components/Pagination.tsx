@@ -1,5 +1,8 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
 interface PaginationProps {
   currentPage: number
   totalPages: number
@@ -61,211 +64,71 @@ export default function Pagination({
 
   if (totalPages <= 1) {
     return (
-      <div className="pagination-container">
-        <span className="pagination-info">
+      <div className="flex items-center justify-between px-5 py-4 bg-white rounded-lg border border-gray-100">
+        <span className="text-sm text-muted-foreground">
           Showing {startItem}-{endItem} of {totalItems}
         </span>
-        <style jsx>{`
-          .pagination-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px;
-            background: var(--white);
-            border-radius: var(--border-radius-lg);
-            border: 1px solid var(--gray-100);
-          }
-          .pagination-info {
-            font-size: 13px;
-            color: var(--gray-500);
-          }
-        `}</style>
       </div>
     )
   }
 
   return (
-    <div className="pagination-container">
-      <span className="pagination-info">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3.5 sm:py-4 bg-white rounded-lg border border-gray-100">
+      <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
         Showing {startItem}-{endItem} of {totalItems}
       </span>
 
-      <div className="pagination-controls">
-        <button
-          className="pagination-btn"
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="icon-sm"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1 || isLoading}
           aria-label="Previous page"
+          className="h-8 w-8 sm:h-9 sm:w-9"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
 
-        <div className="pagination-pages">
+        <div className="flex items-center gap-1">
           {getPageNumbers().map((page, index) =>
             page === 'ellipsis' ? (
-              <span key={`ellipsis-${index}`} className="pagination-ellipsis">
+              <span
+                key={`ellipsis-${index}`}
+                className="px-2 text-muted-foreground text-sm"
+              >
                 ...
               </span>
             ) : (
-              <button
+              <Button
                 key={page}
-                className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                variant={currentPage === page ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => onPageChange(page)}
                 disabled={isLoading}
+                className={`h-8 w-8 sm:h-9 sm:min-w-9 px-0 sm:px-3 text-xs sm:text-sm font-medium ${
+                  currentPage === page
+                    ? 'bg-[var(--aca-teal)] hover:bg-[var(--aca-teal-dark)] text-white'
+                    : ''
+                }`}
               >
                 {page}
-              </button>
+              </Button>
             )
           )}
         </div>
 
-        <button
-          className="pagination-btn"
+        <Button
+          variant="outline"
+          size="icon-sm"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || isLoading}
           aria-label="Next page"
+          className="h-8 w-8 sm:h-9 sm:w-9"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
-
-      <style jsx>{`
-        .pagination-container {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 16px 20px;
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-100);
-          gap: 16px;
-        }
-
-        .pagination-info {
-          font-size: 13px;
-          color: var(--gray-500);
-          white-space: nowrap;
-        }
-
-        .pagination-controls {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .pagination-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border: 1px solid var(--gray-200);
-          border-radius: var(--border-radius);
-          background: var(--white);
-          color: var(--gray-600);
-          cursor: pointer;
-          transition: all var(--transition-fast);
-        }
-
-        .pagination-btn:hover:not(:disabled) {
-          border-color: var(--aca-teal);
-          color: var(--aca-teal);
-          background: var(--aca-teal-subtle);
-        }
-
-        .pagination-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .pagination-pages {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .pagination-page {
-          min-width: 36px;
-          height: 36px;
-          padding: 0 12px;
-          border: 1px solid var(--gray-200);
-          border-radius: var(--border-radius);
-          background: var(--white);
-          color: var(--gray-600);
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          font-family: var(--font-body);
-        }
-
-        .pagination-page:hover:not(:disabled):not(.active) {
-          border-color: var(--gray-300);
-          background: var(--gray-50);
-        }
-
-        .pagination-page.active {
-          background: var(--aca-teal);
-          border-color: var(--aca-teal);
-          color: var(--white);
-        }
-
-        .pagination-page:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .pagination-ellipsis {
-          padding: 0 8px;
-          color: var(--gray-400);
-          font-size: 14px;
-        }
-
-        @media (max-width: 768px) {
-          .pagination-container {
-            flex-direction: column;
-            gap: 12px;
-            padding: 14px 16px;
-          }
-
-          .pagination-info {
-            font-size: 12px;
-          }
-
-          .pagination-btn,
-          .pagination-page {
-            width: 32px;
-            height: 32px;
-            min-width: 32px;
-          }
-
-          .pagination-page {
-            padding: 0 8px;
-            font-size: 12px;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .pagination-pages {
-            gap: 2px;
-          }
-
-          .pagination-btn,
-          .pagination-page {
-            width: 28px;
-            height: 28px;
-            min-width: 28px;
-          }
-
-          .pagination-ellipsis {
-            padding: 0 4px;
-          }
-        }
-      `}</style>
     </div>
   )
 }

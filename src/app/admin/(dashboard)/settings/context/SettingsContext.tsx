@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { getSettingsForClient, updateSettings, type SerializedAppSettings } from '@/actions/settings'
 import { getAllAdmins, type AdminUser } from '@/actions/admin'
 import { getPendingPayments, type PendingPaymentWithParent } from '@/actions/transactions'
@@ -149,7 +150,6 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   }, [])
 
   const handleSave = useCallback(async () => {
-    setMessage(null)
     setSaving(true)
 
     try {
@@ -205,10 +205,10 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         settingsCacheMinutes: parseInt(formData.settings_cache_minutes),
       })
 
-      setMessage({ type: 'success', text: 'Settings saved successfully' })
+      toast.success('Settings saved successfully')
       fetchData()
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save settings' })
+      toast.error(error instanceof Error ? error.message : 'Failed to save settings')
     }
 
     setSaving(false)

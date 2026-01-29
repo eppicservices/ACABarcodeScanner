@@ -16,8 +16,6 @@ interface HorizontalTabsProps {
 export function HorizontalTabs({ tabs, defaultTab }: HorizontalTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id)
 
-  const activeContent = tabs.find(tab => tab.id === activeTab)?.content
-
   return (
     <div className="horizontal-tabs">
       <div className="horizontal-tab-nav">
@@ -31,9 +29,16 @@ export function HorizontalTabs({ tabs, defaultTab }: HorizontalTabsProps) {
           </button>
         ))}
       </div>
-      <div className="horizontal-tab-content">
-        {activeContent}
-      </div>
+      {/* Keep all tabs mounted but hide inactive ones to prevent refetching */}
+      {tabs.map(tab => (
+        <div
+          key={tab.id}
+          className="horizontal-tab-content"
+          style={{ display: activeTab === tab.id ? 'block' : 'none' }}
+        >
+          {tab.content}
+        </div>
+      ))}
 
       <style jsx>{`
         .horizontal-tabs {

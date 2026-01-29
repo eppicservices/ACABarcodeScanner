@@ -70,7 +70,7 @@ export async function getSettings(): Promise<AppSettings | null> {
 export async function getSettingsForClient(): Promise<SerializedAppSettings | null> {
   const settings = await getSettings()
   if (!settings) return null
-  return serializeForClient(settings)
+  return serializeForClient(settings) as unknown as SerializedAppSettings
 }
 
 // Get lunch-related settings only (for scanner)

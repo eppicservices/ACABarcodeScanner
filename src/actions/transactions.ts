@@ -37,6 +37,36 @@ export interface TransactionFilters {
   offset?: number
 }
 
+// Get a single transaction by ID
+export async function getTransactionById(id: string): Promise<TransactionWithStudent | null> {
+  const transaction = await prisma.balanceTransaction.findUnique({
+    where: { id },
+    include: {
+      student: {
+        select: {
+          id: true,
+          name: true,
+          barcode: true,
+          schoolLevel: true,
+          parent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!transaction) return null
+
+  return {
+    ...transaction,
+    amountPaid: transaction.amountPaid ? Number(transaction.amountPaid) : null,
+  }
+}
+
 // Get transactions with optional filters
 export async function getTransactions(filters?: TransactionFilters): Promise<TransactionWithStudent[]> {
   const where: Record<string, unknown> = {}

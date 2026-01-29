@@ -1,6 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 
 interface ManualEntryProps {
   onSubmit: (code: string) => void;
@@ -19,42 +28,50 @@ export default function ManualEntry({ onSubmit, isOpen, onClose }: ManualEntryPr
     }
   };
 
-  // Styles are now in globals.css to prevent FOUC
-  if (!isOpen) return null;
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+      setCode('');
+    }
+  };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content animate-fadeIn" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Manual Entry</h3>
-          <button className="close-btn" onClick={onClose} aria-label="Close">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <label className="input-label">
-            Student ID or Barcode
-          </label>
-          <input
-            type="text"
-            className="input"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Enter ID number..."
-            autoFocus
-          />
-          <div className="modal-actions">
-            <button type="button" className="btn btn-outline" onClick={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>Manual Entry</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="barcode">Student ID or Barcode</Label>
+            <Input
+              id="barcode"
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Enter ID number..."
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={onClose}
+            >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={!code.trim()}>
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1"
+              disabled={!code.trim()}
+            >
               Submit
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

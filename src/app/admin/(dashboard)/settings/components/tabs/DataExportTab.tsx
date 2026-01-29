@@ -1,17 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useSettings } from '../../context/SettingsContext'
+import { toast } from 'sonner'
 import { getStudentsForExport } from '@/actions/students'
 import { getParentsForExport } from '@/actions/parents'
 import { getTransactionsForExport } from '@/actions/transactions'
 
 export function DataExportTab() {
-  const { setMessage } = useSettings()
   const [exporting, setExporting] = useState<string | null>(null)
 
   async function exportData(type: 'students' | 'transactions' | 'parents') {
-    setMessage(null)
     setExporting(type)
 
     try {
@@ -30,7 +28,7 @@ export function DataExportTab() {
       }
 
       if (!data || data.length === 0) {
-        setMessage({ type: 'error', text: 'No data to export' })
+        toast.error('No data to export')
         setExporting(null)
         return
       }
@@ -58,9 +56,9 @@ export function DataExportTab() {
       a.click()
       URL.revokeObjectURL(url)
 
-      setMessage({ type: 'success', text: `${type} exported successfully` })
+      toast.success(`${type} exported successfully`)
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to export data' })
+      toast.error(error instanceof Error ? error.message : 'Failed to export data')
     }
 
     setExporting(null)

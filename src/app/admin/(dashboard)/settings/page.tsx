@@ -13,37 +13,26 @@ import {
   CommunicationsTab,
   DataTab,
 } from './components/tabs'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Settings } from 'lucide-react'
 
 function SettingsContent() {
-  const { loading, message, activeTab, settings } = useSettings()
+  const { loading, activeTab, settings } = useSettings()
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <span>Loading settings...</span>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 80px;
-            gap: 16px;
-            color: var(--gray-400);
-          }
-          .loading-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--gray-100);
-            border-top-color: var(--aca-blue);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="max-w-[1000px]">
+        <div className="mb-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-[14px]" />
+            <div>
+              <Skeleton className="h-7 w-32 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+        </div>
+        <Skeleton className="h-[500px] rounded-xl" />
       </div>
     )
   }
@@ -72,156 +61,40 @@ function SettingsContent() {
   }
 
   return (
-    <div className="settings-page">
-      <div className="page-header">
-        <div className="header-content">
-          <div className="header-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
+    <div className="max-w-[1000px]">
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 max-md:w-10 max-md:h-10 bg-gradient-to-br from-gray-100 to-white border border-gray-200 rounded-[14px] flex items-center justify-center text-gray-600">
+            <Settings className="h-6 w-6 max-md:h-5 max-md:w-5" />
           </div>
           <div>
-            <h1>Settings</h1>
-            <p className="subtitle">Manage your lunch system configuration</p>
+            <h1 className="text-[26px] max-md:text-[22px] font-semibold text-[var(--aca-navy)] tracking-tight m-0">
+              Settings
+            </h1>
+            <p className="text-gray-400 text-sm mt-0.5 m-0">
+              Manage your lunch system configuration
+            </p>
           </div>
         </div>
       </div>
 
-      {message && (
-        <div className={`alert alert-${message.type}`}>
-          {message.text}
-        </div>
-      )}
-
-      <div className="settings-layout">
+      <Card className="flex max-md:flex-col overflow-hidden">
         <SettingsTabNav />
-        <div className="tab-content">
+        <div className="flex-1 p-7 max-md:p-5 max-[480px]:p-4 min-h-[500px] max-md:min-h-0">
           {renderActiveTab()}
         </div>
-      </div>
+      </Card>
 
       <EmailPreviewModal />
 
       {settings?.updatedAt && (
-        <p className="last-updated">
+        <p className="text-xs text-gray-400 mt-4 text-right">
           Last updated: {new Date(settings.updatedAt).toLocaleString()}
         </p>
       )}
 
-      <style jsx>{`
-        .settings-page {
-          max-width: 1000px;
-        }
-
-        .page-header {
-          margin-bottom: 24px;
-        }
-
-        .header-content {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .header-icon {
-          width: 48px;
-          height: 48px;
-          background: linear-gradient(135deg, var(--gray-100) 0%, var(--white) 100%);
-          border: 1px solid var(--gray-200);
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--gray-600);
-        }
-
-        h1 {
-          font-size: 26px;
-          margin: 0;
-          color: var(--aca-navy);
-        }
-
-        .subtitle {
-          color: var(--gray-400);
-          margin: 2px 0 0 0;
-          font-size: 14px;
-        }
-
-        .alert {
-          padding: 14px 18px;
-          border-radius: var(--border-radius);
-          margin-bottom: 20px;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .alert-error {
-          background: var(--error-bg);
-          color: var(--error);
-          border: 1px solid var(--error-border);
-        }
-
-        .alert-success {
-          background: var(--success-bg);
-          color: var(--success);
-          border: 1px solid var(--success-border);
-        }
-
-        .settings-layout {
-          display: flex;
-          gap: 24px;
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-200);
-          overflow: hidden;
-        }
-
-        .tab-content {
-          flex: 1;
-          padding: 28px;
-          min-height: 500px;
-        }
-
-        .last-updated {
-          font-size: 12px;
-          color: var(--gray-400);
-          margin-top: 16px;
-          text-align: right;
-        }
-
-        @media (max-width: 768px) {
-          .settings-layout {
-            flex-direction: column;
-          }
-
-          .tab-content {
-            padding: 20px 16px;
-            min-height: auto;
-          }
-
-          h1 {
-            font-size: 22px;
-          }
-
-          .header-icon {
-            width: 40px;
-            height: 40px;
-          }
-
-          .header-icon svg {
-            width: 20px;
-            height: 20px;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .tab-content {
-            padding: 16px 12px;
-          }
-        }
-      `}</style>
-
+      {/* Global styles for child components */}
       <style jsx global>{`
         .tabs-sidebar {
           width: 200px;
@@ -322,16 +195,22 @@ function SettingsContent() {
         .input-with-prefix .input {
           border-top-left-radius: 0;
           border-bottom-left-radius: 0;
+          flex: 1;
+          min-width: 0;
         }
 
         .prefix {
-          padding: 10px 12px;
+          padding: 12px 12px;
           background: var(--gray-100);
           border: 1px solid var(--gray-300);
           border-right: none;
           border-radius: var(--border-radius) 0 0 var(--border-radius);
           color: var(--gray-500);
           font-weight: 500;
+          display: flex;
+          align-items: center;
+          height: 50px;
+          box-sizing: border-box;
         }
 
         .input-with-suffix .input {

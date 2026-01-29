@@ -15,6 +15,38 @@ import {
   adjustBalance,
 } from '@/actions/transactions'
 import { getLunchSettings } from '@/actions/settings'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  Trash2,
+  Plus,
+  AlertTriangle,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import type { SchoolLevel } from '@prisma/client'
 
 interface Parent {
@@ -64,7 +96,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
   // Form fields
@@ -130,7 +161,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       })))
     }
 
-    // Use settings from DB or fallback to defaults
     setSettings(settingsData || {
       elementaryLunchPrice: 4,
       highschoolLunchPrice: 6,
@@ -150,7 +180,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setSuccess(null)
     setSaving(true)
 
     try {
@@ -161,7 +190,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         parentId,
         isActive,
       })
-      setSuccess('Student updated successfully')
+      toast.success('Student updated successfully')
       setIsEditing(false)
       fetchData()
     } catch (err) {
@@ -172,7 +201,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const handleCancelEdit = () => {
-    // Reset form fields to original values
     if (student) {
       setName(student.name)
       setBarcode(student.barcode)
@@ -190,7 +218,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
     let amount = parseFloat(paymentAmount)
 
-    // For lunch card, use the fixed price
     if (paymentType === 'lunch_card') {
       amount = settings.highschoolLunchCardPrice
     }
@@ -215,7 +242,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     setPaymentAmount('')
     setPaymentNotes('')
     setPaymentType('payment')
-    setSuccess(`Added ${result.lunchesAdded} lunches (paid $${amount.toFixed(2)})`)
+    toast.success(`Added ${result.lunchesAdded} lunches (paid $${amount.toFixed(2)})`)
     fetchData()
   }
 
@@ -244,7 +271,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     setPaymentAmount('')
     setPaymentNotes('')
     setPaymentType('payment')
-    setSuccess(`Balance adjusted by ${lunches > 0 ? '+' : ''}${lunches} lunches`)
+    toast.success(`Balance adjusted by ${lunches > 0 ? '+' : ''}${lunches} lunches`)
     fetchData()
   }
 
@@ -260,7 +287,6 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  // Calculate lunches from payment amount
   const calculateLunches = () => {
     if (!settings || !student) return 0
     if (paymentType === 'lunch_card') return settings.highschoolLunchCardLunches
@@ -273,25 +299,39 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <span>Loading student...</span>
+      <div className="max-w-[1000px]">
+        <div className="mb-7">
+          <Skeleton className="h-4 w-32 mb-4" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-2xl" />
+            <div>
+              <Skeleton className="h-7 w-48 mb-2" />
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <Skeleton className="h-64" />
+          <div className="space-y-5">
+            <Skeleton className="h-40" />
+            <Skeleton className="h-64" />
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!student) {
     return (
-      <div className="error-container">
-        <div className="error-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-gray-400">
+        <AlertCircle className="h-12 w-12 text-gray-300" />
         <p>Student not found</p>
-        <Link href="/admin/students" className="btn btn-outline">Back to Students</Link>
+        <Button variant="outline" asChild>
+          <Link href="/admin/students">Back to Students</Link>
+        </Button>
       </div>
     )
   }
@@ -301,281 +341,362 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     : 0
 
   return (
-    <div className="edit-student-page">
-      <div className="page-header">
-        <div className="header-content">
-          <Link href="/admin/students" className="back-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span>Back to Students</span>
-          </Link>
-          <div className="header-title-row">
-            <div className="student-avatar-large">
-              {student.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1>{student.name}</h1>
-              <p className="subtitle">
-                <span className={`level-badge ${student.schoolLevel}`}>
-                  {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
-                </span>
-                <span className="barcode-badge">{student.barcode}</span>
-              </p>
+    <div className="max-w-[1000px]">
+      {/* Page Header */}
+      <div className="mb-7">
+        <Link
+          href="/admin/students"
+          className="inline-flex items-center gap-1.5 text-gray-400 text-sm font-medium mb-4 px-3 py-1.5 -ml-3 rounded-lg hover:text-[var(--aca-teal)] hover:bg-[var(--aca-teal-subtle)] transition-colors group"
+        >
+          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+          <span>Back to Students</span>
+        </Link>
+
+        <div className="flex items-center gap-4 max-[380px]:flex-col max-[380px]:items-start max-[380px]:gap-2.5">
+          <div className="w-14 h-14 max-md:w-12 max-md:h-12 max-[380px]:w-11 max-[380px]:h-11 bg-gradient-to-br from-[var(--aca-teal)] to-[var(--aca-teal-dark)] rounded-2xl max-md:rounded-[14px] flex items-center justify-center text-white font-semibold text-[22px] max-md:text-xl max-[380px]:text-lg shadow-[0_4px_12px_rgba(0,177,193,0.3)]">
+            {student.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-[26px] max-md:text-xl max-[380px]:text-lg font-semibold text-[var(--aca-navy)] tracking-tight m-0">
+              {student.name}
+            </h1>
+            <div className="flex items-center gap-2.5 mt-1.5 max-md:mt-1 flex-wrap">
+              <Badge variant={student.schoolLevel === 'elementary' ? 'teal' : 'default'}>
+                {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
+              </Badge>
+              <span className="font-mono text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded">
+                {student.barcode}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="content-grid">
-        <div className="main-content">
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        {/* Sidebar - Balance & Transactions (moves to top on mobile) */}
+        <div className="lg:order-2 flex flex-col gap-5 max-md:gap-4 order-first lg:order-none">
+          {/* Balance Card */}
+          <Card className="max-md:flex max-md:flex-row max-md:items-center max-md:justify-between max-md:p-4 max-[380px]:flex-col max-[380px]:text-center max-[380px]:gap-3">
+            <CardContent className="p-7 max-md:p-0 max-md:flex-1 text-center max-md:text-left">
+              <h3 className="text-[11px] uppercase tracking-[0.08em] text-gray-400 font-semibold mb-4 max-md:hidden">
+                Lunch Balance
+              </h3>
+              <div className={`text-5xl max-md:text-4xl max-[380px]:text-[32px] font-bold leading-none tracking-tight ${
+                student.balance <= 0 ? 'text-red-500' : student.balance <= 3 ? 'text-red-500' : 'text-green-600'
+              }`}>
+                {student.balance}
+                <span className="block max-md:inline max-md:ml-1 text-sm font-medium text-gray-400 mt-1 max-md:mt-0">
+                  {student.balance === 1 ? 'lunch' : 'lunches'}
+                </span>
+              </div>
+              <p className="text-[13px] text-gray-400 mt-3 max-md:hidden">
+                ${lunchPrice.toFixed(2)} per lunch
+              </p>
+            </CardContent>
+            <Button
+              onClick={() => setShowBalanceModal(true)}
+              className="max-md:flex-shrink-0 max-[380px]:w-full w-[calc(100%-56px)] mx-7 mb-7 max-md:m-0 max-md:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Add Lunches
+            </Button>
+          </Card>
+
+          {/* Recent Transactions */}
+          <Card>
+            <CardContent className="p-5 max-md:p-4">
+              <h3 className="text-[11px] uppercase tracking-[0.08em] text-gray-400 font-semibold mb-4 max-md:mb-3">
+                Recent Transactions
+              </h3>
+              {transactions.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-5">No transactions yet</p>
+              ) : (
+                <ul className="space-y-0">
+                  {transactions.map((tx) => (
+                    <li key={tx.id} className="flex justify-between items-center py-3 max-md:py-2.5 border-b border-gray-100 last:border-0">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`text-xs max-md:text-[11px] font-semibold capitalize ${
+                          tx.transactionType === 'payment' || tx.transactionType === 'lunch_card'
+                            ? 'text-green-600'
+                            : tx.transactionType === 'refund' || tx.transactionType === 'lunch_used'
+                            ? 'text-red-500'
+                            : 'text-[var(--aca-teal)]'
+                        }`}>
+                          {tx.transactionType === 'lunch_used' ? 'Used' : tx.transactionType}
+                        </span>
+                        <span className="text-[11px] max-md:text-[10px] text-gray-400">
+                          {new Date(tx.createdAt!).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className={`font-mono font-semibold text-sm max-md:text-[13px] px-2 py-1 max-md:px-1.5 max-md:py-0.5 rounded ${
+                        tx.lunchesChange >= 0
+                          ? 'text-green-600 bg-green-50'
+                          : 'text-red-500 bg-red-50'
+                      }`}>
+                        {tx.lunchesChange >= 0 ? '+' : ''}{tx.lunchesChange}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <div className="lg:order-1">
+          {error && (
+            <Alert variant="destructive" className="mb-5">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {isEditing ? (
-            <form onSubmit={handleSave} className="card form-card">
-              <h2>Edit Student Information</h2>
+            <Card>
+              <form onSubmit={handleSave}>
+                <CardContent className="p-6 max-md:p-4">
+                  <h2 className="text-[17px] max-md:text-base font-semibold text-gray-700 mb-6 max-md:mb-5">
+                    Edit Student Information
+                  </h2>
 
-              <div className="form-group">
-                <label>Name</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Barcode</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>School Level</label>
-                  <select
-                    className="input"
-                    value={schoolLevel}
-                    onChange={(e) => setSchoolLevel(e.target.value as 'elementary' | 'high_school')}
-                  >
-                    <option value="elementary">Elementary</option>
-                    <option value="high_school">High School</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Parent</label>
-                <select
-                  className="input"
-                  value={parentId}
-                  onChange={(e) => setParentId(e.target.value)}
-                  required
-                >
-                  <option value="">Select a parent...</option>
-                  {parents.map((parent) => (
-                    <option key={parent.id} value={parent.id}>
-                      {parent.name} ({parent.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Status</label>
-                <div className="status-toggle">
-                  <button
-                    type="button"
-                    className={`status-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => setIsActive(true)}
-                  >
-                    Active
-                  </button>
-                  <button
-                    type="button"
-                    className={`status-btn ${!isActive ? 'inactive' : ''}`}
-                    onClick={() => setIsActive(false)}
-                  >
-                    Inactive
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button type="button" className="btn btn-outline" onClick={handleCancelEdit}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="card detail-card">
-              <div className="detail-header">
-                <h2>Student Information</h2>
-                <button className="btn btn-outline" onClick={() => setIsEditing(true)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                  Edit
-                </button>
-              </div>
-
-              <div className="detail-grid">
-                <div className="detail-item">
-                  <span className="detail-label">Full Name</span>
-                  <span className="detail-value">{student.name}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Barcode</span>
-                  <span className="detail-value">
-                    <code className="barcode-display">{student.barcode}</code>
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">School Level</span>
-                  <span className="detail-value">
-                    <span className={`level-badge ${student.schoolLevel}`}>
-                      {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
-                    </span>
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Parent</span>
-                  <span className="detail-value">
-                    <Link href={`/admin/parents/${student.parentId}`} className="parent-link">
-                      <span>{student.parent.name}</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </Link>
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Status</span>
-                  <span className="detail-value">
-                    <span className={`status-badge ${student.isActive ? 'active' : 'inactive'}`}>
-                      {student.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="detail-actions">
-                <button type="button" className="btn btn-danger-outline" onClick={() => setShowDeleteModal(true)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  Delete Student
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="sidebar">
-          <div className="card balance-card">
-            <h3>Lunch Balance</h3>
-            <div className="balance-content">
-              <div className={`balance-display ${student.balance <= 0 ? 'negative' : student.balance <= 3 ? 'low' : ''}`}>
-                {student.balance}
-                <span className="balance-unit">{student.balance === 1 ? 'lunch' : 'lunches'}</span>
-              </div>
-              <p className="price-info">${lunchPrice.toFixed(2)} per lunch</p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary btn-full"
-              onClick={() => setShowBalanceModal(true)}
-            >
-              Add Lunches
-            </button>
-          </div>
-
-          <div className="card transactions-card">
-            <h3>Recent Transactions</h3>
-            {transactions.length === 0 ? (
-              <p className="no-transactions">No transactions yet</p>
-            ) : (
-              <ul className="transactions-list">
-                {transactions.map((tx) => (
-                  <li key={tx.id} className="transaction-item">
-                    <div className="tx-info">
-                      <span className={`tx-type ${tx.transactionType}`}>
-                        {tx.transactionType === 'lunch_used' ? 'Used' : tx.transactionType}
-                      </span>
-                      <span className="tx-date">
-                        {new Date(tx.createdAt!).toLocaleDateString()}
-                      </span>
+                  <div className="space-y-5 max-md:space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
                     </div>
-                    <span className={`tx-amount ${tx.lunchesChange >= 0 ? 'positive' : 'negative'}`}>
-                      {tx.lunchesChange >= 0 ? '+' : ''}{tx.lunchesChange}
+
+                    <div className="grid grid-cols-2 max-md:grid-cols-1 gap-4 max-md:gap-0">
+                      <div className="space-y-2 max-md:mb-4">
+                        <Label htmlFor="barcode">Barcode</Label>
+                        <Input
+                          id="barcode"
+                          type="text"
+                          value={barcode}
+                          onChange={(e) => setBarcode(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>School Level</Label>
+                        <Select value={schoolLevel} onValueChange={(v) => setSchoolLevel(v as 'elementary' | 'high_school')}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="elementary">Elementary</SelectItem>
+                            <SelectItem value="high_school">High School</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Parent</Label>
+                      <Select value={parentId} onValueChange={setParentId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a parent..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parents.map((parent) => (
+                            <SelectItem key={parent.id} value={parent.id}>
+                              {parent.name} ({parent.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={isActive ? 'success' : 'outline'}
+                          className="flex-1"
+                          onClick={() => setIsActive(true)}
+                        >
+                          Active
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={!isActive ? 'secondary' : 'outline'}
+                          className="flex-1"
+                          onClick={() => setIsActive(false)}
+                        >
+                          Inactive
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-8 max-md:mt-6 pt-6 max-md:pt-4 border-t border-gray-100 max-md:flex-col-reverse">
+                    <Button type="button" variant="outline" onClick={handleCancelEdit} className="max-md:w-full">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={saving} className="max-md:w-full">
+                      {saving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </form>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-6 max-md:p-4">
+                <div className="flex justify-between items-center mb-6 max-md:mb-4 pb-4 max-md:pb-3 border-b border-gray-100 max-md:flex-col max-md:items-start max-md:gap-3">
+                  <h2 className="text-[17px] max-md:text-[15px] font-semibold text-gray-700">
+                    Student Information
+                  </h2>
+                  <Button variant="outline" onClick={() => setIsEditing(true)} className="max-md:w-full max-md:justify-center">
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 max-md:grid-cols-1 gap-6 max-md:gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs max-md:text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      Full Name
                     </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    <span className="text-[15px] max-md:text-sm font-medium text-gray-700">
+                      {student.name}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs max-md:text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      Barcode
+                    </span>
+                    <span className="text-[15px] max-md:text-sm font-medium text-gray-700">
+                      <code className="bg-gray-100 px-3 max-md:px-2.5 py-1.5 max-md:py-1 rounded text-sm max-md:text-[13px] font-mono text-[var(--aca-teal)]">
+                        {student.barcode}
+                      </code>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs max-md:text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      School Level
+                    </span>
+                    <span className="text-[15px] max-md:text-sm font-medium text-gray-700">
+                      <Badge variant={student.schoolLevel === 'elementary' ? 'teal' : 'default'}>
+                        {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
+                      </Badge>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs max-md:text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      Parent
+                    </span>
+                    <span className="text-[15px] max-md:text-sm font-medium">
+                      <Link
+                        href={`/admin/parents/${student.parentId}`}
+                        className="inline-flex items-center gap-1 text-[var(--aca-teal)] hover:text-[var(--aca-teal-dark)] transition-colors group"
+                      >
+                        {student.parent.name}
+                        <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </Link>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs max-md:text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      Status
+                    </span>
+                    <span className="text-[15px] max-md:text-sm font-medium text-gray-700">
+                      <Badge variant={student.isActive ? 'success' : 'muted'}>
+                        {student.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-8 max-md:mt-5 pt-6 max-md:pt-4 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300 max-md:w-full max-md:justify-center"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Student
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
-      {showBalanceModal && (
-        <div className="modal-overlay" onClick={() => setShowBalanceModal(false)}>
-          <div className="modal card" onClick={(e) => e.stopPropagation()}>
-            <h2>Add Lunches</h2>
-            {!settings ? (
-              <>
-                <div className="alert alert-error" style={{ marginBottom: 16 }}>
-                  Unable to load lunch settings. Please try again.
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => setShowBalanceModal(false)}>
-                    Close
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="current-balance">
-                  Current balance: <strong>{student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}</strong>
-                </p>
+      {/* Add Lunches Modal */}
+      <Dialog open={showBalanceModal} onOpenChange={setShowBalanceModal}>
+        <DialogContent className="max-w-[440px] max-md:max-w-full max-md:rounded-t-[20px] max-md:rounded-b-none">
+          <DialogHeader>
+            <DialogTitle>Add Lunches</DialogTitle>
+          </DialogHeader>
 
-                <form onSubmit={paymentType === 'adjustment' ? handleManualAdjustment : handleBalanceUpdate}>
-                  <div className="form-group">
-                    <label>Payment Type</label>
-                    <select
-                      className="input"
+          {!settings ? (
+            <>
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>Unable to load lunch settings. Please try again.</AlertDescription>
+              </Alert>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowBalanceModal(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 text-[15px] max-md:text-sm mb-6 max-md:mb-5">
+                Current balance: <strong className="text-gray-700">{student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}</strong>
+              </p>
+
+              <form onSubmit={paymentType === 'adjustment' ? handleManualAdjustment : handleBalanceUpdate}>
+                <div className="space-y-5 max-md:space-y-4">
+                  <div className="space-y-2">
+                    <Label>Payment Type</Label>
+                    <Select
                       value={paymentType}
-                      onChange={(e) => {
-                        setPaymentType(e.target.value as 'payment' | 'lunch_card' | 'adjustment')
+                      onValueChange={(v) => {
+                        setPaymentType(v as 'payment' | 'lunch_card' | 'adjustment')
                         setPaymentAmount('')
                       }}
                     >
-                      <option value="payment">Cash Payment</option>
-                      {student.schoolLevel === 'high_school' && (
-                        <option value="lunch_card">Lunch Card ($50 for 10 lunches)</option>
-                      )}
-                      <option value="adjustment">Manual Adjustment</option>
-                    </select>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="payment">Cash Payment</SelectItem>
+                        {student.schoolLevel === 'high_school' && (
+                          <SelectItem value="lunch_card">Lunch Card ($50 for 10 lunches)</SelectItem>
+                        )}
+                        <SelectItem value="adjustment">Manual Adjustment</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {paymentType === 'payment' && (
-                    <div className="form-group">
-                      <label>Amount Paid ($)</label>
-                      <input
+                    <div className="space-y-2">
+                      <Label>Amount Paid ($)</Label>
+                      <Input
                         type="number"
-                        className="input"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
                         placeholder="0.00"
@@ -584,7 +705,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                         required
                       />
                       {parseFloat(paymentAmount) > 0 && (
-                        <p className="lunch-preview">
+                        <p className="text-sm text-green-600 mt-2">
                           = <strong>{calculateLunches()} lunches</strong> at ${lunchPrice.toFixed(2)} each
                         </p>
                       )}
@@ -592,1053 +713,92 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                   )}
 
                   {paymentType === 'lunch_card' && (
-                    <div className="lunch-card-info">
-                      <div className="lunch-card-details">
-                        <span className="lunch-card-price">${settings.highschoolLunchCardPrice.toFixed(2)}</span>
-                        <span className="lunch-card-value">{settings.highschoolLunchCardLunches} lunches</span>
+                    <div className="bg-gradient-to-br from-[var(--aca-gold-subtle)] to-amber-100 border-2 border-[var(--aca-gold)] rounded-lg p-5 max-md:p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-2xl max-md:text-xl font-bold text-[var(--aca-gold-dark)]">
+                          ${settings.highschoolLunchCardPrice.toFixed(2)}
+                        </span>
+                        <span className="text-lg max-md:text-base font-semibold text-[var(--aca-navy)]">
+                          {settings.highschoolLunchCardLunches} lunches
+                        </span>
                       </div>
-                      <p className="lunch-card-savings">
+                      <p className="text-[13px] max-md:text-xs text-green-600 m-0">
                         ${(settings.highschoolLunchCardPrice / settings.highschoolLunchCardLunches).toFixed(2)} per lunch (save ${(settings.highschoolLunchPrice - settings.highschoolLunchCardPrice / settings.highschoolLunchCardLunches).toFixed(2)} per lunch)
                       </p>
                     </div>
                   )}
 
                   {paymentType === 'adjustment' && (
-                    <div className="form-group">
-                      <label>Lunches to Add/Remove</label>
-                      <input
+                    <div className="space-y-2">
+                      <Label>Lunches to Add/Remove</Label>
+                      <Input
                         type="number"
-                        className="input"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
                         placeholder="Enter positive or negative number"
                         required
                       />
-                      <p className="adjustment-hint">Use negative number to remove lunches</p>
+                      <p className="text-xs text-gray-400 mt-1.5">Use negative number to remove lunches</p>
                     </div>
                   )}
 
-                  <div className="form-group">
-                    <label>Notes (optional)</label>
-                    <input
+                  <div className="space-y-2">
+                    <Label>Notes (optional)</Label>
+                    <Input
                       type="text"
-                      className="input"
                       value={paymentNotes}
                       onChange={(e) => setPaymentNotes(e.target.value)}
                       placeholder="e.g., Cash payment"
                     />
                   </div>
+                </div>
 
-                  <div className="modal-actions">
-                    <button type="button" className="btn btn-outline" onClick={() => setShowBalanceModal(false)}>
-                      Cancel
-                    </button>
-                    <button type="submit" className="btn btn-primary">
-                      {paymentType === 'adjustment' ? 'Adjust Balance' : 'Add Lunches'}
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
+                <DialogFooter className="mt-7 max-md:mt-6 max-md:flex-col-reverse max-md:gap-2.5">
+                  <Button type="button" variant="outline" onClick={() => setShowBalanceModal(false)} className="max-md:w-full">
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="max-md:w-full">
+                    {paymentType === 'adjustment' ? 'Adjust Balance' : 'Add Lunches'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={(open) => !deleting && setShowDeleteModal(open)}>
+        <DialogContent className="max-w-[400px] text-center max-md:max-w-full max-md:rounded-t-[20px] max-md:rounded-b-none">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
+            <AlertTriangle className="h-8 w-8 text-red-500" />
           </div>
-        </div>
-      )}
-
-      {showDeleteModal && (
-        <div className="modal-overlay" onClick={() => !deleting && setShowDeleteModal(false)}>
-          <div className="modal delete-modal card" onClick={(e) => e.stopPropagation()}>
-            <div className="delete-modal-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 32, height: 32 }}>
-                <path d="M12 9v4" />
-                <path d="M12 17h.01" />
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-            </div>
-            <h2>Delete Student</h2>
-            <p className="delete-message">
-              Are you sure you want to delete <strong>{student.name}</strong>? This will permanently remove all their data including transaction history.
-            </p>
-            <p className="delete-warning">This action cannot be undone.</p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? 'Deleting...' : 'Delete Student'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        .edit-student-page {
-          max-width: 1000px;
-        }
-
-        .loading-container,
-        .error-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 80px;
-          gap: 16px;
-          color: var(--gray-400);
-        }
-
-        .loading-spinner {
-          width: 32px;
-          height: 32px;
-          border: 3px solid var(--gray-100);
-          border-top-color: var(--aca-teal);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        .error-icon {
-          color: var(--gray-300);
-          margin-bottom: 8px;
-        }
-
-        .page-header {
-          margin-bottom: 28px;
-        }
-
-        .header-content {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--gray-400);
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 500;
-          padding: 6px 12px;
-          margin: -6px -12px;
-          border-radius: var(--border-radius-sm);
-          transition: all var(--transition-fast);
-        }
-
-        .back-link:hover {
-          color: var(--aca-teal);
-          background: var(--aca-teal-subtle);
-        }
-
-        .back-link svg {
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-          transition: transform var(--transition-fast);
-        }
-
-        .back-link:hover svg {
-          transform: translateX(-3px);
-        }
-
-        .header-title-row {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .student-avatar-large {
-          width: 56px;
-          height: 56px;
-          background: linear-gradient(135deg, var(--aca-teal) 0%, var(--aca-teal-dark) 100%);
-          border-radius: 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--white);
-          font-weight: 600;
-          font-size: 22px;
-          box-shadow: 0 4px 12px rgba(0, 177, 193, 0.3);
-        }
-
-        h1 {
-          font-size: 26px;
-          margin: 0;
-          color: var(--aca-navy);
-          letter-spacing: -0.02em;
-        }
-
-        .subtitle {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin: 6px 0 0 0;
-        }
-
-        .level-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          border-radius: 16px;
-          font-size: 11px;
-          font-weight: 600;
-        }
-
-        .level-badge.elementary {
-          background: #dbeafe;
-          color: #1e40af;
-        }
-
-        .level-badge.high_school {
-          background: var(--aca-gold-subtle);
-          color: var(--aca-gold-dark);
-        }
-
-        .barcode-badge {
-          font-family: 'SF Mono', Monaco, monospace;
-          font-size: 12px;
-          color: var(--gray-400);
-          background: var(--gray-100);
-          padding: 4px 10px;
-          border-radius: var(--border-radius-sm);
-        }
-
-        .content-grid {
-          display: grid;
-          grid-template-columns: 1fr 320px;
-          gap: 24px;
-        }
-
-        .alert {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 14px 18px;
-          border-radius: var(--border-radius);
-          margin-bottom: 20px;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .alert-error {
-          background: var(--error-bg);
-          color: var(--error);
-          border: 1px solid var(--error-border);
-        }
-
-        .alert-success {
-          background: var(--success-bg);
-          color: var(--success);
-          border: 1px solid var(--success-border);
-          animation: successPop 0.35s ease-out;
-        }
-
-        .form-card h2,
-        .detail-card h2 {
-          font-size: 17px;
-          margin: 0;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .detail-card {
-          padding: 24px;
-        }
-
-        .detail-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 24px;
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--gray-100);
-        }
-
-        .detail-header .btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .detail-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 24px;
-        }
-
-        .detail-item {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .detail-label {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--gray-400);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .detail-value {
-          font-size: 15px;
-          font-weight: 500;
-          color: var(--gray-700);
-        }
-
-        .barcode-display {
-          background: var(--gray-100);
-          padding: 6px 12px;
-          border-radius: var(--border-radius-sm);
-          font-family: 'SF Mono', Monaco, monospace;
-          font-size: 14px;
-          color: var(--aca-teal);
-        }
-
-        .parent-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          color: var(--aca-teal);
-          text-decoration: none;
-          font-weight: 500;
-          transition: all var(--transition-fast);
-        }
-
-        .parent-link:hover {
-          color: var(--aca-teal-dark);
-        }
-
-        .parent-link svg {
-          transition: transform var(--transition-fast);
-        }
-
-        .parent-link:hover svg {
-          transform: translateX(2px);
-        }
-
-        .detail-actions {
-          margin-top: 32px;
-          padding-top: 24px;
-          border-top: 1px solid var(--gray-100);
-        }
-
-        .btn-danger-outline {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 10px 16px;
-          background: transparent;
-          color: var(--error);
-          border: 1px solid var(--error-border);
-          border-radius: var(--border-radius);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          font-family: var(--font-body);
-        }
-
-        .btn-danger-outline:hover {
-          background: var(--error-bg);
-          border-color: var(--error);
-        }
-
-        .form-card h2 {
-          margin-bottom: 24px;
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-        }
-
-        .form-group label {
-          display: block;
-          font-weight: 600;
-          font-size: 13px;
-          color: var(--gray-600);
-          margin-bottom: 8px;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 32px;
-          padding-top: 24px;
-          border-top: 1px solid var(--gray-100);
-        }
-
-        .status-toggle {
-          display: flex;
-          gap: 8px;
-        }
-
-        .status-btn {
-          flex: 1;
-          padding: 10px 16px;
-          border: 1px solid var(--gray-200);
-          border-radius: var(--border-radius);
-          background: var(--white);
-          color: var(--gray-500);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          font-family: var(--font-body);
-        }
-
-        .status-btn:hover {
-          border-color: var(--gray-300);
-          color: var(--gray-700);
-        }
-
-        .status-btn.active {
-          background: var(--success-bg);
-          border-color: var(--success);
-          color: var(--success);
-        }
-
-        .status-btn.inactive {
-          background: var(--gray-100);
-          border-color: var(--gray-400);
-          color: var(--gray-600);
-        }
-
-        .status-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          border-radius: 16px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .status-badge.active {
-          background: var(--success-bg);
-          color: var(--success);
-        }
-
-        .status-badge.inactive {
-          background: var(--gray-100);
-          color: var(--gray-500);
-        }
-
-        .sidebar {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .balance-card {
-          text-align: center;
-          padding: 28px 24px;
-          background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
-        }
-
-        .balance-card h3 {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--gray-400);
-          margin: 0 0 16px 0;
-          font-weight: 600;
-        }
-
-        .balance-content {
-          /* Wrapper for balance display and price info */
-        }
-
-        .balance-display {
-          font-size: 48px;
-          font-weight: 700;
-          color: var(--success);
-          margin-bottom: 4px;
-          letter-spacing: -0.02em;
-          line-height: 1;
-        }
-
-        .balance-unit {
-          display: block;
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--gray-400);
-          margin-top: 4px;
-        }
-
-        .balance-display.low {
-          color: var(--error);
-        }
-
-        .balance-display.negative {
-          color: var(--error);
-        }
-
-        .price-info {
-          font-size: 13px;
-          color: var(--gray-400);
-          margin: 12px 0 20px;
-        }
-
-        .btn-full {
-          width: 100%;
-          position: relative;
-          z-index: 1;
-        }
-
-        .transactions-card {
-          padding: 20px;
-        }
-
-        .transactions-card h3 {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--gray-400);
-          margin: 0 0 16px 0;
-          font-weight: 600;
-        }
-
-        .no-transactions {
-          color: var(--gray-400);
-          font-size: 14px;
-          text-align: center;
-          padding: 20px;
-        }
-
-        .transactions-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-        }
-
-        .transaction-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 0;
-          border-bottom: 1px solid var(--gray-100);
-        }
-
-        .transaction-item:last-child {
-          border-bottom: none;
-        }
-
-        .tx-info {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-
-        .tx-type {
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: capitalize;
-        }
-
-        .tx-type.payment, .tx-type.lunch_card {
-          color: var(--success);
-        }
-
-        .tx-type.refund, .tx-type.lunch_used {
-          color: var(--error);
-        }
-
-        .tx-type.adjustment {
-          color: var(--aca-teal);
-        }
-
-        .tx-date {
-          font-size: 11px;
-          color: var(--gray-400);
-        }
-
-        .tx-amount {
-          font-family: 'SF Mono', Monaco, monospace;
-          font-weight: 600;
-          font-size: 14px;
-          padding: 4px 8px;
-          border-radius: var(--border-radius-sm);
-        }
-
-        .tx-amount.positive {
-          color: var(--success);
-          background: var(--success-bg);
-        }
-
-        .tx-amount.negative {
-          color: var(--error);
-          background: var(--error-bg);
-        }
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          animation: overlayEnter 0.2s ease-out;
-        }
-
-        .modal {
-          width: 100%;
-          max-width: 440px;
-          animation: modalEnter 0.3s ease-out;
-          padding: 32px;
-        }
-
-        .modal h2 {
-          margin: 0 0 8px 0;
-          font-size: 20px;
-          color: var(--aca-navy);
-        }
-
-        .current-balance {
-          color: var(--gray-500);
-          margin: 0 0 28px 0;
-          font-size: 15px;
-        }
-
-        .current-balance strong {
-          color: var(--gray-700);
-        }
-
-        .lunch-preview {
-          margin: 8px 0 0;
-          font-size: 14px;
-          color: var(--success);
-        }
-
-        .lunch-preview strong {
-          font-weight: 600;
-        }
-
-        .lunch-card-info {
-          background: linear-gradient(135deg, var(--aca-gold-subtle) 0%, #fef3c7 100%);
-          border: 2px solid var(--aca-gold);
-          border-radius: var(--border-radius);
-          padding: 20px;
-          margin-bottom: 20px;
-        }
-
-        .lunch-card-details {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-        }
-
-        .lunch-card-price {
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--aca-gold-dark);
-        }
-
-        .lunch-card-value {
-          font-size: 18px;
-          font-weight: 600;
-          color: var(--aca-navy);
-        }
-
-        .lunch-card-savings {
-          font-size: 13px;
-          color: var(--success);
-          margin: 0;
-        }
-
-        .adjustment-hint {
-          font-size: 12px;
-          color: var(--gray-400);
-          margin: 6px 0 0;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 28px;
-        }
-
-        .modal-actions .btn {
-          flex: 1;
-          padding: 14px 24px;
-        }
-
-        /* Delete Modal Styles */
-        .delete-modal {
-          text-align: center;
-          max-width: 400px;
-        }
-
-        .delete-modal-icon {
-          width: 64px;
-          height: 64px;
-          background: var(--error-bg);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 20px;
-          color: var(--error);
-        }
-
-        .delete-modal h2 {
-          margin: 0 0 12px 0;
-          font-size: 20px;
-          color: var(--aca-navy);
-        }
-
-        .delete-message {
-          color: var(--gray-500);
-          font-size: 14px;
-          line-height: 1.5;
-          margin: 0 0 8px 0;
-        }
-
-        .delete-message strong {
-          color: var(--gray-700);
-        }
-
-        .delete-warning {
-          color: var(--error);
-          font-size: 13px;
-          font-weight: 500;
-          margin: 0 0 24px 0;
-        }
-
-        .btn-danger {
-          background: var(--error);
-          color: white;
-          border: none;
-          padding: 12px 20px;
-          border-radius: var(--border-radius);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          font-family: var(--font-body);
-        }
-
-        .btn-danger:hover {
-          background: #dc2626;
-        }
-
-        .btn-danger:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        /* ========== Mobile Responsive Styles ========== */
-        @media (max-width: 768px) {
-          .edit-student-page {
-            padding: 0;
-          }
-
-          .page-header {
-            margin-bottom: 20px;
-          }
-
-          .header-title-row {
-            gap: 12px;
-          }
-
-          .student-avatar-large {
-            width: 48px;
-            height: 48px;
-            font-size: 20px;
-            border-radius: 14px;
-          }
-
-          h1 {
-            font-size: 20px;
-          }
-
-          .subtitle {
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 4px;
-          }
-
-          .level-badge {
-            font-size: 10px;
-            padding: 3px 8px;
-          }
-
-          .barcode-badge {
-            font-size: 11px;
-            padding: 3px 8px;
-          }
-
-          /* Stack sidebar below main content */
-          .content-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-          }
-
-          /* Reorder: balance card first on mobile */
-          .sidebar {
-            order: -1;
-            gap: 16px;
-          }
-
-          /* Compact balance card */
-          .balance-card {
-            padding: 20px 16px;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            text-align: left;
-            gap: 16px;
-          }
-
-          .balance-card h3 {
-            display: none;
-          }
-
-          .balance-content {
-            flex: 1;
-            min-width: 0;
-          }
-
-          .balance-display {
-            font-size: 36px;
-            margin-bottom: 0;
-          }
-
-          .balance-unit {
-            display: inline;
-            font-size: 13px;
-            margin-top: 0;
-            margin-left: 4px;
-          }
-
-          .price-info {
-            display: none;
-          }
-
-          .balance-card .btn-full {
-            width: auto;
-            padding: 12px 20px;
-            flex-shrink: 0;
-            pointer-events: auto;
-          }
-
-          /* Detail card adjustments */
-          .detail-card {
-            padding: 16px;
-          }
-
-          .detail-header {
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-          }
-
-          .detail-header h2 {
-            font-size: 15px;
-          }
-
-          .detail-header .btn {
-            width: 100%;
-            justify-content: center;
-            padding: 10px 16px;
-          }
-
-          .detail-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-          }
-
-          .detail-label {
-            font-size: 11px;
-            margin-bottom: 2px;
-          }
-
-          .detail-value {
-            font-size: 14px;
-          }
-
-          .barcode-display {
-            font-size: 13px;
-            padding: 5px 10px;
-          }
-
-          .detail-actions {
-            margin-top: 20px;
-            padding-top: 16px;
-          }
-
-          .btn-danger-outline {
-            width: 100%;
-            justify-content: center;
-            padding: 12px 16px;
-          }
-
-          /* Transactions card */
-          .transactions-card {
-            padding: 16px;
-          }
-
-          .transactions-card h3 {
-            margin-bottom: 12px;
-          }
-
-          .transaction-item {
-            padding: 10px 0;
-          }
-
-          .tx-type {
-            font-size: 11px;
-          }
-
-          .tx-date {
-            font-size: 10px;
-          }
-
-          .tx-amount {
-            font-size: 13px;
-            padding: 3px 6px;
-          }
-
-          /* Form styles for mobile editing */
-          .form-card {
-            padding: 16px;
-          }
-
-          .form-card h2 {
-            font-size: 16px;
-            margin-bottom: 20px;
-          }
-
-          .form-row {
-            grid-template-columns: 1fr;
-            gap: 0;
-          }
-
-          .form-group {
-            margin-bottom: 16px;
-          }
-
-          .form-group label {
-            font-size: 12px;
-            margin-bottom: 6px;
-          }
-
-          .form-actions {
-            flex-direction: column-reverse;
-            gap: 10px;
-            margin-top: 24px;
-            padding-top: 16px;
-          }
-
-          .form-actions .btn {
-            width: 100%;
-            padding: 14px 20px;
-            justify-content: center;
-          }
-
-          /* Modal mobile optimization */
-          .modal-overlay {
-            padding: 16px;
-            align-items: flex-end;
-          }
-
-          .modal {
-            max-width: 100%;
-            padding: 24px 20px;
-            border-radius: 20px 20px 0 0;
-            max-height: 90vh;
-            overflow-y: auto;
-          }
-
-          .modal h2 {
-            font-size: 18px;
-          }
-
-          .current-balance {
-            font-size: 14px;
-            margin-bottom: 20px;
-          }
-
-          .lunch-card-info {
-            padding: 16px;
-          }
-
-          .lunch-card-price {
-            font-size: 20px;
-          }
-
-          .lunch-card-value {
-            font-size: 16px;
-          }
-
-          .lunch-card-savings {
-            font-size: 12px;
-          }
-
-          .modal-actions {
-            flex-direction: column-reverse;
-            gap: 10px;
-            margin-top: 24px;
-          }
-
-          .modal-actions .btn {
-            padding: 16px 24px;
-          }
-        }
-
-        /* Extra small screens */
-        @media (max-width: 380px) {
-          .header-title-row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-          }
-
-          .student-avatar-large {
-            width: 44px;
-            height: 44px;
-            font-size: 18px;
-          }
-
-          h1 {
-            font-size: 18px;
-          }
-
-          .balance-card {
-            flex-direction: column;
-            text-align: center;
-            gap: 12px;
-          }
-
-          .balance-card .btn-full {
-            width: 100%;
-          }
-
-          .balance-display {
-            font-size: 32px;
-          }
-        }
-      `}</style>
+          <DialogHeader>
+            <DialogTitle className="text-center">Delete Student</DialogTitle>
+          </DialogHeader>
+          <p className="text-gray-500 text-sm leading-relaxed mb-2">
+            Are you sure you want to delete <strong className="text-gray-700">{student.name}</strong>? This will permanently remove all their data including transaction history.
+          </p>
+          <p className="text-red-500 text-[13px] font-medium mb-6">
+            This action cannot be undone.
+          </p>
+          <DialogFooter className="max-md:flex-col-reverse max-md:gap-2.5">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={deleting} className="max-md:w-full">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="max-md:w-full">
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Student'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

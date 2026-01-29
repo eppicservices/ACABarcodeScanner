@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import {
   getParentById,
   updateParent,
@@ -36,17 +37,17 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
   const [isActive, setIsActive] = useState(true)
 
   const router = useRouter()
   const [refetchTrigger, setRefetchTrigger] = useState(0)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSuccess, setEmailSuccess] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -62,7 +63,6 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
             setName(p.name)
             setEmail(p.email)
             setPhone(p.phone || '')
-            setAddress(p.address || '')
             setIsActive(p.isActive)
           }
           setLoading(false)
@@ -82,10 +82,39 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [id, refetchTrigger])
 
+  async function sendBalanceEmail() {
+    setSendingEmail(true)
+    setEmailSuccess(false)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/admin/send-balance-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parent_id: id })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email')
+      }
+
+      setEmailSuccess(true)
+      toast.success('Balance email sent successfully')
+      setTimeout(() => {
+        setEmailSuccess(false)
+      }, 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setSuccess(null)
     setSaving(true)
 
     try {
@@ -93,11 +122,10 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         name,
         email,
         phone: phone || null,
-        address: address || null,
         isActive,
       })
 
-      setSuccess('Parent updated successfully')
+      toast.success('Parent updated successfully')
       setIsEditing(false)
       setRefetchTrigger(prev => prev + 1)
     } catch (err) {
@@ -112,7 +140,6 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
       setName(parent.name)
       setEmail(parent.email)
       setPhone(parent.phone || '')
-      setAddress(parent.address || '')
       setIsActive(parent.isActive)
     }
     setIsEditing(false)
@@ -248,6 +275,45 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
               )}
             </div>
           </div>
+          {parent.isActive && (
+            <div className="header-actions">
+              <button
+                className={`btn btn-action ${emailSuccess ? 'btn-success' : ''}`}
+                onClick={sendBalanceEmail}
+                disabled={sendingEmail}
+              >
+                {sendingEmail ? (
+                  <>
+                    <span className="btn-spinner" />
+                    Sending...
+                  </>
+                ) : emailSuccess ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    Sent!
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                    Email Balance
+                  </>
+                )}
+              </button>
+              <Link href={`/admin/add-payment?parent=${id}`} className="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+                Add Payment
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
@@ -261,15 +327,6 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               {error}
-            </div>
-          )}
-          {success && (
-            <div className="alert alert-success">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              {success}
             </div>
           )}
 
@@ -315,30 +372,16 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 <p className="field-hint">Used for low balance notifications</p>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="phone">Phone Number</label>
-                  <input
-                    id="phone"
-                    type="tel"
-                    className="input"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="555-123-4567"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="address">Address</label>
-                  <input
-                    id="address"
-                    type="text"
-                    className="input"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="123 Main St, City, ST 12345"
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="phone">Phone Number</label>
+                <input
+                  id="phone"
+                  type="tel"
+                  className="input"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="555-123-4567"
+                />
               </div>
 
               <div className="form-group">
@@ -421,10 +464,6 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                   <span className="detail-value">{parent.phone || <span className="not-set">Not set</span>}</span>
                 </div>
                 <div className="detail-item">
-                  <span className="detail-label">Address</span>
-                  <span className="detail-value">{parent.address || <span className="not-set">Not set</span>}</span>
-                </div>
-                <div className="detail-item">
                   <span className="detail-label">Status</span>
                   <span className="detail-value">
                     <span className={`status-badge ${parent.isActive ? 'active' : 'inactive'}`}>
@@ -494,7 +533,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
               </ul>
             )}
 
-            <Link href="/admin/students/new" className="btn btn-outline btn-block">
+            <Link href={`/admin/students/new?parent=${id}`} className="btn btn-outline btn-block">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -567,6 +606,44 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
 
         .header-info {
           flex: 1;
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .btn-action {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 16px;
+          background: var(--aca-teal-subtle);
+          color: var(--aca-teal);
+          border: 1px solid transparent;
+          border-radius: var(--border-radius);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          font-family: var(--font-body);
+          text-decoration: none;
+        }
+
+        .btn-action:hover {
+          background: var(--aca-teal);
+          color: var(--white);
+        }
+
+        .btn-action:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        .btn-action.btn-success {
+          background: var(--success-bg);
+          color: var(--success);
         }
 
         h1 {
@@ -1021,6 +1098,159 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
           border-color: var(--aca-teal);
           color: var(--aca-teal);
           background: var(--aca-teal-subtle);
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+          .content-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .sidebar {
+            order: -1;
+          }
+
+          .header-main {
+            flex-wrap: wrap;
+            gap: 16px;
+          }
+
+          .header-actions {
+            width: 100%;
+            flex-direction: column;
+          }
+
+          .header-actions .btn,
+          .header-actions .btn-action {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .avatar-large {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            font-size: 22px;
+          }
+
+          h1 {
+            font-size: 22px;
+          }
+
+          .header-meta {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+
+          .meta-item {
+            font-size: 13px;
+          }
+
+          .form-card,
+          .detail-card {
+            padding: 20px;
+          }
+
+          .form-row {
+            grid-template-columns: 1fr;
+            gap: 0;
+          }
+
+          .detail-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          .detail-header {
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .detail-header .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .form-actions {
+            flex-direction: column-reverse;
+          }
+
+          .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .status-toggle {
+            flex-direction: column;
+          }
+
+          .students-card {
+            padding: 16px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .page-header {
+            margin-bottom: 24px;
+          }
+
+          .back-link {
+            font-size: 13px;
+            margin-bottom: 16px;
+          }
+
+          .avatar-large {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            font-size: 18px;
+          }
+
+          h1 {
+            font-size: 20px;
+          }
+
+          .children-badge {
+            font-size: 12px;
+            padding: 3px 10px;
+          }
+
+          .form-card,
+          .detail-card {
+            padding: 16px;
+          }
+
+          .form-header,
+          .detail-header {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+          }
+
+          .form-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+          }
+
+          .form-header h2,
+          .detail-header h2 {
+            font-size: 15px;
+          }
+
+          .form-desc {
+            font-size: 12px;
+          }
+
+          .student-link {
+            padding: 12px 4px;
+          }
+
+          .student-avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 12px;
+          }
         }
       `}</style>
     </div>

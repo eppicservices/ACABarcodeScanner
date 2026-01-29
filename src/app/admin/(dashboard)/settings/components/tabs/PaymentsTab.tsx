@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { toast } from 'sonner'
 import { useSettings } from '../../context/SettingsContext'
 import { completePendingPayment, cancelPendingPayment, type StudentPaymentItem } from '@/actions/transactions'
 
 export function PaymentsTab() {
-  const { pendingPayments, setMessage, fetchData } = useSettings()
+  const { pendingPayments, fetchData } = useSettings()
   const { data: session } = useSession()
   const [processingPayment, setProcessingPayment] = useState<string | null>(null)
 
@@ -14,7 +15,6 @@ export function PaymentsTab() {
     if (!confirm('Mark this payment as completed? This will add lunches to the students\' accounts.')) return
 
     setProcessingPayment(paymentId)
-    setMessage(null)
 
     const payment = pendingPayments.find(p => p.id === paymentId)
     if (!payment) return
@@ -48,9 +48,9 @@ export function PaymentsTab() {
         console.error('Failed to send receipt email')
       }
 
-      setMessage({ type: 'success', text: 'Payment completed and lunches added!' })
+      toast.success('Payment completed and lunches added!')
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to complete payment' })
+      toast.error(error instanceof Error ? error.message : 'Failed to complete payment')
     }
 
     setProcessingPayment(null)
@@ -62,10 +62,10 @@ export function PaymentsTab() {
 
     try {
       await cancelPendingPayment(paymentId)
-      setMessage({ type: 'success', text: 'Payment cancelled' })
+      toast.success('Payment cancelled')
       fetchData()
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to cancel payment' })
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel payment')
     }
   }
 

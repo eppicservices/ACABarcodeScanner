@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
 import { useSettings } from '../../context/SettingsContext'
 import { HorizontalTabs } from '../HorizontalTabs'
 import SchoolCalendarSettings from '@/components/admin/SchoolCalendarSettings'
 import { updateSettings } from '@/actions/settings'
 
 function SchoolCalendarContent() {
-  const { settings, fetchData, setMessage } = useSettings()
+  const { settings, fetchData } = useSettings()
 
   return (
     <SchoolCalendarSettings
@@ -15,13 +16,16 @@ function SchoolCalendarContent() {
       onSettingsChange={async () => {
         await fetchData()
       }}
-      onMessage={setMessage}
+      onMessage={(msg) => {
+        if (msg?.type === 'success') toast.success(msg.text)
+        else if (msg?.type === 'error') toast.error(msg.text)
+      }}
     />
   )
 }
 
 function MealCalendarContent() {
-  const { settings, setMessage, fetchData } = useSettings()
+  const { settings, fetchData } = useSettings()
   const [calendarUrl, setCalendarUrl] = useState('')
   const [calendarEnabled, setCalendarEnabled] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -72,30 +76,28 @@ function MealCalendarContent() {
 
   const handleSaveCalendarSettings = useCallback(async () => {
     setSaving(true)
-    setMessage(null)
 
     try {
       await updateSettings({
         calendarUrl: calendarUrl || null,
         calendarEnabled: calendarEnabled,
       })
-      setMessage({ type: 'success', text: 'Calendar settings saved' })
+      toast.success('Calendar settings saved')
       fetchData()
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save settings' })
+      toast.error(error instanceof Error ? error.message : 'Failed to save settings')
     }
 
     setSaving(false)
-  }, [calendarUrl, calendarEnabled, setMessage, fetchData])
+  }, [calendarUrl, calendarEnabled, fetchData])
 
   async function handleSyncCalendar() {
     if (!calendarUrl) {
-      setMessage({ type: 'error', text: 'Please enter a calendar URL first' })
+      toast.error('Please enter a calendar URL first')
       return
     }
 
     setSyncing(true)
-    setMessage(null)
 
     try {
       const response = await fetch('/api/admin/sync-calendar', {
@@ -110,10 +112,10 @@ function MealCalendarContent() {
         throw new Error(result.error || 'Failed to sync calendar')
       }
 
-      setMessage({ type: 'success', text: `Synced ${result.imported} meals from calendar` })
+      toast.success(`Synced ${result.imported} meals from calendar`)
       setLastSynced(new Date())
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to sync calendar' })
+      toast.error(error instanceof Error ? error.message : 'Failed to sync calendar')
     }
 
     setSyncing(false)

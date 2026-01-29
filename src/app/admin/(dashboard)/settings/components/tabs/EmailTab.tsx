@@ -2,23 +2,23 @@
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { toast } from 'sonner'
 import { useSettings } from '../../context/SettingsContext'
 
 export function EmailTab() {
-  const { formData, updateField, saving, handleSave, setMessage, setPreviewTemplate } = useSettings()
+  const { formData, updateField, saving, handleSave, setPreviewTemplate } = useSettings()
   const { data: session } = useSession()
   const [testingEmail, setTestingEmail] = useState(false)
 
   async function handleTestEmail() {
     setTestingEmail(true)
-    setMessage(null)
 
     // First save the current settings
     await handleSave()
 
     const userEmail = session?.user?.email
     if (!userEmail) {
-      setMessage({ type: 'error', text: 'Could not get your email address' })
+      toast.error('Could not get your email address')
       setTestingEmail(false)
       return
     }
@@ -33,12 +33,12 @@ export function EmailTab() {
       const data = await res.json()
 
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || 'Failed to send test email' })
+        toast.error(data.error || 'Failed to send test email')
       } else {
-        setMessage({ type: 'success', text: `Test email sent to ${userEmail}` })
+        toast.success(`Test email sent to ${userEmail}`)
       }
     } catch {
-      setMessage({ type: 'error', text: 'Failed to send test email' })
+      toast.error('Failed to send test email')
     }
 
     setTestingEmail(false)

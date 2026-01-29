@@ -4,10 +4,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { updateCalendarSettings } from '@/actions/settings'
 import type { AppSettings, EmailBlackoutPeriod } from '@prisma/client'
 
+// Type that works with both Prisma AppSettings and SerializedAppSettings
+type CalendarSettingsInput = {
+  schoolCalendarEnabled?: boolean | null
+  fallSemesterStart?: Date | string | null
+  fallSemesterEnd?: Date | string | null
+  springSemesterStart?: Date | string | null
+  springSemesterEnd?: Date | string | null
+} | null
+
 interface SchoolCalendarSettingsProps {
-  settings: AppSettings | null
+  settings: CalendarSettingsInput
   onSettingsChange: (updates: Partial<AppSettings>) => void
-  onMessage: (message: { type: 'success' | 'error'; text: string }) => void
+  onMessage: (message: { type: 'success' | 'error'; text: string } | null) => void
 }
 
 interface CalendarStatus {
@@ -69,7 +78,7 @@ export default function SchoolCalendarSettings({ settings, onSettingsChange, onM
   useEffect(() => {
     if (settings) {
       // Convert Date objects to date strings for form inputs
-      const formatDateForInput = (date: Date | string | null): string => {
+      const formatDateForInput = (date: Date | string | null | undefined): string => {
         if (!date) return ''
         if (typeof date === 'string') return date.split('T')[0]
         return date.toISOString().split('T')[0]

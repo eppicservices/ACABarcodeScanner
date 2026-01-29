@@ -5,6 +5,23 @@ import { useSearchParams } from 'next/navigation'
 import { getParentsWithStudents, type ParentWithStudents } from '@/actions/parents'
 import { getSettingsForClient, type SerializedAppSettings } from '@/actions/settings'
 import { calculateLunches } from '@/lib/parent-portal'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  DollarSign,
+  Search,
+  Users,
+  User,
+  CheckCircle,
+  XCircle,
+  CreditCard,
+  Loader2,
+} from 'lucide-react'
 import type { SchoolLevel } from '@prisma/client'
 
 interface StudentAmount {
@@ -38,7 +55,6 @@ function AddPaymentContent() {
 
   const handleSelectParent = useCallback((parent: ParentWithStudents) => {
     setSelectedParent(parent)
-    // Only set amounts for active students
     const activeStudents = parent.students.filter(s => s.isActive)
     setAmounts(activeStudents.map(s => ({
       studentId: s.id,
@@ -56,7 +72,6 @@ function AddPaymentContent() {
       ])
 
       setParents(parentsData)
-      // Update selected parent with fresh data
       setSelectedParent(prev => {
         if (prev) {
           const updatedParent = parentsData.find((p) => p.id === prev.id)
@@ -149,7 +164,6 @@ function AddPaymentContent() {
     setMessage(null)
 
     try {
-      // Convert to API format (snake_case for backwards compatibility until API is migrated)
       const paymentItems = getPaymentItems().map(item => ({
         student_id: item.studentId,
         student_name: item.studentName,
@@ -181,7 +195,6 @@ function AddPaymentContent() {
 
       setMessage({ type: 'success', text: 'Payment recorded successfully! Receipt email sent to parent.' })
 
-      // Reset form (only active students)
       setAmounts(selectedParent.students.filter(s => s.isActive).map(s => ({
         studentId: s.id,
         amount: '',
@@ -190,7 +203,6 @@ function AddPaymentContent() {
       setNotes('')
       setPaymentMethod('cash')
 
-      // Refresh data to show updated balances
       fetchData()
     } catch {
       setMessage({ type: 'error', text: 'Failed to process payment. Please try again.' })
@@ -199,7 +211,6 @@ function AddPaymentContent() {
     setSubmitting(false)
   }
 
-  // Only show active parents with active students
   const filteredParents = parents.filter(p =>
     p.isActive &&
     p.students.some(s => s.isActive) &&
@@ -212,940 +223,298 @@ function AddPaymentContent() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <span>Loading...</span>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 80px;
-            gap: 16px;
-            color: var(--gray-400);
-          }
-          .loading-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--gray-100);
-            border-top-color: var(--aca-blue);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="max-w-[1200px]">
+        <div className="mb-6 flex items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-[14px]" />
+          <div>
+            <Skeleton className="h-7 w-40 mb-1" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+        <div className="grid md:grid-cols-[320px_1fr] gap-6">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <Skeleton className="h-10 w-full" />
+              {[1, 2, 3, 4].map(i => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6 space-y-6">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-40 w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="add-payment-page">
-      <div className="page-header">
-        <div className="header-content">
-          <div className="header-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <line x1="12" y1="1" x2="12" y2="23" />
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
+    <div className="max-w-[1200px]">
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-green-50 to-white border border-green-200 rounded-[14px] flex items-center justify-center text-green-600 shadow-sm">
+            <DollarSign className="h-6 w-6" />
           </div>
           <div>
-            <h1>Add Payment</h1>
-            <p className="subtitle">Record payments received from parents</p>
+            <h1 className="text-[26px] font-semibold text-[var(--aca-navy)] tracking-tight m-0">
+              Add Payment
+            </h1>
+            <p className="text-gray-400 text-sm mt-0.5">
+              Record payments received from parents
+            </p>
           </div>
         </div>
       </div>
 
       {message && (
-        <div className={`alert alert-${message.type}`}>
-          {message.text}
-        </div>
+        <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className={`mb-5 ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : ''}`}>
+          {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+          <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
       )}
 
-      <div className="payment-layout">
-        <div className="parent-selector">
-          <h2>Select Parent</h2>
-          <div className="search-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="parent-list">
-            {filteredParents.map(parent => (
-              <button
-                key={parent.id}
-                className={`parent-item ${selectedParent?.id === parent.id ? 'selected' : ''}`}
-                onClick={() => handleSelectParent(parent)}
-              >
-                <div className="parent-avatar">
-                  {parent.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="parent-info">
-                  <span className="parent-name">{parent.name}</span>
-                  <span className="parent-email">{parent.email}</span>
-                  <span className="student-count">{parent.students.filter(s => s.isActive).length} student{parent.students.filter(s => s.isActive).length !== 1 ? 's' : ''}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="payment-form">
-          {!selectedParent ? (
-            <div className="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              <p>Select a parent to enter payment</p>
+      <div className="grid md:grid-cols-[320px_1fr] gap-6">
+        {/* Parent Selector */}
+        <Card className="h-fit">
+          <CardHeader className="pb-4">
+            <h2 className="text-base font-semibold text-gray-700 m-0">Select Parent</h2>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+              <Input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ) : (
-            <>
-              <div className="selected-parent-header">
-                <h2>Payment for {selectedParent.name}</h2>
-                <button className="btn-link" onClick={() => setSelectedParent(null)}>
-                  Change Parent
+            <div className="flex flex-col gap-2 max-h-[500px] md:max-h-[500px] max-[900px]:max-h-[200px] overflow-y-auto">
+              {filteredParents.map(parent => (
+                <button
+                  key={parent.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
+                    selectedParent?.id === parent.id
+                      ? 'bg-blue-50 border-2 border-blue-500'
+                      : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                  }`}
+                  onClick={() => handleSelectParent(parent)}
+                >
+                  <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-semibold flex-shrink-0">
+                    {parent.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="font-semibold text-gray-700 text-sm">{parent.name}</span>
+                    <span className="text-xs text-gray-500 truncate">{parent.email}</span>
+                    <span className="text-[11px] text-gray-400 mt-0.5">
+                      {parent.students.filter(s => s.isActive).length} student{parent.students.filter(s => s.isActive).length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Form */}
+        <Card className="min-h-[400px]">
+          <CardContent className="p-6">
+            {!selectedParent ? (
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-400 gap-4">
+                <Users className="h-12 w-12" />
+                <p className="text-[15px]">Select a parent to enter payment</p>
               </div>
+            ) : (
+              <>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
+                  <h2 className="text-lg font-semibold text-[var(--aca-navy)] m-0">
+                    Payment for {selectedParent.name}
+                  </h2>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedParent(null)}>
+                    Change Parent
+                  </Button>
+                </div>
 
-              <div className="students-list">
-                {selectedParent.students.filter(s => s.isActive).map(student => {
-                  const studentAmount = getStudentAmount(student.id)
-                  const amount = parseFloat(studentAmount.amount) || 0
-                  const lunches = amount > 0 && settings
-                    ? calculateLunches(amount, student.schoolLevel as 'elementary' | 'high_school', settings, studentAmount.isLunchCard)
-                    : 0
-                  const pricePerLunch = settings
-                    ? (student.schoolLevel === 'elementary'
-                        ? Number(settings.elementaryLunchPrice)
-                        : Number(settings.highschoolLunchPrice))
-                    : 0
-                  const newBalance = student.balance + lunches
+                <div className="flex flex-col gap-5">
+                  {selectedParent.students.filter(s => s.isActive).map(student => {
+                    const studentAmount = getStudentAmount(student.id)
+                    const amount = parseFloat(studentAmount.amount) || 0
+                    const lunches = amount > 0 && settings
+                      ? calculateLunches(amount, student.schoolLevel as 'elementary' | 'high_school', settings, studentAmount.isLunchCard)
+                      : 0
+                    const pricePerLunch = settings
+                      ? (student.schoolLevel === 'elementary'
+                          ? Number(settings.elementaryLunchPrice)
+                          : Number(settings.highschoolLunchPrice))
+                      : 0
+                    const newBalance = student.balance + lunches
 
-                  return (
-                    <div key={student.id} className="student-card">
-                      <div className="student-header">
-                        <div className="student-avatar">
-                          {student.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="student-info">
-                          <h3>{student.name}</h3>
-                          <span className="school-level">
-                            {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'} • ${pricePerLunch.toFixed(2)}/lunch
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="balance-display">
-                        <div className="balance-row">
-                          <span className="balance-label">Current balance</span>
-                          <span className="balance-dots"></span>
-                          <span className={`balance-value ${student.balance <= 0 ? 'negative' : ''}`}>
-                            {student.balance} lunches
-                          </span>
-                          <span className={`status-dot ${student.balance <= 0 ? 'negative' : 'good'}`}></span>
-                        </div>
-                        {lunches > 0 && (
-                          <>
-                            <div className="balance-row adding">
-                              <span className="balance-label">Adding</span>
-                              <span className="balance-dots"></span>
-                              <span className="balance-value add">+{lunches} lunches</span>
-                            </div>
-                            <div className="balance-divider"></div>
-                            <div className="balance-row new">
-                              <span className="balance-label">New balance</span>
-                              <span className="balance-dots"></span>
-                              <span className="balance-value">{newBalance} lunches</span>
-                              <span className="status-dot good"></span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="add-funds">
-                        <label>Amount</label>
-                        <div className="amount-input-wrapper">
-                          <span className="dollar-sign">$</span>
-                          <input
-                            type="number"
-                            className="amount-input"
-                            placeholder="0.00"
-                            value={studentAmount.amount}
-                            onChange={e => updateAmount(student.id, e.target.value)}
-                            min="0"
-                            step="0.01"
-                          />
+                    return (
+                      <div key={student.id} className="bg-gray-50 rounded-lg p-5">
+                        {/* Student Header */}
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-[var(--aca-navy)] to-[#1e4a7a] text-white rounded-xl flex items-center justify-center text-xl font-semibold">
+                            {student.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-700 text-base m-0">{student.name}</h3>
+                            <span className="text-[13px] text-gray-500">
+                              {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'} • ${pricePerLunch.toFixed(2)}/lunch
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="quick-amounts">
-                          <button type="button" onClick={() => addQuickAmount(student.id, 20)}>+$20</button>
-                          <button type="button" onClick={() => addQuickAmount(student.id, 50)}>+$50</button>
-                          <button type="button" onClick={() => addQuickAmount(student.id, 100)}>+$100</button>
-                          {student.schoolLevel === 'high_school' && settings && (
-                            <button
-                              type="button"
-                              className={`lunch-card-btn ${studentAmount.isLunchCard ? 'active' : ''}`}
-                              onClick={() => setLunchCard(student.id)}
-                            >
-                              Lunch Card ${Number(settings.highschoolLunchCardPrice)}
-                            </button>
+                        {/* Balance Display */}
+                        <div className="bg-white rounded-lg p-4 mb-4">
+                          <div className="flex items-center py-1.5">
+                            <span className="text-[13px] text-gray-600 flex-shrink-0">Current balance</span>
+                            <span className="flex-1 border-b-2 border-dotted border-gray-200 mx-3 min-w-5" />
+                            <span className={`text-sm font-semibold flex-shrink-0 ${student.balance <= 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                              {student.balance} lunches
+                            </span>
+                            <span className={`w-2 h-2 rounded-full ml-2 flex-shrink-0 ${student.balance <= 0 ? 'bg-red-500' : 'bg-green-500'}`} />
+                          </div>
+                          {lunches > 0 && (
+                            <>
+                              <div className="flex items-center py-1.5 opacity-80">
+                                <span className="text-[13px] text-gray-600 flex-shrink-0">Adding</span>
+                                <span className="flex-1 border-b-2 border-dotted border-gray-200 mx-3 min-w-5" />
+                                <span className="text-sm font-semibold text-green-600 flex-shrink-0">+{lunches} lunches</span>
+                              </div>
+                              <div className="h-px bg-gray-200 my-2" />
+                              <div className="flex items-center py-1.5">
+                                <span className="text-[13px] text-gray-600 flex-shrink-0">New balance</span>
+                                <span className="flex-1 border-b-2 border-dotted border-gray-200 mx-3 min-w-5" />
+                                <span className="text-[15px] font-semibold text-gray-700 flex-shrink-0">{newBalance} lunches</span>
+                                <span className="w-2 h-2 rounded-full bg-green-500 ml-2 flex-shrink-0" />
+                              </div>
+                            </>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
 
-              {total > 0 && (
-                <div className="payment-summary">
-                  <h3>Payment Summary</h3>
-                  <div className="summary-items">
-                    {paymentItems.map(item => (
-                      <div key={item.studentId} className="summary-item">
-                        <span>{item.studentName}</span>
-                        <span>
-                          ${item.amount.toFixed(2)} ({item.lunchesToAdd} {item.lunchesToAdd === 1 ? 'lunch' : 'lunches'})
-                          {item.isLunchCard && <span className="lunch-card-tag">Card</span>}
-                        </span>
+                        {/* Amount Input */}
+                        <div>
+                          <Label className="text-[13px] mb-2">Amount</Label>
+                          <div className="flex items-center bg-white border-2 border-gray-200 rounded-lg overflow-hidden mb-3 focus-within:border-[var(--aca-teal)]">
+                            <span className="pl-3.5 text-gray-400 font-medium">$</span>
+                            <input
+                              type="number"
+                              className="flex-1 border-none py-3 px-2 text-lg font-semibold outline-none w-full"
+                              placeholder="0.00"
+                              value={studentAmount.amount}
+                              onChange={e => updateAmount(student.id, e.target.value)}
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={() => addQuickAmount(student.id, 20)}>+$20</Button>
+                            <Button variant="outline" size="sm" onClick={() => addQuickAmount(student.id, 50)}>+$50</Button>
+                            <Button variant="outline" size="sm" onClick={() => addQuickAmount(student.id, 100)}>+$100</Button>
+                            {student.schoolLevel === 'high_school' && settings && (
+                              <Button
+                                variant={studentAmount.isLunchCard ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setLunchCard(student.id)}
+                                className={studentAmount.isLunchCard
+                                  ? 'bg-[var(--aca-gold)] hover:bg-[var(--aca-gold-dark)] text-white'
+                                  : 'bg-[var(--aca-gold-subtle)] border-[var(--aca-gold)] text-[var(--aca-gold-dark)] hover:bg-[var(--aca-gold)] hover:text-white'
+                                }
+                              >
+                                <CreditCard className="h-3.5 w-3.5 mr-1" />
+                                Lunch Card ${Number(settings.highschoolLunchCardPrice)}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                  <div className="summary-total">
-                    <span>Total Payment</span>
-                    <span>${total.toFixed(2)}</span>
-                  </div>
+                    )
+                  })}
+                </div>
 
-                  <div className="payment-method-field">
-                    <label>Payment Method</label>
-                    <div className="payment-method-options">
-                      {PAYMENT_METHODS.map(method => (
-                        <button
-                          key={method.value}
-                          type="button"
-                          className={`method-btn ${paymentMethod === method.value ? 'active' : ''}`}
-                          onClick={() => setPaymentMethod(method.value)}
-                        >
-                          {method.label}
-                        </button>
+                {/* Payment Summary */}
+                {total > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-5 mt-6">
+                    <h3 className="text-[15px] font-semibold text-gray-700 mb-4 m-0">Payment Summary</h3>
+                    <div className="flex flex-col gap-2 mb-4">
+                      {paymentItems.map(item => (
+                        <div key={item.studentId} className="flex justify-between text-sm text-gray-600">
+                          <span>{item.studentName}</span>
+                          <span>
+                            ${item.amount.toFixed(2)} ({item.lunchesToAdd} {item.lunchesToAdd === 1 ? 'lunch' : 'lunches'})
+                            {item.isLunchCard && (
+                              <Badge variant="default" className="ml-1.5 bg-[var(--aca-gold-subtle)] text-[var(--aca-gold-dark)] text-[10px] px-1.5 py-0">
+                                Card
+                              </Badge>
+                            )}
+                          </span>
+                        </div>
                       ))}
                     </div>
-                  </div>
+                    <div className="flex justify-between pt-4 border-t border-gray-200 font-bold text-base text-gray-700">
+                      <span>Total Payment</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
 
-                  <div className="notes-field">
-                    <label>Notes (optional)</label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="e.g., Check #1234, Receipt #567"
-                      value={notes}
-                      onChange={e => setNotes(e.target.value)}
-                    />
-                  </div>
+                    {/* Payment Method */}
+                    <div className="mt-4">
+                      <Label className="text-[13px] mb-2">Payment Method</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {PAYMENT_METHODS.map(method => (
+                          <Button
+                            key={method.value}
+                            type="button"
+                            variant={paymentMethod === method.value ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentMethod(method.value)}
+                            className={paymentMethod === method.value ? 'bg-blue-100 border-blue-500 text-blue-700 hover:bg-blue-100' : ''}
+                          >
+                            {method.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
 
-                  <button
-                    className="btn btn-primary submit-btn"
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                  >
-                    {submitting ? 'Processing...' : `Record Payment - $${total.toFixed(2)}`}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                    {/* Notes */}
+                    <div className="mt-4">
+                      <Label htmlFor="notes" className="text-[13px] mb-1.5">Notes (optional)</Label>
+                      <Input
+                        id="notes"
+                        type="text"
+                        placeholder="e.g., Check #1234, Receipt #567"
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <Button
+                      className="w-full mt-5"
+                      size="lg"
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        `Record Payment - $${total.toFixed(2)}`
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      <style jsx>{`
-        .add-payment-page {
-          max-width: 1200px;
-        }
-
-        .page-header {
-          margin-bottom: 24px;
-        }
-
-        .header-content {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .header-icon {
-          width: 48px;
-          height: 48px;
-          background: linear-gradient(135deg, var(--success-bg) 0%, var(--white) 100%);
-          border: 1px solid var(--success-border);
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--success);
-        }
-
-        h1 {
-          font-size: 26px;
-          margin: 0;
-          color: var(--aca-navy);
-        }
-
-        .subtitle {
-          color: var(--gray-400);
-          margin: 2px 0 0 0;
-          font-size: 14px;
-        }
-
-        .alert {
-          padding: 14px 18px;
-          border-radius: var(--border-radius);
-          margin-bottom: 20px;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .alert-error {
-          background: var(--error-bg);
-          color: var(--error);
-          border: 1px solid var(--error-border);
-        }
-
-        .alert-success {
-          background: var(--success-bg);
-          color: var(--success);
-          border: 1px solid var(--success-border);
-        }
-
-        .payment-layout {
-          display: grid;
-          grid-template-columns: 320px 1fr;
-          gap: 24px;
-        }
-
-        .parent-selector {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-200);
-          padding: 20px;
-          height: fit-content;
-        }
-
-        .parent-selector h2 {
-          font-size: 16px;
-          margin: 0 0 16px 0;
-          color: var(--gray-700);
-        }
-
-        .search-box {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          background: var(--gray-50);
-          border: 1px solid var(--gray-200);
-          border-radius: var(--border-radius);
-          padding: 10px 14px;
-          margin-bottom: 16px;
-        }
-
-        .search-box svg {
-          color: var(--gray-400);
-          flex-shrink: 0;
-        }
-
-        .search-input {
-          border: none;
-          background: transparent;
-          width: 100%;
-          font-size: 14px;
-          outline: none;
-          color: var(--gray-700);
-        }
-
-        .search-input::placeholder {
-          color: var(--gray-400);
-        }
-
-        .parent-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          max-height: 500px;
-          overflow-y: auto;
-        }
-
-        .parent-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          background: var(--gray-50);
-          border: 2px solid transparent;
-          border-radius: var(--border-radius);
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.15s ease;
-        }
-
-        .parent-item:hover {
-          background: var(--gray-100);
-        }
-
-        .parent-item.selected {
-          background: var(--aca-blue-subtle);
-          border-color: var(--aca-blue);
-        }
-
-        .parent-avatar {
-          width: 40px;
-          height: 40px;
-          background: var(--aca-blue);
-          color: var(--white);
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 600;
-          flex-shrink: 0;
-        }
-
-        .parent-info {
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .parent-name {
-          font-weight: 600;
-          color: var(--gray-700);
-          font-size: 14px;
-        }
-
-        .parent-email {
-          font-size: 12px;
-          color: var(--gray-500);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .student-count {
-          font-size: 11px;
-          color: var(--gray-400);
-          margin-top: 2px;
-        }
-
-        .payment-form {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          border: 1px solid var(--gray-200);
-          padding: 24px;
-          min-height: 400px;
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 300px;
-          color: var(--gray-400);
-          gap: 16px;
-        }
-
-        .empty-state p {
-          margin: 0;
-          font-size: 15px;
-        }
-
-        .selected-parent-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 24px;
-        }
-
-        .selected-parent-header h2 {
-          font-size: 18px;
-          margin: 0;
-          color: var(--aca-navy);
-        }
-
-        .btn-link {
-          background: none;
-          border: none;
-          color: var(--aca-blue);
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .btn-link:hover {
-          text-decoration: underline;
-        }
-
-        .students-list {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .student-card {
-          background: var(--gray-50);
-          border-radius: var(--border-radius);
-          padding: 20px;
-        }
-
-        .student-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
-
-        .student-avatar {
-          width: 48px;
-          height: 48px;
-          background: linear-gradient(135deg, #002c5f 0%, #1e4a7a 100%);
-          color: white;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          font-weight: 600;
-        }
-
-        .student-info h3 {
-          margin: 0;
-          font-size: 16px;
-          color: var(--gray-700);
-        }
-
-        .school-level {
-          font-size: 13px;
-          color: var(--gray-500);
-        }
-
-        .balance-display {
-          background: var(--white);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 16px;
-        }
-
-        .balance-row {
-          display: flex;
-          align-items: center;
-          padding: 6px 0;
-        }
-
-        .balance-label {
-          font-size: 13px;
-          color: var(--gray-600);
-          flex-shrink: 0;
-        }
-
-        .balance-dots {
-          flex: 1;
-          border-bottom: 2px dotted var(--gray-200);
-          margin: 0 12px;
-          min-width: 20px;
-        }
-
-        .balance-value {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--gray-700);
-          flex-shrink: 0;
-        }
-
-        .balance-value.negative {
-          color: var(--error);
-        }
-
-        .balance-value.add {
-          color: var(--success);
-        }
-
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-left: 8px;
-          flex-shrink: 0;
-        }
-
-        .status-dot.good {
-          background: var(--success);
-        }
-
-        .status-dot.negative {
-          background: var(--error);
-        }
-
-        .balance-row.adding {
-          opacity: 0.8;
-        }
-
-        .balance-divider {
-          height: 1px;
-          background: var(--gray-200);
-          margin: 8px 0;
-        }
-
-        .balance-row.new .balance-value {
-          font-size: 15px;
-        }
-
-        .add-funds label {
-          display: block;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--gray-600);
-          margin-bottom: 8px;
-        }
-
-        .amount-input-wrapper {
-          display: flex;
-          align-items: center;
-          background: var(--white);
-          border: 2px solid var(--gray-200);
-          border-radius: 8px;
-          overflow: hidden;
-          margin-bottom: 12px;
-        }
-
-        .dollar-sign {
-          padding: 12px 0 12px 14px;
-          color: var(--gray-400);
-          font-weight: 500;
-        }
-
-        .amount-input {
-          flex: 1;
-          border: none;
-          padding: 12px 14px 12px 4px;
-          font-size: 18px;
-          font-weight: 600;
-          outline: none;
-          width: 100%;
-        }
-
-        .quick-amounts {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .quick-amounts button {
-          padding: 8px 16px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--gray-600);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .quick-amounts button:hover {
-          background: var(--gray-100);
-          border-color: var(--gray-300);
-        }
-
-        .lunch-card-btn {
-          background: var(--aca-gold-subtle) !important;
-          border-color: var(--aca-gold) !important;
-          color: var(--aca-gold-dark) !important;
-        }
-
-        .lunch-card-btn.active {
-          background: var(--aca-gold) !important;
-          color: white !important;
-        }
-
-        .payment-summary {
-          background: var(--gray-50);
-          border-radius: var(--border-radius);
-          padding: 20px;
-          margin-top: 24px;
-        }
-
-        .payment-summary h3 {
-          margin: 0 0 16px 0;
-          font-size: 15px;
-          color: var(--gray-700);
-        }
-
-        .summary-items {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          margin-bottom: 16px;
-        }
-
-        .summary-item {
-          display: flex;
-          justify-content: space-between;
-          font-size: 14px;
-          color: var(--gray-600);
-        }
-
-        .lunch-card-tag {
-          display: inline-block;
-          background: var(--aca-gold-subtle);
-          color: var(--aca-gold-dark);
-          font-size: 10px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-left: 6px;
-        }
-
-        .summary-total {
-          display: flex;
-          justify-content: space-between;
-          padding-top: 16px;
-          border-top: 1px solid var(--gray-200);
-          font-weight: 700;
-          font-size: 16px;
-          color: var(--gray-700);
-        }
-
-        .payment-method-field {
-          margin-top: 16px;
-        }
-
-        .payment-method-field label {
-          display: block;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--gray-600);
-          margin-bottom: 8px;
-        }
-
-        .payment-method-options {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .method-btn {
-          padding: 8px 16px;
-          background: var(--white);
-          border: 2px solid var(--gray-200);
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--gray-600);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .method-btn:hover {
-          background: var(--gray-50);
-          border-color: var(--gray-300);
-        }
-
-        .method-btn.active {
-          background: var(--aca-blue-subtle);
-          border-color: var(--aca-blue);
-          color: var(--aca-blue);
-        }
-
-        .notes-field {
-          margin-top: 16px;
-        }
-
-        .notes-field label {
-          display: block;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--gray-600);
-          margin-bottom: 6px;
-        }
-
-        .submit-btn {
-          width: 100%;
-          margin-top: 20px;
-          padding: 14px;
-          font-size: 15px;
-        }
-
-        @media (max-width: 900px) {
-          .payment-layout {
-            grid-template-columns: 1fr;
-          }
-
-          .parent-list {
-            max-height: 200px;
-          }
-        }
-
-        @media (max-width: 768px) {
-          h1 {
-            font-size: 22px;
-          }
-
-          .header-icon {
-            width: 40px;
-            height: 40px;
-          }
-
-          .header-icon svg {
-            width: 20px;
-            height: 20px;
-          }
-
-          .parent-selector,
-          .payment-form {
-            padding: 16px;
-          }
-
-          .student-card {
-            padding: 16px;
-          }
-
-          .student-header {
-            gap: 10px;
-          }
-
-          .student-avatar {
-            width: 42px;
-            height: 42px;
-            font-size: 18px;
-          }
-
-          .student-info h3 {
-            font-size: 15px;
-          }
-
-          .school-level {
-            font-size: 12px;
-          }
-
-          .balance-display {
-            padding: 14px;
-          }
-
-          .balance-label {
-            font-size: 12px;
-          }
-
-          .balance-value {
-            font-size: 13px;
-          }
-
-          .quick-amounts {
-            gap: 6px;
-          }
-
-          .quick-amounts button {
-            padding: 7px 12px;
-            font-size: 12px;
-          }
-
-          .payment-summary {
-            padding: 16px;
-          }
-
-          .payment-summary h3 {
-            font-size: 14px;
-          }
-
-          .summary-item {
-            font-size: 13px;
-          }
-
-          .summary-total {
-            font-size: 15px;
-          }
-
-          .payment-method-options {
-            gap: 6px;
-          }
-
-          .method-btn {
-            padding: 7px 12px;
-            font-size: 12px;
-          }
-
-          .selected-parent-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
-          }
-
-          .selected-parent-header h2 {
-            font-size: 16px;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .parent-selector,
-          .payment-form {
-            padding: 12px;
-          }
-
-          .parent-item {
-            padding: 10px;
-          }
-
-          .parent-avatar {
-            width: 36px;
-            height: 36px;
-            font-size: 14px;
-          }
-
-          .parent-name {
-            font-size: 13px;
-          }
-
-          .parent-email {
-            font-size: 11px;
-          }
-
-          .student-card {
-            padding: 14px;
-          }
-
-          .student-avatar {
-            width: 38px;
-            height: 38px;
-            font-size: 16px;
-          }
-
-          .amount-input {
-            font-size: 16px;
-          }
-
-          .quick-amounts button {
-            padding: 6px 10px;
-            font-size: 11px;
-          }
-
-          .lunch-card-btn {
-            font-size: 10px !important;
-          }
-
-          .submit-btn {
-            font-size: 14px;
-            padding: 12px;
-          }
-        }
-      `}</style>
     </div>
   )
 }
@@ -1153,31 +522,30 @@ function AddPaymentContent() {
 export default function AddPaymentPage() {
   return (
     <Suspense fallback={
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <span>Loading...</span>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 80px;
-            gap: 16px;
-            color: var(--gray-400);
-          }
-          .loading-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--gray-100);
-            border-top-color: var(--aca-blue);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="max-w-[1200px]">
+        <div className="mb-6 flex items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-[14px]" />
+          <div>
+            <Skeleton className="h-7 w-40 mb-1" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+        <div className="grid md:grid-cols-[320px_1fr] gap-6">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <Skeleton className="h-10 w-full" />
+              {[1, 2, 3, 4].map(i => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6 space-y-6">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-40 w-full" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     }>
       <AddPaymentContent />

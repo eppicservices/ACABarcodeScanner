@@ -1,10 +1,42 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createStudent } from '@/actions/students'
 import { getAllParents, createParent } from '@/actions/parents'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  UserPlus,
+  ChevronLeft,
+  AlertCircle,
+  AlertTriangle,
+  Barcode,
+  Loader2,
+  Plus,
+  User,
+  Mail,
+  Phone,
+} from 'lucide-react'
 
 interface Parent {
   id: string
@@ -24,7 +56,6 @@ export default function NewStudentPage() {
   const [parentId, setParentId] = useState('')
   const [balance, setBalance] = useState('0')
 
-  // New parent modal state
   const [showNewParentModal, setShowNewParentModal] = useState(false)
   const [newParentName, setNewParentName] = useState('')
   const [newParentEmail, setNewParentEmail] = useState('')
@@ -33,16 +64,23 @@ export default function NewStudentPage() {
   const [parentError, setParentError] = useState<string | null>(null)
 
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const preselectedParentId = searchParams.get('parent')
 
   async function fetchParents() {
     const data = await getAllParents()
-    if (data) setParents(data)
+    if (data) {
+      setParents(data)
+      if (preselectedParentId && data.some(p => p.id === preselectedParentId)) {
+        setParentId(preselectedParentId)
+      }
+    }
     setLoading(false)
   }
 
   useEffect(() => {
     fetchParents()
-  }, [])
+  }, [preselectedParentId])
 
   async function handleCreateParent(e: React.FormEvent) {
     e.preventDefault()
@@ -56,10 +94,8 @@ export default function NewStudentPage() {
         phone: newParentPhone || undefined,
       })
 
-      // Add new parent to list and select them
       setParents(prev => [...prev, { id: newParent.id, name: newParent.name, email: newParent.email }].sort((a, b) => a.name.localeCompare(b.name)))
       setParentId(newParent.id)
-      // Reset modal state
       setNewParentName('')
       setNewParentEmail('')
       setNewParentPhone('')
@@ -92,7 +128,7 @@ export default function NewStudentPage() {
         parentId,
         balance: parseInt(balance) || 0,
       })
-      router.push('/admin/students')
+      router.push(preselectedParentId ? `/admin/parents/${preselectedParentId}` : '/admin/students')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create student')
       setSaving(false)
@@ -101,759 +137,314 @@ export default function NewStudentPage() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <span>Loading...</span>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 120px;
-            gap: 16px;
-            color: var(--gray-400);
-          }
-          .loading-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--gray-100);
-            border-top-color: var(--aca-teal);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="max-w-[640px]">
+        <div className="mb-7">
+          <Skeleton className="h-5 w-32 mb-5" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-[14px]" />
+            <div>
+              <Skeleton className="h-7 w-48 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-7 space-y-6">
+            <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="new-student-page">
-      <div className="page-header">
-        <Link href="/admin/students" className="back-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16, flexShrink: 0, display: 'inline-block', verticalAlign: '-2px', marginRight: 8 }}>
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          <span>Back to Students</span>
+    <div className="max-w-[640px]">
+      {/* Page Header */}
+      <div className="mb-7">
+        <Link
+          href={preselectedParentId ? `/admin/parents/${preselectedParentId}` : '/admin/students'}
+          className="inline-flex items-center gap-1.5 text-gray-400 text-sm font-medium mb-5 px-3 py-1.5 -ml-3 rounded-lg hover:text-[var(--aca-teal)] hover:bg-[var(--aca-teal-subtle)] transition-colors group"
+        >
+          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+          <span>{preselectedParentId ? 'Back to Parent' : 'Back to Students'}</span>
         </Link>
 
-        <div className="header-content">
-          <div className="header-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="8.5" cy="7" r="4" />
-              <line x1="20" y1="8" x2="20" y2="14" />
-              <line x1="23" y1="11" x2="17" y2="11" />
-            </svg>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-[var(--aca-teal-subtle)] to-white border border-gray-100 rounded-[14px] flex items-center justify-center text-[var(--aca-teal)] shadow-sm">
+            <UserPlus className="h-6 w-6" />
           </div>
           <div>
-            <h1>Add New Student</h1>
-            <p className="subtitle">Create a new student account for lunch tracking</p>
+            <h1 className="text-[26px] font-semibold text-[var(--aca-navy)] tracking-tight m-0">
+              Add New Student
+            </h1>
+            <p className="text-gray-400 text-sm mt-0.5">
+              Create a new student account for lunch tracking
+            </p>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="alert alert-error">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          {error}
-        </div>
+        <Alert variant="destructive" className="mb-5">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="card form-card">
-        <div className="form-section">
-          <h2>Student Details</h2>
+      <Card>
+        <form onSubmit={handleSubmit}>
+          {/* Student Details Section */}
+          <CardContent className="p-7 border-b border-gray-100">
+            <h2 className="text-[15px] font-semibold text-gray-700 mb-5">Student Details</h2>
 
-          <div className="form-group">
-            <label htmlFor="name">Student Name</label>
-            <input
-              id="name"
-              type="text"
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="John Smith"
-              required
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="barcode">Barcode / Student ID</label>
-              <div className="input-with-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <rect x="3" y="4" width="18" height="16" rx="2" ry="2" />
-                  <line x1="7" y1="8" x2="7" y2="16" />
-                  <line x1="11" y1="8" x2="11" y2="16" />
-                  <line x1="15" y1="8" x2="15" y2="12" />
-                  <line x1="19" y1="8" x2="19" y2="16" />
-                </svg>
-                <input
-                  id="barcode"
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="name">Student Name</Label>
+                <Input
+                  id="name"
                   type="text"
-                  className="input"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  placeholder="1001"
-                  required
-                />
-              </div>
-              <p className="field-hint">This will be scanned during lunch check-in</p>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="schoolLevel">School Level</label>
-              <div className="level-select">
-                <button
-                  type="button"
-                  className={`level-option ${schoolLevel === 'elementary' ? 'active' : ''}`}
-                  onClick={() => setSchoolLevel('elementary')}
-                >
-                  <div className="level-dot elementary" />
-                  Elementary
-                </button>
-                <button
-                  type="button"
-                  className={`level-option ${schoolLevel === 'high_school' ? 'active' : ''}`}
-                  onClick={() => setSchoolLevel('high_school')}
-                >
-                  <div className="level-dot high_school" />
-                  High School
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Account Setup</h2>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="parentId">Parent / Guardian</label>
-              <select
-                id="parentId"
-                className="input"
-                value={parentId}
-                onChange={(e) => handleParentSelectChange(e.target.value)}
-                required
-              >
-                <option value="">Select a parent...</option>
-                {parents.map((parent) => (
-                  <option key={parent.id} value={parent.id}>
-                    {parent.name} ({parent.email})
-                  </option>
-                ))}
-                <option value="__new__" className="new-parent-option">+ Create New Parent</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="balance">Starting Lunches</label>
-              <div className="balance-input">
-                <input
-                  id="balance"
-                  type="number"
-                  className="input"
-                  value={balance}
-                  onChange={(e) => setBalance(e.target.value)}
-                  step="1"
-                  min="0"
-                />
-                <span className="balance-unit">lunches</span>
-              </div>
-            </div>
-          </div>
-
-          {parents.length === 0 && (
-            <div className="alert alert-warning">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              <div>
-                <strong>No parents available</strong>
-                <p>
-                  <button type="button" className="link-btn" onClick={() => setShowNewParentModal(true)}>
-                    Create a parent
-                  </button> before adding students.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="form-actions">
-          <Link href="/admin/students" className="btn btn-outline">
-            Cancel
-          </Link>
-          <button type="submit" className="btn btn-primary" disabled={saving || parents.length === 0}>
-            {saving ? (
-              <>
-                <span className="btn-spinner" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="8.5" cy="7" r="4" />
-                  <line x1="20" y1="8" x2="20" y2="14" />
-                  <line x1="23" y1="11" x2="17" y2="11" />
-                </svg>
-                Create Student
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-
-      {/* New Parent Modal */}
-      {showNewParentModal && (
-        <div className="modal-overlay" onClick={() => setShowNewParentModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create New Parent</h3>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setShowNewParentModal(false)}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateParent} className="modal-body">
-              {parentError && (
-                <div className="alert alert-error modal-alert">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {parentError}
-                </div>
-              )}
-
-              <div className="modal-form-group">
-                <label htmlFor="newParentName">Parent Name *</label>
-                <input
-                  id="newParentName"
-                  type="text"
-                  className="input"
-                  value={newParentName}
-                  onChange={(e) => setNewParentName(e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="John Smith"
                   required
-                  autoFocus
                 />
               </div>
 
-              <div className="modal-form-group">
-                <label htmlFor="newParentEmail">Email Address *</label>
-                <input
-                  id="newParentEmail"
-                  type="email"
-                  className="input"
-                  value={newParentEmail}
-                  onChange={(e) => setNewParentEmail(e.target.value)}
-                  placeholder="parent@email.com"
-                  required
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">Barcode / Student ID</Label>
+                  <div className="relative">
+                    <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                    <Input
+                      id="barcode"
+                      type="text"
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      placeholder="1001"
+                      required
+                      className="pl-11"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">This will be scanned during lunch check-in</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>School Level</Label>
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 px-4 border-2 rounded-lg font-semibold text-sm transition-all ${
+                        schoolLevel === 'elementary'
+                          ? 'border-[var(--aca-teal)] bg-[var(--aca-teal-subtle)] text-[var(--aca-teal)]'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSchoolLevel('elementary')}
+                    >
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      Elementary
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 px-4 border-2 rounded-lg font-semibold text-sm transition-all ${
+                        schoolLevel === 'high_school'
+                          ? 'border-[var(--aca-teal)] bg-[var(--aca-teal-subtle)] text-[var(--aca-teal)]'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSchoolLevel('high_school')}
+                    >
+                      <div className="w-2 h-2 rounded-full bg-[var(--aca-gold)]" />
+                      High School
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+
+          {/* Account Setup Section */}
+          <CardContent className="p-7 border-b border-gray-100">
+            <h2 className="text-[15px] font-semibold text-gray-700 mb-5">Account Setup</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="parentId">Parent / Guardian</Label>
+                <Select value={parentId} onValueChange={handleParentSelectChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a parent..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parents.map((parent) => (
+                      <SelectItem key={parent.id} value={parent.id}>
+                        {parent.name} ({parent.email})
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__new__" className="text-[var(--aca-teal)] font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="h-3.5 w-3.5" />
+                        Create New Parent
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="modal-form-group">
-                <label htmlFor="newParentPhone">Phone Number</label>
-                <input
-                  id="newParentPhone"
-                  type="tel"
-                  className="input"
-                  value={newParentPhone}
-                  onChange={(e) => setNewParentPhone(e.target.value)}
-                  placeholder="(555) 123-4567"
-                />
-                <p className="field-hint">Optional</p>
+              <div className="space-y-2">
+                <Label htmlFor="balance">Starting Lunches</Label>
+                <div className="flex items-center gap-2.5">
+                  <Input
+                    id="balance"
+                    type="number"
+                    value={balance}
+                    onChange={(e) => setBalance(e.target.value)}
+                    step="1"
+                    min="0"
+                    className="w-24 text-center text-lg font-semibold font-mono"
+                  />
+                  <span className="text-sm font-medium text-gray-500">lunches</span>
+                </div>
+              </div>
+            </div>
+
+            {parents.length === 0 && (
+              <Alert className="mt-5 bg-amber-50 border-amber-300 text-amber-800">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong className="block mb-1">No parents available</strong>
+                  <span className="text-[13px] opacity-90">
+                    <button
+                      type="button"
+                      className="underline font-semibold hover:opacity-80"
+                      onClick={() => setShowNewParentModal(true)}
+                    >
+                      Create a parent
+                    </button>{' '}
+                    before adding students.
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+
+          {/* Form Actions */}
+          <CardContent className="p-6 bg-gray-50 rounded-b-xl flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" asChild className="w-full sm:w-auto">
+              <Link href="/admin/students">Cancel</Link>
+            </Button>
+            <Button type="submit" disabled={saving || parents.length === 0} className="w-full sm:w-auto">
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4" />
+                  Create Student
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </form>
+      </Card>
+
+      {/* New Parent Modal */}
+      <Dialog open={showNewParentModal} onOpenChange={setShowNewParentModal}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Create New Parent</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateParent}>
+            <div className="space-y-5 py-4">
+              {parentError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{parentError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="newParentName">Parent Name *</Label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                  <Input
+                    id="newParentName"
+                    type="text"
+                    value={newParentName}
+                    onChange={(e) => setNewParentName(e.target.value)}
+                    placeholder="John Smith"
+                    required
+                    autoFocus
+                    className="pl-11"
+                  />
+                </div>
               </div>
 
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setShowNewParentModal(false)}
-                  disabled={creatingParent}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={creatingParent}
-                >
-                  {creatingParent ? (
-                    <>
-                      <span className="btn-spinner" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                        <circle cx="8.5" cy="7" r="4" />
-                        <line x1="20" y1="8" x2="20" y2="14" />
-                        <line x1="23" y1="11" x2="17" y2="11" />
-                      </svg>
-                      Create Parent
-                    </>
-                  )}
-                </button>
+              <div className="space-y-2">
+                <Label htmlFor="newParentEmail">Email Address *</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                  <Input
+                    id="newParentEmail"
+                    type="email"
+                    value={newParentEmail}
+                    onChange={(e) => setNewParentEmail(e.target.value)}
+                    placeholder="parent@email.com"
+                    required
+                    className="pl-11"
+                  />
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      <style jsx>{`
-        .new-student-page {
-          max-width: 640px;
-        }
-
-        .page-header {
-          margin-bottom: 28px;
-        }
-
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--gray-400);
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 500;
-          margin-bottom: 20px;
-          padding: 6px 12px;
-          margin-left: -12px;
-          border-radius: var(--border-radius);
-          transition: all var(--transition-fast);
-        }
-
-        .back-link:hover {
-          color: var(--aca-teal);
-          background: var(--aca-teal-subtle);
-        }
-
-        .back-link:hover svg {
-          transform: translateX(-2px);
-        }
-
-        .back-link svg {
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-          transition: transform var(--transition-fast);
-        }
-
-        .header-content {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .header-icon {
-          width: 48px;
-          height: 48px;
-          background: linear-gradient(135deg, var(--aca-teal-subtle) 0%, var(--white) 100%);
-          border: 1px solid var(--gray-100);
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--aca-teal);
-          box-shadow: var(--shadow-sm);
-        }
-
-        h1 {
-          font-size: 26px;
-          margin: 0;
-          color: var(--aca-navy);
-          letter-spacing: -0.02em;
-        }
-
-        .subtitle {
-          color: var(--gray-400);
-          margin: 2px 0 0 0;
-          font-size: 14px;
-        }
-
-        .alert {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 16px 18px;
-          border-radius: var(--border-radius);
-          margin-bottom: 20px;
-          font-size: 14px;
-        }
-
-        .alert svg {
-          flex-shrink: 0;
-          margin-top: 1px;
-        }
-
-        .alert-error {
-          background: var(--error-bg);
-          color: var(--error);
-          border: 1px solid var(--error-border);
-        }
-
-        .alert-warning {
-          background: #fef3c7;
-          color: #92400e;
-          border: 1px solid #fcd34d;
-        }
-
-        .alert-warning strong {
-          display: block;
-          margin-bottom: 4px;
-        }
-
-        .alert-warning p {
-          margin: 0;
-          font-size: 13px;
-          opacity: 0.9;
-        }
-
-        .alert-warning :global(a) {
-          color: inherit;
-          font-weight: 600;
-        }
-
-        .form-card {
-          padding: 0;
-        }
-
-        .form-section {
-          padding: 28px;
-          border-bottom: 1px solid var(--gray-100);
-        }
-
-        .form-section:last-of-type {
-          border-bottom: none;
-        }
-
-        .form-section h2 {
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--gray-700);
-          margin: 0 0 20px 0;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-        }
-
-        .form-group:last-child {
-          margin-bottom: 0;
-        }
-
-        .form-group label {
-          display: block;
-          font-weight: 600;
-          font-size: 13px;
-          color: var(--gray-600);
-          margin-bottom: 8px;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .input-with-icon {
-          position: relative;
-        }
-
-        .input-with-icon svg {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--gray-400);
-          pointer-events: none;
-        }
-
-        .input-with-icon .input {
-          padding-left: 44px;
-        }
-
-        .field-hint {
-          font-size: 12px;
-          color: var(--gray-400);
-          margin: 6px 0 0 0;
-        }
-
-        .level-select {
-          display: flex;
-          gap: 10px;
-        }
-
-        .level-option {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 14px 16px;
-          border: 2px solid var(--gray-200);
-          border-radius: var(--border-radius);
-          background: var(--white);
-          color: var(--gray-600);
-          font-weight: 600;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-        }
-
-        .level-option:hover {
-          border-color: var(--gray-300);
-        }
-
-        .level-option.active {
-          border-color: var(--aca-teal);
-          background: var(--aca-teal-subtle);
-          color: var(--aca-teal);
-        }
-
-        .level-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
-
-        .level-dot.elementary {
-          background: #3b82f6;
-        }
-
-        .level-dot.high_school {
-          background: var(--aca-gold);
-        }
-
-        .balance-input {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .balance-input .input {
-          width: 100px;
-          font-size: 18px;
-          font-weight: 600;
-          font-family: 'SF Mono', Monaco, monospace;
-          text-align: center;
-        }
-
-        .balance-unit {
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--gray-500);
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          padding: 24px 28px;
-          background: var(--gray-50);
-          border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
-        }
-
-        .btn-outline {
-          background: var(--white);
-          border: 1px solid var(--gray-200);
-          color: var(--gray-600);
-        }
-
-        .btn-outline:hover {
-          border-color: var(--gray-300);
-          background: var(--white);
-        }
-
-        .btn-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: var(--white);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        /* Link button style */
-        .link-btn {
-          background: none;
-          border: none;
-          padding: 0;
-          color: inherit;
-          font: inherit;
-          cursor: pointer;
-          text-decoration: underline;
-          font-weight: 600;
-        }
-
-        .link-btn:hover {
-          opacity: 0.8;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 20px;
-          animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .modal-content {
-          background: var(--white);
-          border-radius: var(--border-radius-lg);
-          max-width: 440px;
-          width: 100%;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-          animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 20px 24px;
-          border-bottom: 1px solid var(--gray-100);
-        }
-
-        .modal-header h3 {
-          margin: 0;
-          font-size: 18px;
-          color: var(--aca-navy);
-        }
-
-        .modal-close {
-          width: 36px;
-          height: 36px;
-          border: none;
-          background: var(--gray-100);
-          border-radius: 10px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--gray-500);
-          transition: all 0.15s ease;
-        }
-
-        .modal-close:hover {
-          background: var(--gray-200);
-          color: var(--gray-700);
-        }
-
-        .modal-body {
-          padding: 24px;
-        }
-
-        .modal-alert {
-          margin-bottom: 20px;
-        }
-
-        .modal-form-group {
-          margin-bottom: 20px;
-        }
-
-        .modal-form-group:last-of-type {
-          margin-bottom: 0;
-        }
-
-        .modal-form-group label {
-          display: block;
-          font-weight: 600;
-          font-size: 13px;
-          color: var(--gray-600);
-          margin-bottom: 8px;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          padding: 20px 24px;
-          background: var(--gray-50);
-          border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
-          justify-content: flex-end;
-        }
-
-        @media (max-width: 480px) {
-          .modal-overlay {
-            padding: 16px;
-          }
-
-          .modal-content {
-            max-width: 100%;
-          }
-
-          .modal-header {
-            padding: 16px 20px;
-          }
-
-          .modal-body {
-            padding: 20px;
-          }
-
-          .modal-actions {
-            padding: 16px 20px;
-            flex-direction: column;
-          }
-
-          .modal-actions .btn {
-            width: 100%;
-          }
-        }
-      `}</style>
+              <div className="space-y-2">
+                <Label htmlFor="newParentPhone">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+                  <Input
+                    id="newParentPhone"
+                    type="tel"
+                    value={newParentPhone}
+                    onChange={(e) => setNewParentPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="pl-11"
+                  />
+                </div>
+                <p className="text-xs text-gray-400">Optional</p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowNewParentModal(false)}
+                disabled={creatingParent}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creatingParent} className="w-full sm:w-auto">
+                {creatingParent ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Create Parent
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

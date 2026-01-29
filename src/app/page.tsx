@@ -2,11 +2,15 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import ScanResult from '@/components/ScanResult';
 import ManualEntry from '@/components/ManualEntry';
 import { getPublicSettings, type PublicSettings } from '@/actions/settings';
 import { getStudentByBarcode } from '@/actions/students';
 import { consumeLunch } from '@/actions/transactions';
+import { Button } from '@/components/ui/button';
+import { Keyboard, ScanBarcode } from 'lucide-react';
 
 type ScanStatus = 'success' | 'error' | 'duplicate' | 'insufficient' | 'inactive';
 
@@ -20,6 +24,7 @@ interface ScanResultData {
 const DEFAULT_LOGO_URL = 'https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png';
 
 export default function Home() {
+  const { data: session } = useSession();
   const [scanResult, setScanResult] = useState<ScanResultData | null>(null);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   const [elementaryCount, setElementaryCount] = useState(0);
@@ -224,17 +229,7 @@ export default function Home() {
           ) : (
             <div className={`scanner-ready ${isReady ? 'pulse' : ''}`}>
               <div className="ready-icon">
-                <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M3 7V5a2 2 0 012-2h2" />
-                  <path d="M17 3h2a2 2 0 012 2v2" />
-                  <path d="M21 17v2a2 2 0 01-2 2h-2" />
-                  <path d="M7 21H5a2 2 0 01-2-2v-2" />
-                  <line x1="7" y1="12" x2="17" y2="12" strokeWidth="2" />
-                  <line x1="7" y1="8" x2="10" y2="8" />
-                  <line x1="7" y1="16" x2="10" y2="16" />
-                  <line x1="14" y1="8" x2="17" y2="8" />
-                  <line x1="14" y1="16" x2="17" y2="16" />
-                </svg>
+                <ScanBarcode className="w-[100px] h-[100px]" strokeWidth={1.5} />
               </div>
               <p className="ready-text">Ready to Scan</p>
               <p className="ready-hint">Scan a student ID barcode or type manually</p>
@@ -251,16 +246,15 @@ export default function Home() {
         {/* Action Button - only show if manual entry is enabled */}
         {(settings?.manualEntryEnabled !== false) && (
           <div className="action-buttons">
-            <button
-              className="btn btn-outline btn-lg"
+            <Button
+              variant="outline"
+              size="lg"
               onClick={() => setIsManualEntryOpen(true)}
+              className="gap-2 font-semibold"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12" />
-              </svg>
+              <Keyboard className="h-5 w-5" />
               Manual Entry
-            </button>
+            </Button>
           </div>
         )}
       </main>
@@ -268,6 +262,12 @@ export default function Home() {
       {/* Footer */}
       <footer className="footer">
         <p>{settings?.schoolName || 'School Lunch Program'}</p>
+        <Link
+          href={session?.user ? '/admin' : '/admin/login'}
+          className="admin-link"
+        >
+          Admin
+        </Link>
       </footer>
 
       {/* Manual Entry Modal */}
