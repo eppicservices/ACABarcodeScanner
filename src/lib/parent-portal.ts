@@ -1,4 +1,12 @@
-import type { AppSettings } from '@prisma/client'
+// Settings type that works with both Prisma Decimal and serialized number types
+// Decimal has a toNumber method, so we check for that or just a plain number
+type DecimalLike = { toNumber: () => number } | number
+type LunchSettings = {
+  elementaryLunchPrice: DecimalLike
+  highschoolLunchPrice: DecimalLike
+  highschoolLunchCardPrice: DecimalLike
+  highschoolLunchCardLunches: number
+}
 
 // Generate a cryptographically secure token
 export function generateSecureToken(length: number = 64): string {
@@ -40,7 +48,7 @@ export function getPortalUrl(token: string): string {
 export function calculateLunches(
   amount: number,
   schoolLevel: 'elementary' | 'high_school',
-  settings: AppSettings,
+  settings: LunchSettings,
   isLunchCard: boolean = false
 ): number {
   if (isLunchCard && schoolLevel === 'high_school') {

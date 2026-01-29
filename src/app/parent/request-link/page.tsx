@@ -2,6 +2,12 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 export default function RequestLinkPage() {
   const [email, setEmail] = useState('')
@@ -38,343 +44,92 @@ export default function RequestLinkPage() {
   }
 
   return (
-    <div className="request-container">
-      <div className="request-card">
-        <div className="card-header">
+    <div className="min-h-screen min-h-dvh flex items-center justify-center p-6 max-[480px]:p-4 max-[480px]:items-start max-[480px]:pt-10 max-[360px]:p-3 max-[360px]:pt-6 bg-gradient-to-br from-[#002c5f] to-[#1e4a7a]">
+      <Card className="w-full max-w-[420px] max-[480px]:max-w-full overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.2)]">
+        {/* Header with Logo */}
+        <div className="bg-[#002c5f] p-6 max-[480px]:p-5 max-[480px]:px-4 flex items-center justify-center rounded-t-xl">
           <Image
             src="https://www.aldersgatechristian.com/wp-content/uploads/2017/12/ACA-Logo_Horizontal_White_small.png"
             alt="Aldersgate Christian Academy"
             width={200}
             height={50}
-            className="logo"
+            className="h-11 max-[480px]:h-[38px] w-auto"
             priority
           />
         </div>
 
         {submitted ? (
-          <div className="success-state">
-            <div className="success-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
+          <div className="p-10 max-[480px]:p-8 max-[480px]:px-5 max-[360px]:p-6 text-center">
+            <div className="text-green-500 mb-4">
+              <CheckCircle className="h-12 w-12 mx-auto" />
             </div>
-            <h1>Check Your Email</h1>
-            <p>
-              If an account exists for <strong>{email}</strong>, you&apos;ll receive an email
+            <h1 className="text-[22px] max-[480px]:text-xl max-[360px]:text-lg font-semibold text-slate-800 m-0 mb-2">
+              Check Your Email
+            </h1>
+            <p className="text-slate-500 text-sm max-[480px]:text-[13px] leading-relaxed mb-4 m-0">
+              If an account exists for <strong className="text-slate-700">{email}</strong>, you&apos;ll receive an email
               with a link to view your children&apos;s lunch balances.
             </p>
-            <p className="hint">
+            <p className="text-slate-400 text-[13px] max-[480px]:text-xs m-0">
               Don&apos;t see it? Check your spam folder or contact the school office.
             </p>
           </div>
         ) : (
-          <>
-            <div className="card-content">
-              <h1>Request Balance Link</h1>
-              <p>
-                Enter your email address and we&apos;ll send you a link to view
-                your children&apos;s lunch balances.
-              </p>
+          <CardContent className="p-8 max-[480px]:p-7 max-[480px]:px-5 max-[360px]:p-6 max-[360px]:px-4">
+            <h1 className="text-[22px] max-[480px]:text-xl max-[360px]:text-lg font-semibold text-slate-800 text-center m-0 mb-2">
+              Request Balance Link
+            </h1>
+            <p className="text-slate-500 text-sm max-[480px]:text-[13px] text-center leading-relaxed mb-6 m-0">
+              Enter your email address and we&apos;ll send you a link to view
+              your children&apos;s lunch balances.
+            </p>
 
-              {error && (
-                <div className="error-message">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {error}
-                </div>
-              )}
+            {error && (
+              <Alert variant="destructive" className="mb-5">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-              <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label htmlFor="email">Email Address</label>
-                  <input
-                    id="email"
-                    type="email"
-                    className="input"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="your.email@example.com"
-                    required
-                    autoComplete="email"
-                  />
-                </div>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-2 mb-5 max-[480px]:mb-4">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="your.email@example.com"
+                  required
+                  autoComplete="email"
+                  className="h-12 text-base"
+                />
+              </div>
 
-                <button type="submit" className="btn btn-primary" disabled={loading}>
-                  {loading ? 'Sending...' : 'Send Link'}
-                </button>
-              </form>
-            </div>
-          </>
+              <Button type="submit" disabled={loading} className="w-full h-12 text-[15px]">
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  'Send Link'
+                )}
+              </Button>
+            </form>
+          </CardContent>
         )}
 
-        <div className="card-footer">
-          <p>
+        {/* Footer */}
+        <div className="p-4 max-[480px]:px-5 max-[360px]:p-3.5 bg-slate-50 border-t border-slate-200">
+          <p className="text-[13px] max-[480px]:text-xs text-slate-500 text-center m-0">
             Questions? Contact the school office at{' '}
-            <a href="mailto:office@aldersgatechristian.com">office@aldersgatechristian.com</a>
+            <a href="mailto:office@aldersgatechristian.com" className="text-[#2e8bc0] hover:underline">
+              office@aldersgatechristian.com
+            </a>
           </p>
         </div>
-      </div>
-
-      <style jsx>{`
-        .request-container {
-          min-height: 100vh;
-          min-height: 100dvh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          background: linear-gradient(135deg, #002c5f 0%, #1e4a7a 100%);
-        }
-
-        .request-card {
-          width: 100%;
-          max-width: 420px;
-          background: white;
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        }
-
-        .card-header {
-          background: #002c5f;
-          padding: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px 12px 0 0;
-        }
-
-        .card-header :global(.logo) {
-          height: 44px;
-          width: auto;
-        }
-
-        .card-content {
-          padding: 32px 24px;
-        }
-
-        h1 {
-          margin: 0 0 8px 0;
-          font-size: 22px;
-          color: #1e293b;
-          text-align: center;
-        }
-
-        .card-content p {
-          margin: 0 0 24px 0;
-          color: #64748b;
-          font-size: 14px;
-          text-align: center;
-          line-height: 1.5;
-        }
-
-        .error-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: #fef2f2;
-          color: #dc2626;
-          padding: 12px 16px;
-          border-radius: 8px;
-          font-size: 14px;
-          margin-bottom: 20px;
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-        }
-
-        .form-group label {
-          display: block;
-          font-size: 13px;
-          font-weight: 600;
-          color: #475569;
-          margin-bottom: 6px;
-        }
-
-        .input {
-          width: 100%;
-          padding: 12px 14px;
-          font-size: 16px;
-          border: 2px solid #e2e8f0;
-          border-radius: 8px;
-          outline: none;
-          transition: border-color 0.15s ease;
-        }
-
-        .input:focus {
-          border-color: #2e8bc0;
-        }
-
-        .btn {
-          width: 100%;
-          padding: 14px;
-          font-size: 15px;
-          font-weight: 600;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #ffc82e 0%, #f59e0b 100%);
-          color: #002c5f;
-          border: none;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(255, 200, 46, 0.4);
-        }
-
-        .btn-primary:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        .success-state {
-          padding: 40px 24px;
-          text-align: center;
-        }
-
-        .success-icon {
-          color: #22c55e;
-          margin-bottom: 16px;
-        }
-
-        .success-state p {
-          margin: 0 0 16px 0;
-          color: #475569;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-
-        .success-state .hint {
-          color: #94a3b8;
-          font-size: 13px;
-        }
-
-        .card-footer {
-          padding: 16px 24px;
-          background: #f8fafc;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .card-footer p {
-          margin: 0;
-          font-size: 13px;
-          color: #64748b;
-          text-align: center;
-        }
-
-        .card-footer a {
-          color: #2e8bc0;
-          text-decoration: none;
-        }
-
-        .card-footer a:hover {
-          text-decoration: underline;
-        }
-
-        /* Mobile optimizations */
-        @media (max-width: 480px) {
-          .request-container {
-            padding: 16px;
-            align-items: flex-start;
-            padding-top: 40px;
-          }
-
-          .request-card {
-            max-width: 100%;
-          }
-
-          .card-header {
-            padding: 20px 16px;
-          }
-
-          .card-header :global(.logo) {
-            height: 38px;
-          }
-
-          .card-content {
-            padding: 28px 20px;
-          }
-
-          h1 {
-            font-size: 20px;
-          }
-
-          .card-content p {
-            font-size: 13px;
-          }
-
-          .error-message {
-            padding: 10px 14px;
-            font-size: 13px;
-          }
-
-          .form-group {
-            margin-bottom: 16px;
-          }
-
-          .form-group label {
-            font-size: 12px;
-          }
-
-          .input {
-            padding: 14px;
-            font-size: 16px;
-          }
-
-          .btn {
-            padding: 14px;
-            font-size: 15px;
-          }
-
-          .success-state {
-            padding: 32px 20px;
-          }
-
-          .success-state h1 {
-            font-size: 20px;
-          }
-
-          .success-state p {
-            font-size: 13px;
-          }
-
-          .success-state .hint {
-            font-size: 12px;
-          }
-
-          .card-footer {
-            padding: 14px 20px;
-          }
-
-          .card-footer p {
-            font-size: 12px;
-          }
-        }
-
-        @media (max-width: 360px) {
-          .request-container {
-            padding: 12px;
-            padding-top: 24px;
-          }
-
-          .card-content {
-            padding: 24px 16px;
-          }
-
-          h1 {
-            font-size: 18px;
-          }
-        }
-      `}</style>
+      </Card>
     </div>
   )
 }
