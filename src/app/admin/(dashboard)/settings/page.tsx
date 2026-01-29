@@ -79,7 +79,7 @@ function SettingsContent() {
         </div>
       </div>
 
-      <Card className="flex max-md:flex-col overflow-hidden">
+      <Card className="!flex-row max-md:!flex-col overflow-hidden">
         <SettingsTabNav />
         <div className="flex-1 p-7 max-md:p-5 max-[480px]:p-4 min-h-[500px] max-md:min-h-0">
           {renderActiveTab()}
