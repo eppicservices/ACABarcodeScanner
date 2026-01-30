@@ -6,11 +6,14 @@ npm-debug.log*
 .next
 out
 
-# Environment files (copy manually or use docker-compose)
+# Environment files and secrets (NEVER include in image)
 .env
-.env.local
-.env.*.local
-.env.*.example
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
 
 # IDE
 .idea
@@ -40,6 +43,8 @@ LICENSE
 # Testing
 coverage
 .nyc_output
+test-results/
+playwright-report/
 
 # Development files
 prisma/seed.ts
