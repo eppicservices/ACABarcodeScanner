@@ -89,12 +89,21 @@ export default function Home() {
       } else {
         setHighSchoolCount((prev) => prev + 1);
       }
-      const lunchText = result.newBalance === 1 ? 'lunch' : 'lunches';
+
+      // Display message based on whether student has unlimited meals
+      let message: string;
+      if (result.unlimited) {
+        message = `${level} • UNLIMITED`;
+      } else {
+        const lunchText = result.newBalance === 1 ? 'lunch' : 'lunches';
+        message = `${level} • ${result.newBalance} ${lunchText} remaining`;
+      }
+
       setScanResult({
         code: trimmedCode,
         status: 'success',
         studentName: student.name,
-        message: `${level} • ${result.newBalance} ${lunchText} remaining`,
+        message,
       });
     } else if (result.error === 'insufficient_balance') {
       setScanResult({

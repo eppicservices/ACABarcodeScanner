@@ -1,7 +1,7 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import type { SchoolLevel } from '@prisma/client'
+import type { SchoolLevel, StudentType } from '@prisma/client'
 
 export interface StudentWithParent {
   id: string
@@ -9,6 +9,7 @@ export interface StudentWithParent {
   barcode: string
   balance: number
   schoolLevel: SchoolLevel
+  studentType: StudentType
   isActive: boolean
   createdAt: Date
   parentId: string
@@ -26,10 +27,12 @@ export interface StudentStats {
   lowBalanceCount: number
   elementaryCount: number
   highSchoolCount: number
+  unlimitedCount: number
 }
 
 export interface StudentFilters {
   schoolLevel?: 'all' | 'elementary' | 'high_school'
+  studentType?: 'all' | 'regular' | 'staff_faculty' | 'student_unlimited'
   status?: 'all' | 'active' | 'inactive'
   search?: string
   sortField?: 'name' | 'balance' | 'level'
@@ -43,6 +46,11 @@ export async function getStudentsWithParents(filters?: StudentFilters): Promise<
   // Apply school level filter
   if (filters?.schoolLevel && filters.schoolLevel !== 'all') {
     where.schoolLevel = filters.schoolLevel
+  }
+
+  // Apply student type filter
+  if (filters?.studentType && filters.studentType !== 'all') {
+    where.studentType = filters.studentType
   }
 
   // Apply status filter
@@ -106,17 +114,20 @@ export async function getStudentStats(): Promise<StudentStats> {
       isActive: true,
       balance: true,
       schoolLevel: true,
+      studentType: true,
     },
   })
 
   const activeStudents = students.filter((s) => s.isActive)
+  const activeRegularStudents = activeStudents.filter((s) => s.studentType === 'regular')
 
   return {
     activeCount: activeStudents.length,
     inactiveCount: students.filter((s) => !s.isActive).length,
-    lowBalanceCount: activeStudents.filter((s) => s.balance < 10).length,
+    lowBalanceCount: activeRegularStudents.filter((s) => s.balance < 10).length,
     elementaryCount: activeStudents.filter((s) => s.schoolLevel === 'elementary').length,
     highSchoolCount: activeStudents.filter((s) => s.schoolLevel === 'high_school').length,
+    unlimitedCount: activeStudents.filter((s) => s.studentType !== 'regular').length,
   }
 }
 
@@ -150,6 +161,7 @@ export async function createStudent(data: {
   barcode: string
   parentId: string
   schoolLevel: SchoolLevel
+  studentType?: StudentType
   balance?: number
 }) {
   return prisma.student.create({
@@ -158,6 +170,7 @@ export async function createStudent(data: {
       barcode: data.barcode,
       parentId: data.parentId,
       schoolLevel: data.schoolLevel,
+      studentType: data.studentType ?? 'regular',
       balance: data.balance ?? 0,
     },
     include: {
@@ -174,6 +187,7 @@ export async function updateStudent(
     barcode?: string
     parentId?: string
     schoolLevel?: SchoolLevel
+    studentType?: StudentType
     balance?: number
     isActive?: boolean
   }
@@ -256,6 +270,7 @@ export async function getStudentsForExport() {
     barcode: s.barcode,
     balance: s.balance,
     schoolLevel: s.schoolLevel,
+    studentType: s.studentType,
     isActive: s.isActive,
     parentName: s.parent.name,
     parentEmail: s.parent.email,

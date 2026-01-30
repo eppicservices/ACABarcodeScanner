@@ -53,6 +53,7 @@ export default function NewStudentPage() {
   const [name, setName] = useState('')
   const [barcode, setBarcode] = useState('')
   const [schoolLevel, setSchoolLevel] = useState<'elementary' | 'high_school'>('elementary')
+  const [studentType, setStudentType] = useState<'regular' | 'staff_faculty' | 'student_unlimited'>('regular')
   const [parentId, setParentId] = useState('')
   const [balance, setBalance] = useState('0')
 
@@ -125,8 +126,9 @@ export default function NewStudentPage() {
         name,
         barcode,
         schoolLevel,
+        studentType,
         parentId,
-        balance: parseInt(balance) || 0,
+        balance: studentType === 'regular' ? (parseInt(balance) || 0) : 0,
       })
       router.push(preselectedParentId ? `/admin/parents/${preselectedParentId}` : '/admin/students')
     } catch (err) {
@@ -263,6 +265,48 @@ export default function NewStudentPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label>Student Type</Label>
+                <div className="flex gap-2.5 flex-wrap">
+                  <button
+                    type="button"
+                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3.5 px-4 border-2 rounded-lg font-semibold text-sm transition-all ${
+                      studentType === 'regular'
+                        ? 'border-[var(--aca-teal)] bg-[var(--aca-teal-subtle)] text-[var(--aca-teal)]'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                    onClick={() => setStudentType('regular')}
+                  >
+                    Regular
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3.5 px-4 border-2 rounded-lg font-semibold text-sm transition-all ${
+                      studentType === 'staff_faculty'
+                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                    onClick={() => setStudentType('staff_faculty')}
+                  >
+                    Staff/Faculty
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3.5 px-4 border-2 rounded-lg font-semibold text-sm transition-all ${
+                      studentType === 'student_unlimited'
+                        ? 'border-amber-500 bg-amber-50 text-amber-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                    onClick={() => setStudentType('student_unlimited')}
+                  >
+                    Unlimited Plan
+                  </button>
+                </div>
+                {studentType !== 'regular' && (
+                  <p className="text-xs text-purple-600 mt-1.5">Unlimited meal accounts do not require or track balance</p>
+                )}
+              </div>
             </div>
           </CardContent>
 
@@ -293,21 +337,23 @@ export default function NewStudentPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="balance">Starting Lunches</Label>
-                <div className="flex items-center gap-2.5">
-                  <Input
-                    id="balance"
-                    type="number"
-                    value={balance}
-                    onChange={(e) => setBalance(e.target.value)}
-                    step="1"
-                    min="0"
-                    className="w-24 text-center text-lg font-semibold font-mono"
-                  />
-                  <span className="text-sm font-medium text-gray-500">lunches</span>
+              {studentType === 'regular' && (
+                <div className="space-y-2">
+                  <Label htmlFor="balance">Starting Lunches</Label>
+                  <div className="flex items-center gap-2.5">
+                    <Input
+                      id="balance"
+                      type="number"
+                      value={balance}
+                      onChange={(e) => setBalance(e.target.value)}
+                      step="1"
+                      min="0"
+                      className="w-24 text-center text-lg font-semibold font-mono"
+                    />
+                    <span className="text-sm font-medium text-gray-500">lunches</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {parents.length === 0 && (

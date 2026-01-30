@@ -42,6 +42,8 @@ export interface PortalLinkEmailData {
 export interface WeeklySummaryStudent {
   name: string
   schoolLevel: 'elementary' | 'high_school'
+  studentType: 'regular' | 'staff_faculty' | 'student_unlimited'
+  isUnlimited: boolean
   currentBalance: number
   lunchesUsed: number
   lunchesAdded: number

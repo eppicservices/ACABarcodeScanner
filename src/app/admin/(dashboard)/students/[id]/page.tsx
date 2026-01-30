@@ -47,7 +47,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { SchoolLevel } from '@prisma/client'
+import type { SchoolLevel, StudentType } from '@prisma/client'
 
 interface Parent {
   id: string
@@ -62,6 +62,7 @@ interface StudentWithParent {
   barcode: string
   balance: number
   schoolLevel: SchoolLevel
+  studentType: StudentType
   isActive: boolean
   parentId: string
   parent: Parent
@@ -102,6 +103,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [name, setName] = useState('')
   const [barcode, setBarcode] = useState('')
   const [schoolLevel, setSchoolLevel] = useState<'elementary' | 'high_school'>('elementary')
+  const [studentType, setStudentType] = useState<StudentType>('regular')
   const [parentId, setParentId] = useState('')
   const [isActive, setIsActive] = useState(true)
 
@@ -132,6 +134,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         barcode: studentData.barcode,
         balance: studentData.balance,
         schoolLevel: studentData.schoolLevel,
+        studentType: studentData.studentType,
         isActive: studentData.isActive,
         parentId: studentData.parentId,
         parent: studentData.parent,
@@ -140,6 +143,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       setName(s.name)
       setBarcode(s.barcode)
       setSchoolLevel(s.schoolLevel === 'elementary' ? 'elementary' : 'high_school')
+      setStudentType(s.studentType)
       setParentId(s.parentId)
       setIsActive(s.isActive)
     }
@@ -187,6 +191,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         name,
         barcode,
         schoolLevel,
+        studentType,
         parentId,
         isActive,
       })
@@ -205,6 +210,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       setName(student.name)
       setBarcode(student.barcode)
       setSchoolLevel(student.schoolLevel === 'elementary' ? 'elementary' : 'high_school')
+      setStudentType(student.studentType)
       setParentId(student.parentId)
       setIsActive(student.isActive)
     }
@@ -379,27 +385,42 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           <Card className="max-md:flex max-md:flex-row max-md:items-center max-md:justify-between max-md:p-4 max-[380px]:flex-col max-[380px]:text-center max-[380px]:gap-3">
             <CardContent className="p-7 max-md:p-0 max-md:flex-1 text-center max-md:text-left">
               <h3 className="text-[11px] uppercase tracking-[0.08em] text-gray-400 font-semibold mb-4 max-md:hidden">
-                Lunch Balance
+                {student.studentType === 'regular' ? 'Lunch Balance' : 'Meal Plan'}
               </h3>
-              <div className={`text-5xl max-md:text-4xl max-[380px]:text-[32px] font-bold leading-none tracking-tight ${
-                student.balance <= 0 ? 'text-red-500' : student.balance <= 3 ? 'text-red-500' : 'text-green-600'
-              }`}>
-                {student.balance}
-                <span className="block max-md:inline max-md:ml-1 text-sm font-medium text-gray-400 mt-1 max-md:mt-0">
-                  {student.balance === 1 ? 'lunch' : 'lunches'}
-                </span>
-              </div>
-              <p className="text-[13px] text-gray-400 mt-3 max-md:hidden">
-                ${lunchPrice.toFixed(2)} per lunch
-              </p>
+              {student.studentType === 'regular' ? (
+                <>
+                  <div className={`text-5xl max-md:text-4xl max-[380px]:text-[32px] font-bold leading-none tracking-tight ${
+                    student.balance <= 0 ? 'text-red-500' : student.balance <= 3 ? 'text-red-500' : 'text-green-600'
+                  }`}>
+                    {student.balance}
+                    <span className="block max-md:inline max-md:ml-1 text-sm font-medium text-gray-400 mt-1 max-md:mt-0">
+                      {student.balance === 1 ? 'lunch' : 'lunches'}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-gray-400 mt-3 max-md:hidden">
+                    ${lunchPrice.toFixed(2)} per lunch
+                  </p>
+                </>
+              ) : (
+                <div className="text-center">
+                  <div className="inline-block px-4 py-2 rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 text-white font-bold text-2xl max-md:text-xl shadow-md">
+                    UNLIMITED
+                  </div>
+                  <p className="text-[13px] text-gray-500 mt-3 max-md:hidden">
+                    {student.studentType === 'staff_faculty' ? 'Staff/Faculty Plan' : 'Unlimited Meal Plan'}
+                  </p>
+                </div>
+              )}
             </CardContent>
-            <Button
-              onClick={() => setShowBalanceModal(true)}
-              className="max-md:flex-shrink-0 max-[380px]:w-full w-[calc(100%-56px)] mx-7 mb-7 max-md:m-0 max-md:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              Add Lunches
-            </Button>
+            {student.studentType === 'regular' && (
+              <Button
+                onClick={() => setShowBalanceModal(true)}
+                className="max-md:flex-shrink-0 max-[380px]:w-full w-[calc(100%-56px)] mx-7 mb-7 max-md:m-0 max-md:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Add Lunches
+              </Button>
+            )}
           </Card>
 
           {/* Recent Transactions */}
@@ -496,6 +517,23 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Student Type</Label>
+                      <Select value={studentType} onValueChange={(v) => setStudentType(v as StudentType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="regular">Regular</SelectItem>
+                          <SelectItem value="staff_faculty">Staff/Faculty</SelectItem>
+                          <SelectItem value="student_unlimited">Unlimited Plan</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {studentType !== 'regular' && (
+                        <p className="text-xs text-purple-600 mt-1">Unlimited accounts do not track balance</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -597,6 +635,21 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                       <Badge variant={student.schoolLevel === 'elementary' ? 'teal' : 'default'}>
                         {student.schoolLevel === 'elementary' ? 'Elementary' : 'High School'}
                       </Badge>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs max-md:text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      Student Type
+                    </span>
+                    <span className="text-[15px] max-md:text-sm font-medium text-gray-700">
+                      {student.studentType === 'regular' ? (
+                        <Badge variant="muted">Regular</Badge>
+                      ) : student.studentType === 'staff_faculty' ? (
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-200">Staff/Faculty</Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-200">Unlimited</Badge>
+                      )}
                     </span>
                   </div>
 

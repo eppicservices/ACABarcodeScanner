@@ -235,6 +235,7 @@ export async function getStudentTransactions(studentId: string, limit = 50) {
 export async function consumeLunch(studentId: string): Promise<{
   success: boolean
   newBalance?: number
+  unlimited?: boolean
   error?: string
   message?: string
 }> {
@@ -252,6 +253,26 @@ export async function consumeLunch(studentId: string): Promise<{
     return { success: false, error: 'database_error', message: 'Could not load settings' }
   }
 
+  // Check if student has unlimited meals (staff_faculty or student_unlimited)
+  const isUnlimited = student.studentType === 'staff_faculty' || student.studentType === 'student_unlimited'
+
+  if (isUnlimited) {
+    // For unlimited students, create a tracking transaction but don't deduct balance
+    await prisma.balanceTransaction.create({
+      data: {
+        studentId,
+        lunchesChange: 0,
+        previousLunches: student.balance,
+        newLunches: student.balance,
+        transactionType: 'lunch_used',
+        notes: 'Unlimited meal check-in',
+      },
+    })
+
+    return { success: true, newBalance: student.balance, unlimited: true }
+  }
+
+  // Regular students - check balance limits
   const negativeLimit =
     student.schoolLevel === 'elementary'
       ? settings.elementaryNegativeLimit

@@ -11,6 +11,7 @@ const navItems = [
   { href: '/admin/parents', label: 'Parents', icon: 'family' },
   { href: '/admin/transactions', label: 'Transactions', icon: 'receipt' },
   { href: '/admin/meal-stats', label: 'Meal Stats', icon: 'calendar' },
+  { href: '/admin/reports', label: 'Reports', icon: 'chart' },
   { href: '/admin/settings', label: 'Settings', icon: 'settings' },
   { href: '/', label: 'Open Scanner', icon: 'scanner' },
 ]
@@ -119,6 +120,14 @@ export default function AdminNav() {
             <path d="M16 14h.01" />
             <path d="M8 18h.01" />
             <path d="M12 18h.01" />
+          </svg>
+        )
+      case 'chart':
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
         )
       default:

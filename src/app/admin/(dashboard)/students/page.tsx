@@ -53,6 +53,7 @@ interface StudentWithParent extends StudentWithParentType {}
 type SortField = 'name' | 'balance' | 'level'
 type SortDirection = 'asc' | 'desc'
 type SchoolLevelFilter = 'all' | 'elementary' | 'high_school'
+type StudentTypeFilter = 'all' | 'regular' | 'staff_faculty' | 'student_unlimited'
 
 const ITEMS_PER_PAGE = 25
 
@@ -61,6 +62,7 @@ export default function StudentsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<SchoolLevelFilter>('all')
+  const [typeFilter, setTypeFilter] = useState<StudentTypeFilter>('all')
   const [statusFilter, setStatusFilter] = useState<ActiveFilter>('active')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -76,6 +78,7 @@ export default function StudentsPage() {
     lowBalanceCount: 0,
     elementaryCount: 0,
     highSchoolCount: 0,
+    unlimitedCount: 0,
   })
 
   const fetchStats = useCallback(async () => {
@@ -88,6 +91,7 @@ export default function StudentsPage() {
 
     const filters: StudentFilters = {
       schoolLevel: filter,
+      studentType: typeFilter,
       status: statusFilter,
       search: search || undefined,
       sortField,
@@ -111,7 +115,7 @@ export default function StudentsPage() {
     })) as unknown as StudentWithParent[])
 
     setLoading(false)
-  }, [filter, statusFilter, sortField, sortDirection, search, currentPage])
+  }, [filter, typeFilter, statusFilter, sortField, sortDirection, search, currentPage])
 
   useEffect(() => {
     fetchStats()
@@ -123,7 +127,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [filter, statusFilter, sortField, sortDirection, search])
+  }, [filter, typeFilter, statusFilter, sortField, sortDirection, search])
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
@@ -185,7 +189,7 @@ export default function StudentsPage() {
     return 'success'
   }
 
-  const { activeCount, inactiveCount, lowBalanceCount, elementaryCount, highSchoolCount } = stats
+  const { activeCount, inactiveCount, lowBalanceCount, elementaryCount, highSchoolCount, unlimitedCount } = stats
 
   return (
     <div className="w-full max-w-[1200px]">
@@ -274,6 +278,7 @@ export default function StudentsPage() {
         <Badge variant="muted">{activeCount} Active</Badge>
         <Badge className="bg-blue-100 text-blue-800 border-blue-200">{elementaryCount} Elem</Badge>
         <Badge variant="default">{highSchoolCount} HS</Badge>
+        {unlimitedCount > 0 && <Badge className="bg-amber-100 text-amber-700 border-amber-200">{unlimitedCount} Unlimited</Badge>}
         {lowBalanceCount > 0 && <Badge variant="warning">{lowBalanceCount} Low</Badge>}
         {inactiveCount > 0 && <Badge variant="muted">{inactiveCount} Inactive</Badge>}
       </div>
@@ -318,8 +323,20 @@ export default function StudentsPage() {
             ))}
           </div>
 
-          {/* Status Filter & Sort - side by side on mobile */}
+          {/* Type & Status Filters */}
           <div className="flex gap-2 sm:contents">
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as StudentTypeFilter)}>
+              <SelectTrigger className="flex-1 sm:flex-none sm:w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="regular">Regular</SelectItem>
+                <SelectItem value="staff_faculty">Staff/Faculty</SelectItem>
+                <SelectItem value="student_unlimited">Unlimited</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as ActiveFilter)}>
               <SelectTrigger className="flex-1 sm:flex-none sm:w-[140px]">
                 <SelectValue />
@@ -330,8 +347,10 @@ export default function StudentsPage() {
                 <SelectItem value="all">All Students</SelectItem>
               </SelectContent>
             </Select>
+          </div>
 
-            {/* Sort */}
+          {/* Sort */}
+          <div className="flex gap-2 sm:contents">
             <div className="flex items-center gap-2 flex-1 sm:flex-none sm:ml-auto">
               <span className="text-sm font-semibold text-gray-400 whitespace-nowrap hidden sm:inline">Sort:</span>
               <Select
@@ -537,13 +556,19 @@ export default function StudentsPage() {
                       {student.parent.name}
                     </TableCell>
                     <TableCell onClick={() => router.push(`/admin/students/${student.id}`)}>
-                      <span className={`font-mono font-bold text-[15px] ${
-                        student.balance <= 0 ? 'text-[var(--error)]' :
-                        student.balance < 10 ? 'text-[var(--error)]' :
-                        'text-[var(--success)]'
-                      }`}>
-                        {student.balance}
-                      </span>
+                      {student.studentType !== 'regular' ? (
+                        <Badge className="bg-gradient-to-r from-amber-400 to-amber-500 text-white border-amber-400 font-bold">
+                          UNLIMITED
+                        </Badge>
+                      ) : (
+                        <span className={`font-mono font-bold text-[15px] ${
+                          student.balance <= 0 ? 'text-[var(--error)]' :
+                          student.balance < 10 ? 'text-[var(--error)]' :
+                          'text-[var(--success)]'
+                        }`}>
+                          {student.balance}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell onClick={() => router.push(`/admin/students/${student.id}`)}>
                       <Badge variant={student.isActive ? 'success' : 'muted'}>
@@ -635,13 +660,19 @@ export default function StudentsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`font-mono font-extrabold text-xl ${
-                          student.balance <= 0 ? 'text-[var(--error)]' :
-                          student.balance < 10 ? 'text-[var(--error)]' :
-                          'text-[var(--success)]'
-                        }`}>
-                          {student.balance}
-                        </span>
+                        {student.studentType !== 'regular' ? (
+                          <span className="px-2 py-1 rounded-md bg-gradient-to-r from-amber-400 to-amber-500 text-white text-[10px] font-bold uppercase">
+                            Unlimited
+                          </span>
+                        ) : (
+                          <span className={`font-mono font-extrabold text-xl ${
+                            student.balance <= 0 ? 'text-[var(--error)]' :
+                            student.balance < 10 ? 'text-[var(--error)]' :
+                            'text-[var(--success)]'
+                          }`}>
+                            {student.balance}
+                          </span>
+                        )}
                         <ChevronRight className="h-4 w-4 text-gray-300" />
                       </div>
                     </Link>

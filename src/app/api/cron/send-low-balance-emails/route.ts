@@ -132,8 +132,10 @@ export async function POST(request: NextRequest) {
     let skippedCount = 0
 
     for (const parent of parents) {
-      // Filter to active students only
-      const activeStudents = (parent.students || []).filter(s => s.isActive)
+      // Filter to active regular students only (skip unlimited types)
+      const activeStudents = (parent.students || []).filter(s =>
+        s.isActive && s.studentType === 'regular'
+      )
 
       if (activeStudents.length === 0) {
         skippedCount++
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest) {
           parentId: parent.id,
           parentEmail: parent.email,
           success: false,
-          reason: 'No active students'
+          reason: 'No active regular students'
         })
         continue
       }

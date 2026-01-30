@@ -20,7 +20,14 @@ export function generateWeeklySummaryHtml(data: WeeklySummaryEmailData, schoolNa
   const studentsHtml = data.students.map(student => {
     let balanceColor = '#22c55e'
     let balanceBg = '#dcfce7'
-    if (student.currentBalance < 0) {
+    let balanceDisplay = String(student.currentBalance)
+
+    if (student.isUnlimited) {
+      // Unlimited students show "UNLIMITED" badge
+      balanceColor = '#b45309'
+      balanceBg = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
+      balanceDisplay = 'UNLIMITED'
+    } else if (student.currentBalance < 0) {
       balanceColor = '#dc2626'
       balanceBg = '#fef2f2'
     } else if (student.currentBalance <= 5) {
@@ -28,21 +35,24 @@ export function generateWeeklySummaryHtml(data: WeeklySummaryEmailData, schoolNa
       balanceBg = '#fef3c7'
     }
 
+    const typeLabel = student.studentType === 'staff_faculty' ? ' (Staff)' :
+                      student.studentType === 'student_unlimited' ? ' (Unlimited)' : ''
+
     return `
       <tr>
         <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
-          <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">${student.name}</div>
+          <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">${student.name}${typeLabel}</div>
           <div style="font-size: 12px; color: #64748b; text-transform: capitalize;">${student.schoolLevel.replace('_', ' ')}</div>
         </td>
         <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-          <span style="color: #dc2626; font-weight: 600;">-${student.lunchesUsed}</span>
+          <span style="color: #dc2626; font-weight: 600;">${student.lunchesUsed > 0 ? '-' + student.lunchesUsed : '0'}</span>
         </td>
         <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-          <span style="color: #22c55e; font-weight: 600;">+${student.lunchesAdded}</span>
+          <span style="color: #22c55e; font-weight: 600;">${student.lunchesAdded > 0 ? '+' + student.lunchesAdded : '0'}</span>
         </td>
         <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; text-align: right;">
-          <div style="display: inline-block; background: ${balanceBg}; color: ${balanceColor}; padding: 6px 12px; border-radius: 8px; font-weight: 700;">
-            ${student.currentBalance}
+          <div style="display: inline-block; background: ${balanceBg}; color: ${student.isUnlimited ? '#fff' : balanceColor}; padding: 6px 12px; border-radius: 8px; font-weight: 700; ${student.isUnlimited ? 'font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;' : ''}">
+            ${balanceDisplay}
           </div>
         </td>
       </tr>
@@ -142,9 +152,12 @@ export function generateWeeklySummaryText(data: WeeklySummaryEmailData, schoolNa
   const totalLunchesAdded = data.students.reduce((sum, s) => sum + s.lunchesAdded, 0)
   const totalBalance = data.students.reduce((sum, s) => sum + s.currentBalance, 0)
 
-  const studentsText = data.students.map(student =>
-    `  - ${student.name} (${student.schoolLevel.replace('_', ' ')})\n    Used: ${student.lunchesUsed} | Added: ${student.lunchesAdded} | Balance: ${student.currentBalance}`
-  ).join('\n\n')
+  const studentsText = data.students.map(student => {
+    const balanceText = student.isUnlimited ? 'UNLIMITED' : String(student.currentBalance)
+    const typeLabel = student.studentType === 'staff_faculty' ? ' (Staff)' :
+                      student.studentType === 'student_unlimited' ? ' (Unlimited)' : ''
+    return `  - ${student.name}${typeLabel} (${student.schoolLevel.replace('_', ' ')})\n    Meals This Week: ${student.lunchesUsed} | Added: ${student.lunchesAdded} | Balance: ${balanceText}`
+  }).join('\n\n')
 
   return `
 ${schoolName}
