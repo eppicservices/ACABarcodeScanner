@@ -1,0 +1,32 @@
+# Docker Compose override for local development with Traefik
+#
+# This replaces Caddy with Traefik for local development, allowing you to
+# access the app at http://aca.localhost instead of localhost:3000
+#
+# Usage:
+#   1. Start global Traefik: cd ~/dev-proxy && make start
+#   2. Start this stack: docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d
+#
+# Or create an alias in your shell config:
+#   alias dc-traefik='docker compose -f docker-compose.yml -f docker-compose.traefik.yml'
+#   dc-traefik up -d
+
+services:
+  # Override app to add Traefik labels (no port exposure needed)
+  app:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aca.rule=Host(`aca.localhost`)"
+      - "traefik.http.services.aca.loadbalancer.server.port=3000"
+    networks:
+      - internal
+      - dev-proxy
+
+  # Disable Caddy (we're using Traefik instead)
+  caddy:
+    profiles:
+      - disabled
+
+networks:
+  dev-proxy:
+    external: true

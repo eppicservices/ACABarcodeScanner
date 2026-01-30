@@ -161,7 +161,78 @@ Key variables:
 - `NEXTAUTH_URL` - Application URL
 - `SMTP_*` - Email configuration (optional)
 
-## Scripts
+## Make Commands
+
+Run `make help` to see all available commands. Common ones:
+
+```bash
+# Development
+make setup          # Initial setup (install, env, db, migrate)
+make dev            # Start dev environment (db + app)
+make dev-db         # Start database only
+make studio         # Open Prisma Studio
+
+# Database
+make migrate-dev    # Run migrations (dev)
+make seed           # Seed test data
+make backup         # Create database backup
+make restore FILE=x # Restore from backup
+
+# Docker & Production
+make docker-build   # Build Docker image
+make deploy         # Deploy (pull, build, restart)
+make logs           # Follow all container logs
+make prod-status    # Show service status
+```
+
+## CI/CD with GitHub Actions
+
+The project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) that:
+
+1. **Lints and type-checks** on all PRs
+2. **Builds Docker image** on push to main
+3. **Pushes to GitHub Container Registry** (ghcr.io)
+4. **Deploys to production** via SSH (optional)
+
+### Setup GitHub Actions Deployment
+
+1. Go to your repo **Settings > Secrets and variables > Actions**
+
+2. Add these secrets:
+   | Secret | Description |
+   |--------|-------------|
+   | `DEPLOY_HOST` | Production server IP or hostname |
+   | `DEPLOY_USER` | SSH username |
+   | `DEPLOY_KEY` | SSH private key (full content) |
+   | `DEPLOY_PATH` | Path on server (e.g., `/opt/aca-scanner`) |
+
+3. Create a **production environment** (Settings > Environments):
+   - Name: `production`
+   - Add protection rules if desired (required reviewers, etc.)
+   - Add variable `PRODUCTION_URL` with your site URL
+
+4. On your production server:
+   ```bash
+   # Clone repo
+   git clone https://github.com/YOUR_USER/ACABarcodeScanner.git /opt/aca-scanner
+   cd /opt/aca-scanner
+
+   # Setup environment
+   cp .env.production.example .env
+   nano .env  # Fill in values
+
+   # Login to GitHub Container Registry
+   echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USER --password-stdin
+
+   # Initial deploy
+   docker compose up -d
+   ```
+
+### Manual Deployment
+
+Trigger a manual deploy from **Actions > CI/CD > Run workflow**.
+
+## Legacy Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
