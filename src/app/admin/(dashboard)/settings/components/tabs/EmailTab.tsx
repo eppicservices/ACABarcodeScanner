@@ -236,7 +236,7 @@ export function EmailTab() {
           </div>
           <div className="template-info">
             <h4>Balance Notification</h4>
-            <p>Sent when using "Email Balance" button on the Parents page. Includes individual student balances and a link to add funds.</p>
+            <p>Sent when using &quot;Email Balance&quot; button on the Parents page. Includes individual student balances and a link to add funds.</p>
           </div>
           <button
             className="btn btn-secondary btn-sm"
