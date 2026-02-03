@@ -55,9 +55,27 @@ export async function GET(
     // Filter to only include active students
     const activeStudents = parent.students.filter(s => s.isActive)
 
-    // Get settings for pricing
+    // Get settings for pricing - only return safe public settings
     const settings = await prisma.appSettings.findUnique({
       where: { id: 1 },
+      select: {
+        // Pricing - needed for payment calculations
+        elementaryLunchPrice: true,
+        highschoolLunchPrice: true,
+        highschoolLunchCardPrice: true,
+        highschoolLunchCardLunches: true,
+        secondMealPrice: true,
+        // School info - for display
+        schoolName: true,
+        schoolYear: true,
+        schoolLogoUrl: true,
+        // Branding - for theming
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        // Feature flags - for UI display
+        parentPortalEnabled: true,
+      },
     })
 
     // Update last_used_at

@@ -8,6 +8,26 @@ type LunchSettings = {
   highschoolLunchCardLunches: number
 }
 
+export type SanitizedStudentPayment = {
+  studentId: string
+  studentName: string
+  amount: number
+  lunchesToAdd: number
+  isLunchCard: boolean
+}
+
+export type PaymentStudentInfo = {
+  id: string
+  name: string
+  schoolLevel: 'elementary' | 'high_school'
+}
+
+export type PaymentInput = {
+  student_id: string
+  amount: number
+  is_lunch_card?: boolean
+}
+
 // Generate a cryptographically secure token
 export function generateSecureToken(length: number = 64): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -62,4 +82,46 @@ export function calculateLunches(
     : Number(settings.highschoolLunchPrice)
 
   return Math.floor(amount / pricePerLunch)
+}
+
+/**
+ * Validate and sanitize parent-submitted payments by:
+ * - ensuring students belong to the parent (passed in by caller)
+ * - computing lunches server-side using pricing rules
+ * - rejecting payments that result in zero lunches
+ */
+export function sanitizeParentPayments(
+  rawPayments: PaymentInput[],
+  students: PaymentStudentInfo[],
+  settings: LunchSettings
+): { payments: SanitizedStudentPayment[]; totalAmount: number } {
+  const payments: SanitizedStudentPayment[] = rawPayments.map((sp) => {
+    const student = students.find((s) => s.id === sp.student_id)
+    if (!student) {
+      throw new Error('Invalid student selection')
+    }
+
+    const lunchesToAdd = calculateLunches(
+      Number(sp.amount),
+      student.schoolLevel,
+      settings,
+      sp.is_lunch_card || false
+    )
+
+    if (lunchesToAdd <= 0) {
+      throw new Error(`Payment amount too low for ${student.name}`)
+    }
+
+    return {
+      studentId: student.id,
+      studentName: student.name,
+      amount: Number(sp.amount),
+      lunchesToAdd,
+      isLunchCard: sp.is_lunch_card || false,
+    }
+  })
+
+  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0)
+
+  return { payments, totalAmount }
 }

@@ -518,10 +518,62 @@ export async function adjustBalance(
 
 // ================== Pending Payments ==================
 
+// Type for student payment items stored in JSON
+export interface StoredStudentPayment {
+  studentId: string
+  studentName: string
+  amount: number
+  lunchesToAdd: number
+  isLunchCard: boolean
+}
+
+/**
+ * Validate that data matches the StoredStudentPayment[] structure.
+ * Returns validated array or throws an error.
+ */
+function validateStudentPayments(data: unknown): StoredStudentPayment[] {
+  if (!Array.isArray(data)) {
+    throw new Error('studentPayments must be an array')
+  }
+
+  return data.map((item, index) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(`studentPayments[${index}] must be an object`)
+    }
+
+    const payment = item as Record<string, unknown>
+
+    // Validate required fields
+    if (typeof payment.studentId !== 'string' || !payment.studentId.trim()) {
+      throw new Error(`studentPayments[${index}].studentId must be a non-empty string`)
+    }
+    if (typeof payment.studentName !== 'string' || !payment.studentName.trim()) {
+      throw new Error(`studentPayments[${index}].studentName must be a non-empty string`)
+    }
+    if (typeof payment.amount !== 'number' || payment.amount < 0) {
+      throw new Error(`studentPayments[${index}].amount must be a non-negative number`)
+    }
+    if (typeof payment.lunchesToAdd !== 'number' || !Number.isInteger(payment.lunchesToAdd) || payment.lunchesToAdd < 0) {
+      throw new Error(`studentPayments[${index}].lunchesToAdd must be a non-negative integer`)
+    }
+    if (typeof payment.isLunchCard !== 'boolean') {
+      throw new Error(`studentPayments[${index}].isLunchCard must be a boolean`)
+    }
+
+    return {
+      studentId: payment.studentId,
+      studentName: payment.studentName,
+      amount: payment.amount,
+      lunchesToAdd: payment.lunchesToAdd,
+      isLunchCard: payment.isLunchCard,
+    }
+  })
+}
+
 export interface PendingPaymentWithParent {
   id: string
   parentId: string
-  studentPayments: unknown
+  studentPayments: StoredStudentPayment[]
   totalAmount: number
   status: PendingPaymentStatus
   createdAt: Date
@@ -553,7 +605,7 @@ export async function getPendingPayments(status?: PendingPaymentStatus): Promise
   return payments.map((p) => ({
     id: p.id,
     parentId: p.parentId,
-    studentPayments: p.studentPayments,
+    studentPayments: p.studentPayments as StoredStudentPayment[],
     totalAmount: Number(p.totalAmount),
     status: p.status,
     createdAt: p.createdAt,
@@ -582,7 +634,7 @@ export async function getPendingPaymentById(id: string): Promise<PendingPaymentW
   return {
     id: payment.id,
     parentId: payment.parentId,
-    studentPayments: payment.studentPayments,
+    studentPayments: payment.studentPayments as StoredStudentPayment[],
     totalAmount: Number(payment.totalAmount),
     status: payment.status,
     createdAt: payment.createdAt,
@@ -593,17 +645,20 @@ export async function getPendingPaymentById(id: string): Promise<PendingPaymentW
   }
 }
 
-// Create pending payment
+// Create pending payment with validated student payments
 export async function createPendingPayment(data: {
   parentId: string
   studentPayments: unknown
   totalAmount: number
   notes?: string
 }): Promise<PendingPaymentWithParent> {
+  // Validate studentPayments structure before storing
+  const validatedPayments = validateStudentPayments(data.studentPayments)
+
   const payment = await prisma.pendingPayment.create({
     data: {
       parentId: data.parentId,
-      studentPayments: data.studentPayments as never,
+      studentPayments: validatedPayments,
       totalAmount: data.totalAmount,
       notes: data.notes,
     },

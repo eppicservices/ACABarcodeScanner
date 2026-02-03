@@ -85,8 +85,40 @@ export async function validateCsvRows(rows: CsvRow[]): Promise<ParsedRow[]> {
   })
 }
 
+/**
+ * Validate email format with improved RFC-compliant checking.
+ * - Local part: allows letters, numbers, and common special chars
+ * - Domain: requires at least 2 labels, each 1-63 chars
+ * - TLD: must be at least 2 characters (a-z only)
+ */
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const trimmed = email.trim().toLowerCase()
+
+  // Basic structure check
+  if (!trimmed || trimmed.length > 254) return false
+
+  // More comprehensive email regex:
+  // - Local part: alphanumeric plus ._%+- (no consecutive dots, no leading/trailing dots)
+  // - Domain labels: alphanumeric with hyphens (no leading/trailing hyphens)
+  // - TLD: 2+ letters only
+  const emailRegex = /^[a-z0-9](?:[a-z0-9._%+-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/
+
+  if (!emailRegex.test(trimmed)) return false
+
+  // Additional checks
+  const [localPart, domain] = trimmed.split('@')
+
+  // Local part max 64 chars
+  if (localPart.length > 64) return false
+
+  // No consecutive dots in local part
+  if (localPart.includes('..')) return false
+
+  // Domain labels should each be max 63 chars
+  const labels = domain.split('.')
+  if (labels.some(label => label.length > 63 || label.length === 0)) return false
+
+  return true
 }
 
 // Normalize school level to database format

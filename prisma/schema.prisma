@@ -99,6 +99,9 @@ model Parent {
   notificationLogs NotificationLog[]
   pendingPayments  PendingPayment[]
 
+  // Indexes for common queries
+  @@index([isActive])
+  @@index([name])
   @@map("parents")
 }
 
@@ -117,6 +120,11 @@ model Student {
   balanceTransactions BalanceTransaction[]
   notificationLogs    NotificationLog[]
 
+  // Indexes for common queries
+  @@index([parentId])
+  @@index([isActive])
+  @@index([schoolLevel, isActive])
+  @@index([name])
   @@map("students")
 }
 
@@ -254,6 +262,11 @@ model BalanceTransaction {
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
+  // Indexes for common queries
+  @@index([studentId])
+  @@index([createdAt])
+  @@index([studentId, createdAt])
+  @@index([transactionType])
   @@map("balance_transactions")
 }
 

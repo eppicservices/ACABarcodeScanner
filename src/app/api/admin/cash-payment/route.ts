@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth/nextauth-config'
 import prisma from '@/lib/prisma'
 import { sendReceiptEmail, type ReceiptData, type ReceiptItem } from '@/lib/email'
+import { requireAdmin } from '@/lib/auth/require-admin'
 
 interface StudentPaymentItem {
   student_id: string
@@ -25,20 +25,10 @@ function getPaymentMethodLabel(method: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin is authenticated using NextAuth
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Verify user is an admin
-    const adminUser = await prisma.adminUser.findUnique({
-      where: { id: session.user.id },
-      select: { id: true },
-    })
-
-    if (!adminUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verify admin is authenticated with proper role
+    const adminResult = await requireAdmin()
+    if (!adminResult.authorized) {
+      return adminResult.response
     }
 
     const { parent_id, student_payments, total_amount, payment_method, notes } = await request.json()

@@ -145,10 +145,37 @@ export async function getStudentById(id: string) {
   })
 }
 
-// Get student by barcode
+/**
+ * Validate barcode format before database lookup.
+ * Accepts alphanumeric barcodes (1-50 characters).
+ * Returns null if invalid, sanitized barcode if valid.
+ */
+function validateBarcode(barcode: string): string | null {
+  if (!barcode || typeof barcode !== 'string') return null
+
+  const trimmed = barcode.trim()
+
+  // Length check (1-50 chars)
+  if (trimmed.length < 1 || trimmed.length > 50) return null
+
+  // Only allow alphanumeric characters and hyphens
+  // This covers most barcode formats (Code 128, Code 39, EAN, UPC)
+  if (!/^[a-zA-Z0-9-]+$/.test(trimmed)) return null
+
+  return trimmed
+}
+
+// Get student by barcode (with validation)
 export async function getStudentByBarcode(barcode: string) {
+  const validatedBarcode = validateBarcode(barcode)
+
+  // Return null early if barcode format is invalid
+  if (!validatedBarcode) {
+    return null
+  }
+
   return prisma.student.findUnique({
-    where: { barcode },
+    where: { barcode: validatedBarcode },
     include: {
       parent: true,
     },

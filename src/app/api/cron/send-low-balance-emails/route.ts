@@ -293,8 +293,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-// Also support GET for easier testing
-export async function GET(request: NextRequest) {
-  return POST(request)
-}

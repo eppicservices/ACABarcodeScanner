@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { calculateLunches, isTokenExpired } from '@/lib/parent-portal'
+import { isTokenExpired, sanitizeParentPayments } from '@/lib/parent-portal'
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,38 +61,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Build sanitized payments: compute lunches server-side to prevent tampering
-    const sanitizedPayments = student_payments.map((sp: {
-      student_id: string
-      amount: number
-      is_lunch_card: boolean
-    }) => {
-      const student = students.find(s => s.id === sp.student_id)!
-      const lunchesToAdd = calculateLunches(
-        Number(sp.amount),
-        student.schoolLevel,
-        {
-          elementaryLunchPrice: settings.elementaryLunchPrice,
-          highschoolLunchPrice: settings.highschoolLunchPrice,
-          highschoolLunchCardPrice: settings.highschoolLunchCardPrice,
-          highschoolLunchCardLunches: settings.highschoolLunchCardLunches,
-        },
-        sp.is_lunch_card || false
-      )
-
-      if (lunchesToAdd <= 0) {
-        throw new Error(`Payment amount too low for ${student.name}`)
+    const { payments: sanitizedPayments, totalAmount: recalculatedTotal } = sanitizeParentPayments(
+      student_payments,
+      students.map(s => ({ id: s.id, name: s.name, schoolLevel: s.schoolLevel })),
+      {
+        elementaryLunchPrice: settings.elementaryLunchPrice,
+        highschoolLunchPrice: settings.highschoolLunchPrice,
+        highschoolLunchCardPrice: settings.highschoolLunchCardPrice,
+        highschoolLunchCardLunches: settings.highschoolLunchCardLunches,
       }
+    )
 
-      return {
-        studentId: student.id,
-        studentName: student.name,
-        amount: Number(sp.amount),
-        lunchesToAdd,
-        isLunchCard: sp.is_lunch_card || false,
-      }
-    })
-
-    const recalculatedTotal = sanitizedPayments.reduce((sum, sp) => sum + sp.amount, 0)
+    // Log if client-provided total differs from server calculation (possible tampering or rounding differences)
+    if (typeof total_amount === 'number' && Math.abs(total_amount - recalculatedTotal) > 0.01) {
+      console.warn(`Parent portal payment total mismatch: client=${total_amount} server=${recalculatedTotal}`)
+    }
 
     // Create pending payment with sanitized data
     const payment = await prisma.pendingPayment.create({
