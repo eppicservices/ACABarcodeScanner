@@ -69,53 +69,55 @@ export async function POST(request: NextRequest) {
 
     const receiptItems: ReceiptItem[] = []
 
-    // Process each student payment
-    for (const sp of student_payments as StudentPaymentItem[]) {
-      // Verify student belongs to parent
-      const student = await prisma.student.findFirst({
-        where: {
-          id: sp.student_id,
-          parentId: parent_id,
-        },
-        select: { id: true, balance: true, parentId: true },
-      })
+    // Process each student payment atomically to keep balances and logs in sync
+    await prisma.$transaction(async (tx) => {
+      for (const sp of student_payments as StudentPaymentItem[]) {
+        // Verify student belongs to parent
+        const student = await tx.student.findFirst({
+          where: {
+            id: sp.student_id,
+            parentId: parent_id,
+          },
+          select: { id: true, balance: true, parentId: true },
+        })
 
-      if (!student) {
-        return NextResponse.json({ error: `Student ${sp.student_name} not found or does not belong to this parent` }, { status: 400 })
+        if (!student) {
+          throw new Error(`Student ${sp.student_name} not found or does not belong to this parent`)
+        }
+
+        const previousBalance = student.balance
+        const newBalance = previousBalance + sp.lunches_to_add
+
+        // Update student balance
+        await tx.student.update({
+          where: { id: sp.student_id },
+          data: { balance: newBalance },
+        })
+
+        // Create transaction record
+        await tx.balanceTransaction.create({
+          data: {
+            studentId: sp.student_id,
+            lunchesChange: sp.lunches_to_add,
+            previousLunches: previousBalance,
+            newLunches: newBalance,
+            amountPaid: sp.amount,
+            lunchesAdded: sp.lunches_to_add,
+            transactionType: sp.is_lunch_card ? 'lunch_card' : 'payment',
+            notes: notes ? `${paymentMethodLabel} payment - ${notes}` : `${paymentMethodLabel} payment`,
+          },
+        })
+
+        // Add to receipt items
+        receiptItems.push({
+          studentName: sp.student_name,
+          amount: sp.amount,
+          lunches: sp.lunches_to_add,
+          isLunchCard: sp.is_lunch_card,
+          newBalance: newBalance
+        })
       }
-
-      const previousBalance = student.balance
-      const newBalance = previousBalance + sp.lunches_to_add
-
-      // Update student balance
-      await prisma.student.update({
-        where: { id: sp.student_id },
-        data: { balance: newBalance },
-      })
-
-      // Create transaction record
-      await prisma.balanceTransaction.create({
-        data: {
-          studentId: sp.student_id,
-          lunchesChange: sp.lunches_to_add,
-          previousLunches: previousBalance,
-          newLunches: newBalance,
-          amountPaid: sp.amount,
-          lunchesAdded: sp.lunches_to_add,
-          transactionType: sp.is_lunch_card ? 'lunch_card' : 'payment',
-          notes: notes ? `${paymentMethodLabel} payment - ${notes}` : `${paymentMethodLabel} payment`,
-        },
-      })
-
-      // Add to receipt items
-      receiptItems.push({
-        studentName: sp.student_name,
-        amount: sp.amount,
-        lunches: sp.lunches_to_add,
-        isLunchCard: sp.is_lunch_card,
-        newBalance: newBalance
-      })
-    }
+    })
 
     // Send receipt email
     if (settings.emailProvider !== 'none') {

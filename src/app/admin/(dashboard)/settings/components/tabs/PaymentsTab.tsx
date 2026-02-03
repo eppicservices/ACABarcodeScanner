@@ -31,6 +31,10 @@ export function PaymentsTab() {
 
       const result = await completePendingPayment(paymentId, studentPayments, session?.user?.email || undefined)
 
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to complete payment')
+      }
+
       // Send receipt email
       try {
         await fetch('/api/admin/send-receipt', {
