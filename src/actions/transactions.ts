@@ -3,6 +3,8 @@
 import prisma from '@/lib/prisma'
 import type { TransactionType, SchoolLevel, PendingPaymentStatus } from '@prisma/client'
 
+import type { StudentType } from '@prisma/client'
+
 export interface TransactionWithStudent {
   id: string
   studentId: string
@@ -20,6 +22,7 @@ export interface TransactionWithStudent {
     name: string
     barcode: string
     schoolLevel: SchoolLevel
+    studentType: StudentType
     parent: {
       id: string
       name: string
@@ -32,6 +35,8 @@ export interface TransactionFilters {
   transactionType?: TransactionType | 'all'
   startDate?: Date
   endDate?: Date
+  schoolLevel?: SchoolLevel | 'all'
+  studentType?: 'all' | 'regular' | 'staff_faculty' | 'student_unlimited'
   search?: string
   limit?: number
   offset?: number
@@ -89,6 +94,18 @@ export async function getTransactions(filters?: TransactionFilters): Promise<Tra
     }
   }
 
+  // Build student filter
+  const studentFilter: Record<string, unknown> = {}
+  if (filters?.schoolLevel && filters.schoolLevel !== 'all') {
+    studentFilter.schoolLevel = filters.schoolLevel
+  }
+  if (filters?.studentType && filters.studentType !== 'all') {
+    studentFilter.studentType = filters.studentType
+  }
+  if (Object.keys(studentFilter).length > 0) {
+    where.student = studentFilter
+  }
+
   const transactions = await prisma.balanceTransaction.findMany({
     where,
     include: {
@@ -98,6 +115,7 @@ export async function getTransactions(filters?: TransactionFilters): Promise<Tra
           name: true,
           barcode: true,
           schoolLevel: true,
+          studentType: true,
           parent: {
             select: {
               id: true,
@@ -151,6 +169,18 @@ export async function getTransactionCount(filters?: TransactionFilters): Promise
     if (filters.endDate) {
       (where.createdAt as Record<string, unknown>).lte = filters.endDate
     }
+  }
+
+  // Build student filter
+  const studentFilter: Record<string, unknown> = {}
+  if (filters?.schoolLevel && filters.schoolLevel !== 'all') {
+    studentFilter.schoolLevel = filters.schoolLevel
+  }
+  if (filters?.studentType && filters.studentType !== 'all') {
+    studentFilter.studentType = filters.studentType
+  }
+  if (Object.keys(studentFilter).length > 0) {
+    where.student = studentFilter
   }
 
   return prisma.balanceTransaction.count({ where })
@@ -377,15 +407,44 @@ export async function addLunchesFromPayment(
   return { success: true, lunchesAdded, newBalance }
 }
 
-// Get transaction stats
-export async function getTransactionStats(): Promise<{
+// Get transaction stats (optionally filtered)
+export async function getTransactionStats(filters?: TransactionFilters): Promise<{
   totalLunchesAdded: number
   totalLunchesUsed: number
   paymentCount: number
   adjustmentCount: number
   usedCount: number
 }> {
+  const where: Record<string, unknown> = {}
+
+  if (filters?.transactionType && filters.transactionType !== 'all') {
+    where.transactionType = filters.transactionType
+  }
+
+  if (filters?.startDate || filters?.endDate) {
+    where.createdAt = {}
+    if (filters.startDate) {
+      (where.createdAt as Record<string, unknown>).gte = filters.startDate
+    }
+    if (filters.endDate) {
+      (where.createdAt as Record<string, unknown>).lte = filters.endDate
+    }
+  }
+
+  // Build student filter
+  const studentFilter: Record<string, unknown> = {}
+  if (filters?.schoolLevel && filters.schoolLevel !== 'all') {
+    studentFilter.schoolLevel = filters.schoolLevel
+  }
+  if (filters?.studentType && filters.studentType !== 'all') {
+    studentFilter.studentType = filters.studentType
+  }
+  if (Object.keys(studentFilter).length > 0) {
+    where.student = studentFilter
+  }
+
   const transactions = await prisma.balanceTransaction.findMany({
+    where,
     select: {
       transactionType: true,
       lunchesChange: true,
@@ -614,14 +673,45 @@ export async function deletePendingPayment(id: string): Promise<void> {
   })
 }
 
-// Get transactions for CSV export
-export async function getTransactionsForExport() {
+// Get transactions for CSV export (with optional filters)
+export async function getTransactionsForExport(filters?: TransactionFilters) {
+  const where: Record<string, unknown> = {}
+
+  if (filters?.transactionType && filters.transactionType !== 'all') {
+    where.transactionType = filters.transactionType
+  }
+
+  if (filters?.startDate || filters?.endDate) {
+    where.createdAt = {}
+    if (filters.startDate) {
+      (where.createdAt as Record<string, unknown>).gte = filters.startDate
+    }
+    if (filters.endDate) {
+      (where.createdAt as Record<string, unknown>).lte = filters.endDate
+    }
+  }
+
+  // Build student filter
+  const studentFilter: Record<string, unknown> = {}
+  if (filters?.schoolLevel && filters.schoolLevel !== 'all') {
+    studentFilter.schoolLevel = filters.schoolLevel
+  }
+  if (filters?.studentType && filters.studentType !== 'all') {
+    studentFilter.studentType = filters.studentType
+  }
+  if (Object.keys(studentFilter).length > 0) {
+    where.student = studentFilter
+  }
+
   const transactions = await prisma.balanceTransaction.findMany({
+    where,
     include: {
       student: {
         select: {
           name: true,
           barcode: true,
+          schoolLevel: true,
+          studentType: true,
         },
       },
     },
@@ -632,6 +722,8 @@ export async function getTransactionsForExport() {
     id: tx.id,
     studentName: tx.student.name,
     studentBarcode: tx.student.barcode,
+    schoolLevel: tx.student.schoolLevel,
+    studentType: tx.student.studentType,
     lunchesChange: tx.lunchesChange,
     previousLunches: tx.previousLunches,
     newLunches: tx.newLunches,
