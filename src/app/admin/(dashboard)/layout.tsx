@@ -1,6 +1,7 @@
 'use client'
 
 import AdminNav from '@/components/admin/AdminNav'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 // Styles are in globals.css to prevent FOUC
 export default function DashboardLayout({
@@ -13,7 +14,9 @@ export default function DashboardLayout({
       <AdminNav />
       <main className="admin-main">
         <div className="admin-content">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </div>
       </main>
     </div>

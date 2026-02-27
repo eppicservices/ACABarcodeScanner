@@ -41,7 +41,9 @@ export interface StudentFilters {
 
 // Get all students with parent info
 export async function getStudentsWithParents(filters?: StudentFilters): Promise<StudentWithParent[]> {
-  const where: Record<string, unknown> = {}
+  // Build the where clause with proper Prisma types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = {}
 
   // Apply school level filter
   if (filters?.schoolLevel && filters.schoolLevel !== 'all') {
@@ -58,6 +60,16 @@ export async function getStudentsWithParents(filters?: StudentFilters): Promise<
     where.isActive = true
   } else if (filters?.status === 'inactive') {
     where.isActive = false
+  }
+
+  // Apply search filter at database level using OR conditions
+  if (filters?.search && filters.search.trim()) {
+    const searchTerm = filters.search.trim()
+    where.OR = [
+      { name: { contains: searchTerm, mode: 'insensitive' } },
+      { barcode: { contains: searchTerm, mode: 'insensitive' } },
+      { parent: { name: { contains: searchTerm, mode: 'insensitive' } } },
+    ]
   }
 
   // Determine sort order
@@ -92,19 +104,7 @@ export async function getStudentsWithParents(filters?: StudentFilters): Promise<
     orderBy,
   })
 
-  // Apply search filter (client-side due to parent name search)
-  let result = students
-  if (filters?.search) {
-    const searchLower = filters.search.toLowerCase()
-    result = students.filter(
-      (student) =>
-        student.name.toLowerCase().includes(searchLower) ||
-        student.barcode.toLowerCase().includes(searchLower) ||
-        student.parent.name.toLowerCase().includes(searchLower)
-    )
-  }
-
-  return result
+  return students
 }
 
 // Get student stats

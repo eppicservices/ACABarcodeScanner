@@ -3,12 +3,15 @@
 import { SessionProvider } from 'next-auth/react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <TooltipProvider delayDuration={300}>
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
         <Toaster
           position="top-right"
           toastOptions={{

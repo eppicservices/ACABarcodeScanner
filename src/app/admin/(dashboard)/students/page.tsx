@@ -43,12 +43,10 @@ import {
   getStudentsWithParents,
   getStudentStats,
   updateStudentsStatus,
-  type StudentWithParent as StudentWithParentType,
+  type StudentWithParent,
   type StudentFilters,
 } from '@/actions/students'
 import type { ActiveFilter } from '@/types/database'
-
-interface StudentWithParent extends StudentWithParentType {}
 
 type SortField = 'name' | 'balance' | 'level'
 type SortDirection = 'asc' | 'desc'
@@ -106,13 +104,8 @@ export default function StudentsPage() {
     const to = from + ITEMS_PER_PAGE
     const paginatedData = allData.slice(from, to)
 
-    setStudents(paginatedData.map(s => ({
-      ...s,
-      school_level: s.schoolLevel,
-      is_active: s.isActive,
-      parent_id: s.parentId,
-      created_at: s.createdAt,
-    })) as unknown as StudentWithParent[])
+    // Data from getStudentsWithParents already matches StudentWithParent type
+    setStudents(paginatedData)
 
     setLoading(false)
   }, [filter, typeFilter, statusFilter, sortField, sortDirection, search, currentPage])
