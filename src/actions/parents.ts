@@ -237,6 +237,65 @@ export async function getAllParents() {
   })
 }
 
+// Create parent with students in a single transaction
+export async function createParentWithStudents(data: {
+  parent: {
+    name: string
+    email: string
+    phone?: string
+  }
+  students: {
+    name: string
+    schoolLevel: 'elementary' | 'high_school'
+    barcode?: string
+  }[]
+}) {
+  return prisma.$transaction(async (tx) => {
+    // Create parent
+    const parent = await tx.parent.create({
+      data: {
+        name: data.parent.name,
+        email: data.parent.email,
+        phone: data.parent.phone,
+      },
+    })
+
+    // Create students if any
+    if (data.students.length > 0) {
+      for (const student of data.students) {
+        // Generate barcode if not provided
+        const barcode = student.barcode || await generateBarcode(tx)
+        await tx.student.create({
+          data: {
+            parentId: parent.id,
+            name: student.name,
+            schoolLevel: student.schoolLevel,
+            barcode,
+          },
+        })
+      }
+    }
+
+    // Return parent with students
+    return tx.parent.findUnique({
+      where: { id: parent.id },
+      include: { students: true },
+    })
+  })
+}
+
+// Generate a unique barcode
+async function generateBarcode(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) {
+  let barcode: string
+  let exists = true
+  do {
+    barcode = String(Math.floor(100000 + Math.random() * 900000))
+    const existing = await tx.student.findUnique({ where: { barcode } })
+    exists = !!existing
+  } while (exists)
+  return barcode
+}
+
 // Delete parent
 export async function deleteParent(id: string) {
   // First check if parent has students
