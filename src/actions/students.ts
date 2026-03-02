@@ -1,6 +1,7 @@
 'use server'
 
 import prisma from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import type { SchoolLevel, StudentType } from '@prisma/client'
 
 export interface StudentWithParent {
@@ -191,7 +192,7 @@ export async function createStudent(data: {
   studentType?: StudentType
   balance?: number
 }) {
-  return prisma.student.create({
+  const student = await prisma.student.create({
     data: {
       name: data.name,
       barcode: data.barcode,
@@ -204,6 +205,15 @@ export async function createStudent(data: {
       parent: true,
     },
   })
+
+  logAudit({
+    action: 'student.create',
+    actor: 'admin',
+    targetId: student.id,
+    details: { name: data.name, barcode: data.barcode, schoolLevel: data.schoolLevel },
+  })
+
+  return student
 }
 
 // Update student
@@ -219,13 +229,22 @@ export async function updateStudent(
     isActive?: boolean
   }
 ) {
-  return prisma.student.update({
+  const student = await prisma.student.update({
     where: { id },
     data,
     include: {
       parent: true,
     },
   })
+
+  logAudit({
+    action: 'student.update',
+    actor: 'admin',
+    targetId: id,
+    details: data,
+  })
+
+  return student
 }
 
 // Update student balance
@@ -238,10 +257,18 @@ export async function updateStudentBalance(id: string, balance: number) {
 
 // Bulk update student status
 export async function updateStudentsStatus(ids: string[], isActive: boolean) {
-  return prisma.student.updateMany({
+  const result = await prisma.student.updateMany({
     where: { id: { in: ids } },
     data: { isActive },
   })
+
+  logAudit({
+    action: 'student.bulk_status_update',
+    actor: 'admin',
+    details: { studentIds: ids, isActive, count: result.count },
+  })
+
+  return result
 }
 
 // Check if barcode exists (for validation)

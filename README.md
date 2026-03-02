@@ -14,7 +14,7 @@ A lunch tracking and payment system for schools. Features barcode scanning for s
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: NextAuth.js
 - **Styling**: Tailwind CSS

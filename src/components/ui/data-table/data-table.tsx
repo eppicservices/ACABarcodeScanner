@@ -40,6 +40,7 @@ interface DataTableProps<TData, TValue> {
   }[]
   isLoading?: boolean
   onRowClick?: (row: TData) => void
+  onSelectionChange?: (rows: TData[]) => void
   showPagination?: boolean
   showToolbar?: boolean
   pageSize?: number
@@ -53,6 +54,7 @@ export function DataTable<TData, TValue>({
   filterableColumns = [],
   isLoading = false,
   onRowClick,
+  onSelectionChange,
   showPagination = true,
   showToolbar = true,
   pageSize = 25,
@@ -88,6 +90,14 @@ export function DataTable<TData, TValue>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
+
+  React.useEffect(() => {
+    if (onSelectionChange) {
+      const selectedRows = table.getFilteredSelectedRowModel().rows.map((row) => row.original)
+      onSelectionChange(selectedRows)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection])
 
   if (isLoading) {
     return (

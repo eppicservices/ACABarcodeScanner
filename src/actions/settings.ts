@@ -1,6 +1,7 @@
 'use server'
 
 import prisma from '@/lib/prisma'
+import { logAudit } from '@/lib/audit'
 import type { AppSettings, EmailProvider, DayOfWeek, AutoSendSchedule } from '@prisma/client'
 
 // Settings cache for server-side caching
@@ -265,6 +266,12 @@ export async function updateSettings(
   // Invalidate cache
   settingsCache = { data: settings, timestamp: Date.now() }
 
+  logAudit({
+    action: 'settings.update',
+    actor: updatedBy ?? 'admin',
+    details: { updatedFields: Object.keys(data) },
+  })
+
   return settings
 }
 
@@ -341,6 +348,12 @@ export async function updateCalendarSettings(data: {
 
     // Invalidate cache
     settingsCache = { data: null, timestamp: 0 }
+
+    logAudit({
+      action: 'settings.calendar_update',
+      actor: 'admin',
+      details: { schoolCalendarEnabled: data.schoolCalendarEnabled },
+    })
 
     return { success: true }
   } catch (error) {

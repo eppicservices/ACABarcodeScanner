@@ -119,6 +119,12 @@ export default function NewStudentPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (!parentId) {
+      setError('Please select a parent or guardian before creating a student.')
+      return
+    }
+
     setSaving(true)
 
     try {

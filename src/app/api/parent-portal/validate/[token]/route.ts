@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { isTokenExpired } from '@/lib/parent-portal'
+import { tokenValidateLimiter, getClientIp } from '@/lib/rate-limit'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    const ip = getClientIp(request)
+    const { allowed, retryAfterMs } = tokenValidateLimiter.check(ip)
+    if (!allowed) {
+      return NextResponse.json(
+        { valid: false, error: `Too many requests. Try again in ${Math.ceil(retryAfterMs / 60000)} minute(s).` },
+        { status: 429 }
+      )
+    }
+
     const { token } = await params
 
     // Look up the token

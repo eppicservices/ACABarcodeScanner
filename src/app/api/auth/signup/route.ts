@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthAdapter } from '@/lib/auth'
+import { signupLimiter, getClientIp } from '@/lib/rate-limit'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request)
+    const { allowed, retryAfterMs } = signupLimiter.check(ip)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `Too many signup attempts. Try again in ${Math.ceil(retryAfterMs / 60000)} minute(s).` },
+        { status: 429 }
+      )
+    }
+
     const { email, password } = await request.json()
 
     if (!email || !password) {
@@ -33,6 +44,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    logAudit({
+      action: 'admin.first_signup',
+      actor: email,
+      targetId: result.user?.id,
+      ipAddress: ip,
+    })
 
     return NextResponse.json({
       success: true,

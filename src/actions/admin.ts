@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { logAudit } from '@/lib/audit'
 import type { AdminRole } from '@prisma/client'
 import { randomBytes } from 'crypto'
 
@@ -170,7 +171,7 @@ export async function createInvitation(data: {
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + (data.expiresInDays || 7))
 
-  return prisma.adminInvitation.create({
+  const invitation = await prisma.adminInvitation.create({
     data: {
       email: data.email,
       invitedBy: data.invitedBy,
@@ -178,6 +179,15 @@ export async function createInvitation(data: {
       expiresAt,
     },
   })
+
+  logAudit({
+    action: 'admin.invite',
+    actor: data.invitedBy,
+    targetId: invitation.id,
+    details: { email: data.email },
+  })
+
+  return invitation
 }
 
 // Get invitation by token

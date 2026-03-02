@@ -323,6 +323,21 @@ model ParentAccessToken {
   @@map("parent_access_tokens")
 }
 
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  actor     String
+  targetId  String?  @map("target_id")
+  details   Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([actor])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 model PendingPayment {
   id              String               @id @default(uuid())
   parentId        String               @map("parent_id")

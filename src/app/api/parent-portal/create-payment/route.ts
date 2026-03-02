@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { isTokenExpired, sanitizeParentPayments } from '@/lib/parent-portal'
+import { paymentLimiter } from '@/lib/rate-limit'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   try {
     const { token, student_payments, total_amount } = await request.json()
+
+    // Rate limit by token to prevent payment spam
+    if (token) {
+      const { allowed, retryAfterMs } = paymentLimiter.check(token)
+      if (!allowed) {
+        return NextResponse.json(
+          { error: `Too many payment attempts. Try again in ${Math.ceil(retryAfterMs / 60000)} minute(s).` },
+          { status: 429 }
+        )
+      }
+    }
 
     if (!token || !student_payments || !total_amount) {
       return NextResponse.json({
@@ -85,6 +98,13 @@ export async function POST(request: NextRequest) {
         totalAmount: recalculatedTotal,
         status: 'pending',
       },
+    })
+
+    logAudit({
+      action: 'payment.create',
+      actor: `parent:${tokenData.parentId}`,
+      targetId: payment.id,
+      details: { totalAmount: recalculatedTotal, studentCount: sanitizedPayments.length },
     })
 
     return NextResponse.json({

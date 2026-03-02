@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { generateSecureToken, getTokenExpiryDate, getPortalUrl } from '@/lib/parent-portal'
 import { sendPortalLinkEmail } from '@/lib/email'
-
-// Simple in-memory rate limiting (in production, use Redis or similar)
-const rateLimitMap = new Map<string, number>()
-const RATE_LIMIT_MINUTES = 5
+import { portalLinkLimiter } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,20 +12,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
-    // Rate limiting check
     const normalizedEmail = email.toLowerCase().trim()
-    const lastRequest = rateLimitMap.get(normalizedEmail)
-    const now = Date.now()
 
-    if (lastRequest && (now - lastRequest) < RATE_LIMIT_MINUTES * 60 * 1000) {
-      const waitMinutes = Math.ceil((RATE_LIMIT_MINUTES * 60 * 1000 - (now - lastRequest)) / 60000)
+    // Rate limiting by email
+    const { allowed, retryAfterMs } = portalLinkLimiter.check(normalizedEmail)
+    if (!allowed) {
+      const waitMinutes = Math.ceil(retryAfterMs / 60000)
       return NextResponse.json({
         error: `Please wait ${waitMinutes} minute(s) before requesting another link`
       }, { status: 429 })
     }
-
-    // Update rate limit
-    rateLimitMap.set(normalizedEmail, now)
 
     // Find parent by email
     const parent = await prisma.parent.findUnique({
