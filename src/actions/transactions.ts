@@ -53,6 +53,7 @@ export async function getTransactionById(id: string): Promise<TransactionWithStu
           name: true,
           barcode: true,
           schoolLevel: true,
+          studentType: true,
           parent: {
             select: {
               id: true,
