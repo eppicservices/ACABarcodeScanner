@@ -2,9 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 export async function updateSessionNextAuth(request: NextRequest) {
+  // Auth.js v5 prefixes the session cookie with __Secure- whenever the
+  // deployment URL is https. getToken() defaults to the unprefixed name and
+  // uses that name as the JWT salt, so on an https deployment it looks for a
+  // cookie that does not exist and every admin route bounces to login.
+  const secureCookie =
+    process.env.NEXTAUTH_URL?.startsWith('https://') ??
+    process.env.NODE_ENV === 'production'
+
   const token = await getToken({
     req: request,
-    secret: process.env.NEXTAUTH_SECRET
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie
   })
 
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
