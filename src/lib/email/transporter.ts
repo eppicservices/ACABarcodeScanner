@@ -43,18 +43,24 @@ export function getEmailTransporter(settings: AppSettings): Transporter | null {
   }
 
   if (provider === 'smtp') {
-    if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
-      console.error('SMTP credentials not configured')
+    if (!settings.smtpHost) {
+      console.error('SMTP host not configured')
       return null
     }
+    // A relay that authorises by source IP -- Google Workspace SMTP relay with
+    // an allowlisted address, for instance -- accepts no credentials at all, so
+    // only attach auth when both halves are actually present.
+    const hasCredentials = Boolean(settings.smtpUser && settings.smtpPassword)
     return nodemailer.createTransport({
       host: settings.smtpHost,
       port: settings.smtpPort || 587,
       secure: settings.smtpSecure,
-      auth: {
-        user: settings.smtpUser,
-        pass: settings.smtpPassword
-      }
+      ...(hasCredentials && {
+        auth: {
+          user: settings.smtpUser as string,
+          pass: settings.smtpPassword as string
+        }
+      })
     })
   }
 
