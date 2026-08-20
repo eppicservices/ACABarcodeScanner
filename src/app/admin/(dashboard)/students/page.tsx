@@ -17,6 +17,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -75,6 +83,7 @@ export default function StudentsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [thresholds, setThresholds] = useState<LowBalanceThresholds | null>(null)
@@ -167,12 +176,20 @@ export default function StudentsPage() {
       await fetchStudents()
       await fetchStats()
       setSelectedStudents(new Set())
+      setShowDeactivateModal(false)
     } catch (error) {
       console.error('Failed to update student status:', error)
       alert('Failed to update student status')
     } finally {
       setBulkUpdating(false)
     }
+  }
+
+  // Deactivating hides students from the scanner, so it gets the same
+  // confirmation step the parents page uses. Activating is harmless and does not.
+  const initiateDeactivation = () => {
+    if (selectedStudents.size === 0) return
+    setShowDeactivateModal(true)
   }
 
   const toggleStudentSelection = (studentId: string) => {
@@ -393,6 +410,11 @@ export default function StudentsPage() {
               <span className="font-semibold text-[var(--aca-teal-dark)] text-sm">
                 {selectedStudents.size} selected
               </span>
+              {selectedStudents.size === students.length && totalCount > students.length && (
+                <span className="text-xs text-gray-500">
+                  This page only. {totalCount} students match your filters.
+                </span>
+              )}
               <button
                 className="text-sm text-gray-500 underline hover:text-gray-700"
                 onClick={() => setSelectedStudents(new Set())}
@@ -413,7 +435,7 @@ export default function StudentsPage() {
                 variant="ghost"
                 size="sm"
                 className="bg-gray-500 text-white hover:bg-gray-600"
-                onClick={() => handleBulkStatusUpdate(false)}
+                onClick={initiateDeactivation}
                 disabled={bulkUpdating}
               >
                 {bulkUpdating ? 'Updating...' : 'Set Inactive'}
@@ -422,6 +444,43 @@ export default function StudentsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Bulk Deactivation Confirmation */}
+      <Dialog open={showDeactivateModal} onOpenChange={setShowDeactivateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set students inactive</DialogTitle>
+            <DialogDescription>
+              You are about to set {selectedStudents.size} student
+              {selectedStudents.size === 1 ? '' : 's'} as inactive.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm font-medium flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              Inactive students cannot be scanned for lunch and stop receiving low
+              balance emails. Their balances and history are kept, and you can set
+              them active again at any time.
+            </span>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setShowDeactivateModal(false)}
+              disabled={bulkUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleBulkStatusUpdate(false)}
+              disabled={bulkUpdating}
+            >
+              {bulkUpdating ? 'Updating...' : 'Set Inactive'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Mobile Action Bar */}
       <div className="flex sm:hidden gap-2.5 mb-4">
@@ -467,6 +526,7 @@ export default function StudentsPage() {
                     <Checkbox
                       checked={students.length > 0 && selectedStudents.size === students.length}
                       onCheckedChange={toggleSelectAll}
+                      aria-label={`Select all ${students.length} students on this page`}
                     />
                   </TableHead>
                   <TableHead
@@ -616,7 +676,7 @@ export default function StudentsPage() {
                   className="text-xs font-semibold text-[var(--aca-teal)]"
                   onClick={toggleSelectAll}
                 >
-                  {selectedStudents.size === students.length ? 'Deselect All' : 'Select All'}
+                  {selectedStudents.size === students.length ? 'Clear page' : 'Select page'}
                 </button>
               )}
             </CardHeader>
