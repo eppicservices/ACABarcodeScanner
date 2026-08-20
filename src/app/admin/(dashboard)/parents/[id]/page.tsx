@@ -10,6 +10,15 @@ import {
   deleteParent,
 } from '@/actions/parents'
 import type { SchoolLevel } from '@prisma/client'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface Student {
   id: string
@@ -38,6 +47,8 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -149,15 +160,15 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
   async function handleDelete() {
     if (!parent) return
 
-    if (!confirm('Are you sure you want to delete this parent?')) {
-      return
-    }
-
+    setDeleting(true)
     try {
       await deleteParent(id)
       router.push('/admin/parents')
     } catch (err) {
+      setShowDeleteModal(false)
       setError(err instanceof Error ? err.message : 'Failed to delete parent')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -474,13 +485,32 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
               </div>
 
               <div className="detail-actions">
-                <button type="button" className="btn btn-danger-outline" onClick={handleDelete}>
+                {/* deleteParent() refuses a parent who still has students, so say so
+                    up front instead of letting the click fail into a red banner. */}
+                <button
+                  type="button"
+                  className="btn btn-danger-outline"
+                  onClick={() => setShowDeleteModal(true)}
+                  disabled={parent.students.length > 0}
+                  title={
+                    parent.students.length > 0
+                      ? 'Reassign or delete this parent\u2019s students first'
+                      : undefined
+                  }
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="3 6 5 6 21 6" />
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                   </svg>
                   Delete Parent
                 </button>
+                {parent.students.length > 0 && (
+                  <p className="delete-blocked-note">
+                    Still linked to {parent.students.length}{' '}
+                    {parent.students.length === 1 ? 'student' : 'students'}. Reassign or
+                    delete them first.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -543,6 +573,30 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {parent.name}?</DialogTitle>
+            <DialogDescription>
+              This permanently removes {parent.name} ({parent.email}) and their payment
+              history. It cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete parent'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style jsx>{`
         .edit-parent-page {
@@ -826,7 +880,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
           gap: 6px;
           padding: 10px 16px;
           background: transparent;
-          color: var(--error);
+          color: var(--error-text);
           border: 1px solid var(--error-border);
           border-radius: var(--border-radius);
           font-size: 13px;
@@ -834,6 +888,23 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
           cursor: pointer;
           transition: all var(--transition-fast);
           font-family: var(--font-body);
+        }
+
+        .btn-danger-outline:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .btn-danger-outline:disabled:hover {
+          background: transparent;
+          color: var(--error-text);
+        }
+
+        .delete-blocked-note {
+          margin-top: 8px;
+          font-size: 13px;
+          color: var(--gray-500);
+          max-width: 42ch;
         }
 
         .btn-danger-outline:hover {
