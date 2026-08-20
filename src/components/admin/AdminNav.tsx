@@ -16,6 +16,16 @@ const navItems = [
   { href: '/', label: 'Open Scanner', icon: 'scanner' },
 ]
 
+/**
+ * A link is active when it is the current page or an ancestor of it.
+ * Plain startsWith is wrong twice over: href '/' prefixes every route, and
+ * '/admin/students' would light up for '/admin/students-v2'.
+ */
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === '/') return pathname === '/'
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 export default function AdminNav() {
   const pathname = usePathname()
   const router = useRouter()
@@ -235,18 +245,22 @@ export default function AdminNav() {
         <div className="nav-section">
           <span className="nav-section-label">Menu</span>
           <div className="nav-links">
-            {navItems.map((item, index) => (
+            {navItems.map((item, index) => {
+              const active = isNavItemActive(pathname, item.href)
+              return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`nav-link ${pathname.startsWith(item.href) ? 'active' : ''}`}
+                className={`nav-link ${active ? 'active' : ''}`}
+                aria-current={active ? 'page' : undefined}
                 onClick={handleNavClick}
                 style={{ animationDelay: isOpen ? `${index * 50}ms` : '0ms' }}
               >
                 <span className="nav-icon">{getIcon(item.icon)}</span>
                 <span className="nav-label">{item.label}</span>
               </Link>
-            ))}
+              )
+            })}
           </div>
         </div>
 
