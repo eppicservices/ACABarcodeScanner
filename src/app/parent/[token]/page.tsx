@@ -21,6 +21,11 @@ interface StudentPaymentItem {
   isLunchCard: boolean
 }
 import { getDaysUntilExpiry, calculateLunches } from '@/lib/parent-portal'
+import {
+  getBalanceState,
+  BALANCE_STATE_TEXT_CLASS,
+  BALANCE_STATE_DOT_CLASS,
+} from '@/lib/balance'
 
 interface StudentAmount {
   studentId: string
@@ -283,13 +288,20 @@ export default function ParentPortalPage({ params }: { params: Promise<{ token: 
                     <span className="text-sm max-[480px]:text-[13px] text-slate-600 whitespace-nowrap">Current balance</span>
                     <span className="flex-1 border-b-2 border-dotted border-slate-300 min-w-5 mx-1" />
                     <span className={`text-sm max-[480px]:text-[13px] font-semibold whitespace-nowrap ${
-                      student.balance <= 0 ? 'text-red-500' : student.balance <= 3 ? 'text-red-500' : 'text-green-500'
+                      BALANCE_STATE_TEXT_CLASS[
+                        getBalanceState(student.balance, student.schoolLevel, settings)
+                      ]
                     }`}>
                       {student.balance} {student.balance === 1 ? 'lunch' : 'lunches'}
                     </span>
-                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                      student.balance <= 0 ? 'bg-red-500' : student.balance <= 3 ? 'bg-red-500' : 'bg-green-500'
-                    }`} />
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        BALANCE_STATE_DOT_CLASS[
+                          getBalanceState(student.balance, student.schoolLevel, settings)
+                        ]
+                      }`}
+                      aria-hidden="true"
+                    />
                   </div>
 
                   {lunches > 0 && (

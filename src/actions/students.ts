@@ -2,6 +2,8 @@
 
 import prisma from '@/lib/prisma'
 import type { SchoolLevel, StudentType } from '@prisma/client'
+import { getBalanceState } from '@/lib/balance'
+import { getLowBalanceThresholds } from '@/actions/settings'
 
 export interface StudentWithParent {
   id: string
@@ -109,6 +111,7 @@ export async function getStudentsWithParents(filters?: StudentFilters): Promise<
 
 // Get student stats
 export async function getStudentStats(): Promise<StudentStats> {
+  const thresholds = await getLowBalanceThresholds()
   const students = await prisma.student.findMany({
     select: {
       isActive: true,
@@ -124,7 +127,11 @@ export async function getStudentStats(): Promise<StudentStats> {
   return {
     activeCount: activeStudents.length,
     inactiveCount: students.filter((s) => !s.isActive).length,
-    lowBalanceCount: activeRegularStudents.filter((s) => s.balance < 10).length,
+    // "Low balance" here must mean the same thing it means to the low-balance
+    // cron, i.e. this student's parent is on the email list.
+    lowBalanceCount: activeRegularStudents.filter(
+      (s) => getBalanceState(s.balance, s.schoolLevel, thresholds) !== 'ok'
+    ).length,
     elementaryCount: activeStudents.filter((s) => s.schoolLevel === 'elementary').length,
     highSchoolCount: activeStudents.filter((s) => s.schoolLevel === 'high_school').length,
     unlimitedCount: activeStudents.filter((s) => s.studentType !== 'regular').length,

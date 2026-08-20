@@ -2,6 +2,7 @@ import type { AppSettings } from '@prisma/client'
 import type { BalanceEmailData } from '../types'
 import { getEmailTransporter } from '../transporter'
 import { generateBalanceHtml, generateBalanceText } from '../templates/balance'
+import { getBalanceState } from '@/lib/balance'
 
 /**
  * Sends a balance notification email to a parent
@@ -22,7 +23,9 @@ export async function sendBalanceEmail(
 
   const totalBalance = data.students.reduce((sum, s) => sum + s.balance, 0)
   const hasNegative = data.students.some(s => s.balance < 0)
-  const hasLow = data.students.some(s => s.balance >= 0 && s.balance <= 5)
+  const hasLow = data.students.some(
+    s => s.balance >= 0 && getBalanceState(s.balance, s.schoolLevel, settings) !== 'ok'
+  )
 
   let subjectPrefix = ''
   if (hasNegative) {

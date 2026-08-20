@@ -2,6 +2,11 @@
 
 import prisma from '@/lib/prisma'
 import type { AppSettings, EmailProvider, DayOfWeek, AutoSendSchedule } from '@prisma/client'
+import {
+  DEFAULT_ELEMENTARY_LOW_THRESHOLD,
+  DEFAULT_HIGHSCHOOL_LOW_THRESHOLD,
+  type LowBalanceThresholds,
+} from '@/lib/balance'
 
 // Settings cache for server-side caching
 let settingsCache: { data: AppSettings | null; timestamp: number } = { data: null, timestamp: 0 }
@@ -144,6 +149,19 @@ export async function getNotificationSettings() {
     autoSendTime: settings.autoSendTime,
     elementaryLowLunchThreshold: settings.elementaryLowLunchThreshold,
     highschoolLowLunchThreshold: settings.highschoolLowLunchThreshold,
+  }
+}
+
+// Get just the low-balance thresholds.
+// Small on purpose: any page that colours or labels a balance needs these two
+// numbers and nothing else. See src/lib/balance.ts for how they are applied.
+export async function getLowBalanceThresholds(): Promise<LowBalanceThresholds> {
+  const settings = await getSettings()
+  return {
+    elementaryLowLunchThreshold:
+      settings?.elementaryLowLunchThreshold ?? DEFAULT_ELEMENTARY_LOW_THRESHOLD,
+    highschoolLowLunchThreshold:
+      settings?.highschoolLowLunchThreshold ?? DEFAULT_HIGHSCHOOL_LOW_THRESHOLD,
   }
 }
 

@@ -1,6 +1,7 @@
 import type { AppSettings } from '@prisma/client'
 import type { BalanceEmailData } from '../types'
 import { getLogoUrl } from './shared'
+import { getBalanceState } from '@/lib/balance'
 
 /**
  * Generates the HTML balance notification email
@@ -10,7 +11,9 @@ export function generateBalanceHtml(data: BalanceEmailData, schoolName: string, 
 
   // Determine overall status
   const hasNegative = data.students.some(s => s.balance < 0)
-  const hasLow = data.students.some(s => s.balance >= 0 && s.balance <= 5)
+  const hasLow = data.students.some(
+    s => s.balance >= 0 && getBalanceState(s.balance, s.schoolLevel, settings) !== 'ok'
+  )
 
   let statusColor = '#22c55e' // green - good
   let statusBg = '#dcfce7'
@@ -35,7 +38,7 @@ export function generateBalanceHtml(data: BalanceEmailData, schoolName: string, 
     if (student.balance < 0) {
       balanceColor = '#dc2626'
       balanceBg = '#fef2f2'
-    } else if (student.balance <= 5) {
+    } else if (getBalanceState(student.balance, student.schoolLevel, settings) !== 'ok') {
       balanceColor = '#f59e0b'
       balanceBg = '#fef3c7'
     }

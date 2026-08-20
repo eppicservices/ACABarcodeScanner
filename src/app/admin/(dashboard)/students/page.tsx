@@ -46,6 +46,13 @@ import {
   type StudentWithParent as StudentWithParentType,
   type StudentFilters,
 } from '@/actions/students'
+import { getLowBalanceThresholds } from '@/actions/settings'
+import {
+  getBalanceState,
+  getBalanceDescription,
+  BALANCE_STATE_TEXT_CLASS,
+  type LowBalanceThresholds,
+} from '@/lib/balance'
 import type { ActiveFilter } from '@/types/database'
 
 interface StudentWithParent extends StudentWithParentType {}
@@ -70,6 +77,7 @@ export default function StudentsPage() {
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [thresholds, setThresholds] = useState<LowBalanceThresholds | null>(null)
   const router = useRouter()
 
   const [stats, setStats] = useState({
@@ -120,6 +128,10 @@ export default function StudentsPage() {
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
+
+  useEffect(() => {
+    getLowBalanceThresholds().then(setThresholds)
+  }, [])
 
   useEffect(() => {
     fetchStudents()
@@ -183,11 +195,6 @@ export default function StudentsPage() {
     }
   }
 
-  const getBalanceVariant = (balance: number): 'success' | 'warning' | 'destructive' => {
-    if (balance <= 0) return 'destructive'
-    if (balance < 10) return 'warning'
-    return 'success'
-  }
 
   const { activeCount, inactiveCount, lowBalanceCount, elementaryCount, highSchoolCount, unlimitedCount } = stats
 
@@ -561,11 +568,15 @@ export default function StudentsPage() {
                           UNLIMITED
                         </Badge>
                       ) : (
-                        <span className={`font-mono font-bold text-[15px] ${
-                          student.balance <= 0 ? 'text-[var(--error)]' :
-                          student.balance < 10 ? 'text-[var(--error)]' :
-                          'text-[var(--success)]'
-                        }`}>
+                        <span
+                          className={`font-mono font-bold text-[15px] ${
+                            BALANCE_STATE_TEXT_CLASS[
+                              getBalanceState(student.balance, student.schoolLevel, thresholds)
+                            ]
+                          }`}
+                          title={getBalanceDescription(student.balance, student.schoolLevel, thresholds)}
+                          aria-label={getBalanceDescription(student.balance, student.schoolLevel, thresholds)}
+                        >
                           {student.balance}
                         </span>
                       )}
@@ -665,11 +676,15 @@ export default function StudentsPage() {
                             Unlimited
                           </span>
                         ) : (
-                          <span className={`font-mono font-extrabold text-xl ${
-                            student.balance <= 0 ? 'text-[var(--error)]' :
-                            student.balance < 10 ? 'text-[var(--error)]' :
-                            'text-[var(--success)]'
-                          }`}>
+                          <span
+                            className={`font-mono font-extrabold text-xl ${
+                              BALANCE_STATE_TEXT_CLASS[
+                                getBalanceState(student.balance, student.schoolLevel, thresholds)
+                              ]
+                            }`}
+                            title={getBalanceDescription(student.balance, student.schoolLevel, thresholds)}
+                            aria-label={getBalanceDescription(student.balance, student.schoolLevel, thresholds)}
+                          >
                             {student.balance}
                           </span>
                         )}

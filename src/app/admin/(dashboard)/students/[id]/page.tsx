@@ -48,6 +48,13 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SchoolLevel, StudentType } from '@prisma/client'
+import { getLowBalanceThresholds } from '@/actions/settings'
+import {
+  getBalanceState,
+  getBalanceDescription,
+  BALANCE_STATE_TEXT_CLASS,
+  type LowBalanceThresholds,
+} from '@/lib/balance'
 
 interface Parent {
   id: string
@@ -94,6 +101,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const [parents, setParents] = useState<Parent[]>([])
   const [transactions, setTransactions] = useState<BalanceTransaction[]>([])
   const [settings, setSettings] = useState<LunchSettings | null>(null)
+  const [thresholds, setThresholds] = useState<LowBalanceThresholds | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -120,12 +128,16 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
 
   const fetchData = useCallback(async () => {
-    const [studentData, parentsData, transactionsData, settingsData] = await Promise.all([
-      getStudentById(id),
-      getAllParents(),
-      getStudentTransactions(id, 10),
-      getLunchSettings(),
-    ])
+    const [studentData, parentsData, transactionsData, settingsData, thresholdData] =
+      await Promise.all([
+        getStudentById(id),
+        getAllParents(),
+        getStudentTransactions(id, 10),
+        getLunchSettings(),
+        getLowBalanceThresholds(),
+      ])
+
+    setThresholds(thresholdData)
 
     if (studentData) {
       const s: StudentWithParent = {
@@ -389,9 +401,14 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
               </h3>
               {student.studentType === 'regular' ? (
                 <>
-                  <div className={`text-5xl max-md:text-4xl max-[380px]:text-[32px] font-bold leading-none tracking-tight ${
-                    student.balance <= 0 ? 'text-red-500' : student.balance <= 3 ? 'text-red-500' : 'text-green-600'
-                  }`}>
+                  <div
+                    className={`text-5xl max-md:text-4xl max-[380px]:text-[32px] font-bold leading-none tracking-tight ${
+                      BALANCE_STATE_TEXT_CLASS[
+                        getBalanceState(student.balance, student.schoolLevel, thresholds)
+                      ]
+                    }`}
+                    title={getBalanceDescription(student.balance, student.schoolLevel, thresholds)}
+                  >
                     {student.balance}
                     <span className="block max-md:inline max-md:ml-1 text-sm font-medium text-gray-400 mt-1 max-md:mt-0">
                       {student.balance === 1 ? 'lunch' : 'lunches'}

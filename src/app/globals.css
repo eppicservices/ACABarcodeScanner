@@ -48,6 +48,14 @@
   --warning-light: #fbbf24;
   --warning-bg: #fffbeb;
   --warning-border: #fde68a;
+
+  /* Text-safe status colors. The base tokens above are tuned for fills, dots and
+     borders; as text on white they measure 2.28:1 (success), 3.76:1 (error) and
+     2.15:1 (warning), all below the 4.5:1 WCAG AA minimum. Use these whenever the
+     status colour is carrying a word or a number. */
+  --success-text: #15803d;
+  --error-text: #dc2626;
+  --warning-text: #b45309;
   --info: var(--aca-teal);
   --info-bg: var(--aca-teal-subtle);
 
