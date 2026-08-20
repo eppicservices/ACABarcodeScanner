@@ -1,0 +1,245 @@
+/* ------------------------------------------------------------------
+   Admin redesign token layer.
+
+   The house system (eppic-tool-design) with the ACA palette carrying the
+   roles that system gives to blue. Scoped to .aca-v2 so it can run beside
+   the current admin without touching it; when the redesign lands this moves
+   to :root and the scope class goes away.
+
+   Palette decisions are contrast-driven, not taste:
+
+     navy  #002c5f  13.77:1 on white  -> interactive text, links, focus
+     gold  #ffc82e   1.55:1 on white  -> unusable as text; filled surfaces
+                                          only, always with a navy label
+                                          (8.88:1)
+     teal  #00b1c1   2.61:1 on white  -> unusable as text; selection edges
+                                          and tints only. teal-dark #008a96
+                                          reaches 4.14:1, enough for a 3:1 UI
+                                          boundary but not for body copy.
+
+   Headings are near-black rather than navy. Navy has to be the interactive
+   colour (it is the only ACA colour with the contrast for it), and a link
+   cannot be the same colour as the heading above it.
+   ------------------------------------------------------------------ */
+
+.aca-v2 {
+  /* Surfaces and structure */
+  --v2-surface: #ffffff;
+  --v2-bg: #f8f9fa;
+  --v2-border: #dadce0;
+  --v2-border-subtle: #e8eaed;
+
+  /* Text */
+  --v2-text: #202124;
+  --v2-text-2: #5f6368;
+  --v2-text-3: #80868b;
+
+  /* Interactive: navy replaces the house blue */
+  --v2-link: #002c5f;
+  --v2-link-hover: #003d82;
+  --v2-link-bg: #eaeff5;
+
+  /* Primary action: gold fill, navy label. One per view. */
+  --v2-action-bg: #ffc82e;
+  --v2-action-bg-hover: #f4aa00;
+  --v2-action-text: #002c5f;
+
+  /* Selection: teal, as edges and tints only */
+  --v2-select-edge: #008a96;
+  --v2-select-bg: #e6f7f8;
+
+  /* Status. Fills/dots first, then the text-safe pair for words and numbers. */
+  --v2-red: #d93025;
+  --v2-red-text: #c5221f;
+  --v2-red-bg: #fce8e6;
+  --v2-amber: #f9ab00;
+  --v2-amber-text: #b06000;
+  --v2-amber-bg: #fef7e0;
+  --v2-green: #1e8e3e;
+  --v2-green-text: #188038; /* #1e8e3e is 4.21:1 as text, just under AA */
+  --v2-green-bg: #e6f4ea;
+
+  /* Type */
+  --v2-sans: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --v2-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Shape. Borders carry structure; the one shadow is for hover and menus. */
+  --v2-r-card: 8px;
+  --v2-r-chip: 4px;
+  --v2-r-pill: 999px;
+  --v2-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  font: 400 14px/20px var(--v2-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Type scale. Nothing above weight 500, nothing below 12px. */
+.aca-v2 .v2-title {
+  font: 500 22px/28px var(--v2-sans);
+  letter-spacing: -0.2px;
+  margin: 0;
+  /* Near-black, not navy. Navy is the interactive colour here, and a heading
+     must not be the same colour as the links underneath it. */
+  color: var(--v2-text);
+}
+.aca-v2 .v2-section { font: 500 16px/24px var(--v2-sans); margin: 0; color: var(--v2-text); }
+.aca-v2 .v2-label {
+  font: 500 11px/16px var(--v2-sans);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--v2-text-2);
+}
+.aca-v2 .v2-caption { font: 400 12px/16px var(--v2-sans); color: var(--v2-text-2); }
+.aca-v2 .v2-mono { font-family: var(--v2-mono); }
+
+.aca-v2 a { color: var(--v2-link); }
+
+/* Status dot. Never appears without its word next to it. */
+.aca-v2 .v2-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--v2-text-3); }
+.aca-v2 .v2-dot-red { background: var(--v2-red); }
+.aca-v2 .v2-dot-amber { background: var(--v2-amber); }
+.aca-v2 .v2-dot-green { background: var(--v2-green); }
+
+/* Buttons. Exactly one .v2-btn-primary per view. */
+.aca-v2 .v2-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 500 14px/20px var(--v2-sans);
+  padding: 8px 16px;
+  min-height: 36px;
+  border-radius: var(--v2-r-chip);
+  border: 1px solid var(--v2-border);
+  background: var(--v2-surface);
+  color: var(--v2-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.aca-v2 .v2-btn:hover { background: var(--v2-bg); box-shadow: var(--v2-shadow); }
+.aca-v2 .v2-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+.aca-v2 .v2-btn-primary {
+  background: var(--v2-action-bg);
+  border-color: var(--v2-action-bg);
+  color: var(--v2-action-text);
+}
+.aca-v2 .v2-btn-primary:hover { background: var(--v2-action-bg-hover); border-color: var(--v2-action-bg-hover); }
+.aca-v2 .v2-btn-danger { color: var(--v2-red-text); border-color: var(--v2-border); }
+.aca-v2 .v2-btn-danger:hover { background: var(--v2-red-bg); }
+
+/* Focus is visible and navy, on every interactive thing. */
+.aca-v2 :is(a, button, input, select, [role='checkbox']):focus-visible {
+  outline: 2px solid var(--v2-link);
+  outline-offset: 2px;
+}
+
+/* Card */
+.aca-v2 .v2-card {
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-card);
+}
+
+/* Chip. Grey by default; colour only when it carries status. */
+.aca-v2 .v2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 12px/16px var(--v2-sans);
+  padding: 2px 8px;
+  border-radius: var(--v2-r-chip);
+  border: 1px solid var(--v2-border);
+  background: var(--v2-bg);
+  color: var(--v2-text-2);
+}
+
+/* Table */
+.aca-v2 .v2-table { width: 100%; border-collapse: collapse; }
+.aca-v2 .v2-table th {
+  font: 500 11px/16px var(--v2-sans);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--v2-text-2);
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--v2-border);
+  white-space: nowrap;
+}
+.aca-v2 .v2-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--v2-border-subtle);
+  vertical-align: middle;
+}
+.aca-v2 .v2-table tbody tr:hover { background: var(--v2-bg); }
+.aca-v2 .v2-table tbody tr:last-child td { border-bottom: 0; }
+.aca-v2 .v2-num { text-align: right; font-family: var(--v2-mono); font-variant-numeric: tabular-nums; }
+
+/* Summary tiles that double as filters. */
+.aca-v2 .v2-tile {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-card);
+  padding: 12px 16px;
+  cursor: pointer;
+}
+.aca-v2 .v2-tile:hover { background: var(--v2-bg); }
+.aca-v2 .v2-tile[aria-pressed='true'] {
+  border-color: var(--v2-select-edge);
+  background: var(--v2-select-bg);
+  box-shadow: inset 0 0 0 1px var(--v2-select-edge);
+}
+.aca-v2 .v2-tile-num { font: 500 22px/28px var(--v2-sans); }
+.aca-v2 .v2-tile-label { font: 400 12px/16px var(--v2-sans); color: var(--v2-text-2); }
+
+/* Page-wide banner: the thing that is true everywhere, said once. */
+.aca-v2 .v2-banner {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--v2-r-card);
+  border: 1px solid var(--v2-border);
+  border-left: 3px solid var(--v2-amber);
+  background: var(--v2-amber-bg);
+}
+
+/* Under 720px the table reflows into stacked cards. Same markup, driven by the
+   data-label on each cell, so there is only one copy of the rows to maintain. */
+@media (max-width: 720px) {
+  .aca-v2 .v2-table thead { display: none; }
+  .aca-v2 .v2-table,
+  .aca-v2 .v2-table tbody,
+  .aca-v2 .v2-table tr,
+  .aca-v2 .v2-table td {
+    display: block;
+    width: 100%;
+  }
+  .aca-v2 .v2-table tr {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--v2-border-subtle);
+  }
+  .aca-v2 .v2-table td {
+    border: 0;
+    padding: 2px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    text-align: left;
+  }
+  .aca-v2 .v2-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 84px;
+    font: 500 11px/16px var(--v2-sans);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--v2-text-2);
+  }
+  /* The name leads the card, so it drops its label and gets some size. */
+  .aca-v2 .v2-table td[data-label='Student']::before { content: none; }
+  .aca-v2 .v2-table td[data-label='Student'] { font-size: 16px; margin-bottom: 4px; }
+  .aca-v2 .v2-num { text-align: left; }
+}
